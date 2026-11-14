@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ChangeEvent, useRef, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent, useRef, type ReactNode, type PointerEvent as ReactPointerEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft, ArrowRight, AlertCircle, BookOpen, CalendarDays, Check, CheckCircle2, Clipboard,
@@ -218,69 +218,6 @@ function SelectionNode({
       </div>}
     </div>}
   </div>;
-}
-
-function distribute(plan: StudyPlan, config: ScheduleConfig) {
-  const leaves = getSelectedLeaves(plan.tree);
-  const days = WEEKDAYS
-    .filter(day => config.days.includes(day.id) && !config.daySchedules?.[day.id]?.simulation)
-    .map(day => day.id);
-  if (!leaves.length || !days.length || days.some(day => minutesForDay(config, day) <= 0)) return [];
-  const byId = new Map(leaves.map(leaf => [leaf.id, leaf]));
-  const ranked = config.mode === "priority"
-    ? (config.priorityOrder || []).map(id => byId.get(id)).filter((leaf): leaf is (typeof leaves)[number] => Boolean(leaf))
-    : [];
-  const ordered = config.mode === "priority"
-    ? [...ranked, ...leaves.filter(leaf => !ranked.some(item => item.id === leaf.id))]
-    : leaves;
-  const capacity = new Map(days.map(day => [day, minutesForDay(config, day)]));
-  const load = new Map(days.map(day => [day, 0]));
-  const assigned = new Map<string, number>();
-  if (config.mode === "sequence") {
-    let offset = 0;
-    days.forEach((day, index) => {
-      const remainingTopics = ordered.length - offset;
-      if (remainingTopics <= 0) return;
-      const remainingCapacity = days.slice(index).reduce((sum, item) => sum + (capacity.get(item) || 1), 0);
-      const count = index === days.length - 1 ? remainingTopics : Math.min(remainingTopics, Math.max(1, Math.round(remainingTopics * (capacity.get(day) || 1) / remainingCapacity)));
-      ordered.slice(offset, offset + count).forEach(leaf => assigned.set(leaf.id, day));
-      offset += count;
-    });
-  } else {
-    ordered.forEach(leaf => {
-      const day = days.reduce((best, candidate) => {
-        const candidateRatio = (load.get(candidate) || 0) / (capacity.get(candidate) || 1);
-        const bestRatio = (load.get(best) || 0) / (capacity.get(best) || 1);
-        return candidateRatio < bestRatio ? candidate : best;
-      }, days[0]);
-      assigned.set(leaf.id, day);
-      load.set(day, (load.get(day) || 0) + 1);
-    });
-  }
-  return ordered.map(leaf => assignmentFromLeaf(leaf, assigned.get(leaf.id) ?? 0));
-}
-
-function buildPriorityPrompt(plan: StudyPlan, leaves: SelectedPlanLeaf[]) {
-  const topics = leaves.map(leaf => `ID: ${leaf.id}\nTÍTULO LITERAL: ${displayNodeName(leaf.name)}\nREFERÊNCIA: ${leaf.sourceRef || "não informada"}`).join("\n\n");
-  return [
-    "Analise a prioridade de estudo dos tópicos abaixo para um concurso.",
-    `Banca organizadora: ${plan.organizer || "não informada"}.`,
-    `Cargo/área: ${plan.position} · ${plan.area || "não informada"}.`,
-    "Ordene somente os tópicos já selecionados, considerando recorrência verificável em provas anteriores da banca e relevância no edital.",
-    "Não acrescente, remova, renomeie ou divida tópicos. Não invente percentuais nem frequência. Diferencie evidência documentada de estimativa. Se não houver dados suficientes, declare isso claramente.",
-    "Responda com TODOS os IDs abaixo, cada um exatamente uma vez e em uma linha própria, na ordem de prioridade. Depois, acrescente evidências com anos/fontes verificáveis quando disponíveis. O Ritmo importará apenas a ordem dos IDs.",
-    "",
-    topics,
-  ].join("\n");
-}
-
-function parsePriorityOrder(response: string, leaves: SelectedPlanLeaf[]) {
-  const found: string[] = [];
-  response.split(/\r?\n/).forEach(line => {
-    const match = leaves.find(leaf => line.includes(leaf.id));
-    if (match && !found.includes(match.id)) found.push(match.id);
-  });
-  return found;
 }
 
 function SourceStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyPlan) => Promise<void> }) {
@@ -521,274 +458,213 @@ function plannerShortTitle(value:string) {
   return name.slice(0,limit>35?limit:65).trimEnd()+"…";
 }
 function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyPlan) => Promise<void> }) {
-  const leaves = getSelectedLeaves(plan.tree);
-  const [config, setConfig] = useState<ScheduleConfig>(plan.scheduleConfig || defaultSchedule(plan));
+  const leaves = useMemo(() => getSelectedLeaves(plan.tree), [plan.tree]);
+  const [config, setConfig] = useState<ScheduleConfig>(() => plan.scheduleConfig || defaultSchedule(plan));
   const [assignments, setAssignments] = useState<PlanAssignment[]>(() => reconcileAssignments(leaves, plan.assignments, (plan.scheduleConfig || defaultSchedule(plan)).days));
-  const [priorityText, setPriorityText] = useState("");
-  const [priorityFeedback, setPriorityFeedback] = useState("");
-  const [scheduleFeedback, setScheduleFeedback] = useState("");
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [bulkDay, setBulkDay] = useState<number>((plan.scheduleConfig?.days || [])[0] ?? 1);
-  const [draggedId, setDraggedId] = useState<string | null>(null);
-  const [dragOverDay, setDragOverDay] = useState<number | null>(null);
-  const [point, setPoint] = useState({x:0,y:0});
-  const drag = useRef<{id:string; pointer:number; x:number; y:number; moving:boolean} | null>(null);
-  const [openDay, setOpenDay] = useState<number>(WEEKDAYS[0].id);
-  const [block, setBlock] = useState("all");
-  const [discipline, setDiscipline] = useState("all");
-  const [dayFilter, setDayFilter] = useState("all");
+  const latest = useRef({config, assignments});
+  const planRef = useRef(plan);
+  planRef.current = plan;
+  const queue = useRef<Promise<void>>(Promise.resolve());
   const [search, setSearch] = useState("");
-  const [original, setOriginal] = useState<string | null>(null);
-  const [moveFeedback, setMoveFeedback] = useState("");
-  const [undo, setUndo] = useState<{ assignments: PlanAssignment[]; config: ScheduleConfig } | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [dragged, setDragged] = useState<string | null>(null);
+  const [over, setOver] = useState<number | null>(null);
+  const [point, setPoint] = useState({x:0,y:0});
+  const [saveState, setSaveState] = useState<"idle"|"saving"|"saved"|"error">("idle");
+  const [finishing, setFinishing] = useState(false);
+  const [feedback, setFeedback] = useState("");
+  const drag = useRef<{id:string; pointer:number; x:number; y:number; moving:boolean} | null>(null);
+  const suppressClick = useRef(false);
+  const workspace = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const nextConfig = plan.scheduleConfig || defaultSchedule(plan);
-    setConfig(nextConfig);
-    setAssignments(reconcileAssignments(getSelectedLeaves(plan.tree), plan.assignments, nextConfig.days));
-    setSelectedIds([]);
-    setBulkDay(nextConfig.days[0] ?? 1);
-    setOpenDay(WEEKDAYS.find(day=>nextConfig.days.includes(day.id))?.id ?? 1); setDayFilter("all"); setBlock("all"); setDiscipline("all"); setSearch("");
+    const nextAssignments = reconcileAssignments(getSelectedLeaves(plan.tree), plan.assignments, nextConfig.days);
+    latest.current = {config:nextConfig,assignments:nextAssignments};
+    setConfig(nextConfig); setAssignments(nextAssignments); setSearch(""); setSelected(null);
+    setSaveState("idle"); setFeedback("");
   }, [plan.id]);
 
-  function persist(nextAssignments: PlanAssignment[], nextConfig = config) {
-    setAssignments(nextAssignments);
-    void onSave({ ...plan, scheduleConfig: nextConfig, assignments: nextAssignments, updatedAt: Date.now() });
+  function commit(nextConfig:ScheduleConfig, nextAssignments:PlanAssignment[], finish=false) {
+    latest.current = {config:nextConfig,assignments:nextAssignments};
+    setConfig(nextConfig); setAssignments(nextAssignments); setSaveState("saving");
+    const id=plan.id;
+    const task=queue.current.catch(()=>{}).then(async()=>{
+      if(planRef.current.id!==id)return;
+      await onSave({...planRef.current,scheduleConfig:nextConfig,assignments:nextAssignments,
+        ...(finish ? {status:"active" as const,stage:"schedule" as const} : {}),updatedAt:Date.now()});
+      if(latest.current.config===nextConfig&&latest.current.assignments===nextAssignments)setSaveState("saved");
+    });
+    queue.current=task;
+    void task.catch(()=>setSaveState("error"));
+    return task;
   }
-  function changeConfig(patch: Partial<ScheduleConfig>) {
-    const next = { ...config, ...patch };
-    setConfig(next); setUndo(null);
-    void onSave({ ...plan, scheduleConfig: next, assignments, updatedAt: Date.now() });
+
+  function move(id:string, day:number) {
+    if(finishing || (day!==-1&&!WEEKDAYS.some(item=>item.id===day)))return;
+    const current=latest.current;
+    const item=current.assignments.find(entry=>entry.nodeId===id);
+    if(!item||item.day===day){setSelected(null);return;}
+    const nextConfig=day>=0&&!current.config.days.includes(day) ? {...current.config,
+      days:WEEKDAYS.filter(entry=>entry.id===day||current.config.days.includes(entry.id)).map(entry=>entry.id),
+      daySchedules:{...(current.config.daySchedules||{}),[day]:current.config.daySchedules?.[day]||emptyDaySchedule()}
+    } : current.config;
+    void commit(nextConfig,current.assignments.map(entry=>entry.nodeId===id?{...entry,day}:entry));
+    setSelected(null);
+    setFeedback(day===-1?"Assunto devolvido à biblioteca.": "Assunto movido para "+WEEKDAYS.find(entry=>entry.id===day)?.label+".");
   }
-  function changeDays(selectedDays: number[]) {
-    const days = WEEKDAYS.filter(day => selectedDays.includes(day.id)).map(day => day.id);
-    const daySchedules = { ...(config.daySchedules || {}) };
-    days.forEach(day => { if (!daySchedules[day]) daySchedules[day] = emptyDaySchedule(); });
-    const nextConfig = { ...config, days, daySchedules };
-    const nextAssignments = assignments.map(item => item.day >= 0 && !days.includes(item.day) ? { ...item, day: -1 } : item);
-    setConfig(nextConfig);
-    setAssignments(nextAssignments);
-    setSelectedIds([]); setUndo(null);
-    if (dayFilter !== "all" && dayFilter !== "-1" && !days.includes(Number(dayFilter))) setDayFilter("all");
-    setBulkDay(current => days.includes(current) ? current : (days[0] ?? 1));
-    void onSave({ ...plan, scheduleConfig: nextConfig, assignments: nextAssignments, updatedAt: Date.now() });
+
+  function setDay(day:number,patch:Partial<DaySchedule>) {
+    if(finishing)return;
+    const current=latest.current;
+    const next={...current.config,
+      days:WEEKDAYS.filter(entry=>entry.id===day||current.config.days.includes(entry.id)).map(entry=>entry.id),
+      daySchedules:{...(current.config.daySchedules||{}),[day]:{...(current.config.daySchedules?.[day]||emptyDaySchedule()),...patch}}
+    };
+    void commit(next,current.assignments);
   }
-  function setDaySchedule(dayId: number, patch: Partial<DaySchedule>) {
-    const current = config.daySchedules?.[dayId] || emptyDaySchedule();
-    changeConfig({ daySchedules: { ...(config.daySchedules || {}), [dayId]: { ...current, ...patch } } });
+  function toggleDay(day:number,enabled:boolean) {
+    if(finishing)return;
+    const current=latest.current;
+    if(enabled){setDay(day,{});return;}
+    void commit({...current.config,days:current.config.days.filter(id=>id!==day)},current.assignments.map(item=>item.day===day?{...item,day:-1}:item));
+    setSelected(null);
   }
-  function moveTopics(ids: string[], dayId: number) {
-    if (dayId !== -1 && !WEEKDAYS.some(day=>day.id===dayId)) return;
-    const keys = new Set(ids);
-    const next = assignments.map(item => keys.has(item.nodeId) ? {...item, day:dayId} : item);
-    const count=next.filter((item,i)=>item.day!==assignments[i].day).length;
-    if(!count)return;
-    const nextConfig=dayId>=0&&!config.days.includes(dayId)?{...config,
-      days:WEEKDAYS.filter(day=>config.days.includes(day.id)||day.id===dayId).map(day=>day.id),
-      daySchedules:{...(config.daySchedules||{}),[dayId]:config.daySchedules?.[dayId]||emptyDaySchedule()},
-    }:config;
-    setUndo({assignments,config});
-    setConfig(nextConfig); persist(next,nextConfig);
-    if(dayId>=0)setOpenDay(dayId);
-    setSelectedIds(current=>current.filter(id=>!keys.has(id)));
-    setMoveFeedback(`${count} ${count===1?"conteúdo movido":"conteúdos movidos"} → ${dayId===-1?"Sem dia":WEEKDAYS.find(d=>d.id===dayId)?.label}`);
-    setScheduleFeedback("");
+  function changeDates(patch:Partial<ScheduleConfig>) {
+    if(finishing)return;
+    void commit({...latest.current.config,...patch},latest.current.assignments);
   }
-  function toggleAssignment(id: string, checked: boolean) {
-    setSelectedIds(current => checked ? [...new Set([...current,id])] : current.filter(item => item !== id));
+
+  function targetAt(x:number,y:number) {
+    const element=document.elementFromPoint(x,y)?.closest<HTMLElement>("[data-piece-destination]");
+    if(!element||!workspace.current?.contains(element))return null;
+    const day=Number(element.dataset.pieceDestination);
+    return day===-1||WEEKDAYS.some(entry=>entry.id===day)?day:null;
   }
-  function moveSelected() { moveTopics(selectedIds, bulkDay); }
-  function dropTarget(x:number,y:number) {
-    const el = document.elementFromPoint(x,y)?.closest<HTMLElement>("[data-planner-drop]");
-    if (!el) return null;
-    const day = Number(el.dataset.plannerDrop);
-    return day === -1 || WEEKDAYS.some(item=>item.id===day) ? day : null;
-  }
-  function pointerDown(event: ReactPointerEvent<HTMLElement>, id:string) {
-    if (!event.isPrimary || event.button !== 0 || drag.current) return;
-    drag.current = {id,pointer:event.pointerId,x:event.clientX,y:event.clientY,moving:false};
+  function pointerDown(event:ReactPointerEvent<HTMLElement>,id:string) {
+    if(!event.isPrimary||event.button!==0||drag.current||finishing)return;
+    suppressClick.current=false;
+    drag.current={id,pointer:event.pointerId,x:event.clientX,y:event.clientY,moving:false};
     event.currentTarget.setPointerCapture(event.pointerId);
   }
-  function pointerMove(event: ReactPointerEvent<HTMLElement>) {
-    const d = drag.current;
-    if (!d || d.pointer !== event.pointerId) return;
-    if (!d.moving && Math.hypot(event.clientX-d.x,event.clientY-d.y)<6) return;
-    d.moving=true; setDraggedId(d.id); setPoint({x:event.clientX,y:event.clientY});
-    setDragOverDay(dropTarget(event.clientX,event.clientY));
+  function pointerMove(event:ReactPointerEvent<HTMLElement>) {
+    const current=drag.current;
+    if(!current||current.pointer!==event.pointerId)return;
+    if(!current.moving&&Math.hypot(event.clientX-current.x,event.clientY-current.y)<6)return;
+    current.moving=true;
+    setDragged(current.id);setPoint({x:event.clientX,y:event.clientY});setOver(targetAt(event.clientX,event.clientY));
+    const strip=workspace.current?.querySelector<HTMLElement>(".piece-week-scroll");
+    if(strip){
+      const bounds=strip.getBoundingClientRect();
+      if(event.clientY>=bounds.top&&event.clientY<=bounds.bottom){
+        if(event.clientX<bounds.left+25)strip.scrollLeft-=16;
+        else if(event.clientX>bounds.right-25)strip.scrollLeft+=16;
+      }
+    }
   }
-  function pointerEnd(event: ReactPointerEvent<HTMLElement>, cancel=false) {
-    const d=drag.current;
-    if (!d || d.pointer !== event.pointerId) return;
+  function pointerEnd(event:ReactPointerEvent<HTMLElement>,cancelled=false) {
+    const current=drag.current;
+    if(!current||current.pointer!==event.pointerId)return;
     drag.current=null;
-    if (!cancel && d.moving) {
-      const day=dropTarget(event.clientX,event.clientY);
-      if (day!==null) moveTopics(selectedIds.includes(d.id)?selectedIds:[d.id],day);
-      else setMoveFeedback("Solte sobre um dia da semana ou sobre Sem dia.");
+    suppressClick.current=current.moving;
+    if(current.moving&&!cancelled){
+      const target=targetAt(event.clientX,event.clientY);
+      if(target!==null)move(current.id,target);
     }
-    setDraggedId(null); setDragOverDay(null);
+    setDragged(null);setOver(null);
   }
-  function generate() {
-    const availableDays = config.days.filter(day => !config.daySchedules?.[day]?.simulation);
-    const completeTimeRanges = availableDays.length > 0 && availableDays.every(day => minutesForDay(config, day) > 0);
-    if (!completeTimeRanges) {
-      setPriorityFeedback("Defina o horário de início e fim de cada dia de estudo antes de pedir uma sugestão automática. Dias de simulado ficam reservados.");
-      return;
-    }
-    if (config.mode === "priority" && (config.priorityOrder?.length || 0) !== leaves.length) {
-      setPriorityFeedback("Antes de distribuir por prioridade, copie a solicitação para a IA e importe a ordem de todos os tópicos.");
-      return;
-    }
-    const next = distribute(plan, config);
-    if (!next.length) {
-      setPriorityFeedback("Não encontrei dias de estudo com horário disponível para distribuir os conteúdos.");
-      return;
-    }
-    persist(next.map(item => ({...assignments.find(old => old.nodeId === item.nodeId), ...item})));
-    setUndo(null); setSelectedIds([]);
-    setPriorityFeedback("Sugestão aplicada. Confira a carga de cada dia e ajuste manualmente o que precisar.");
+  function selectPiece(id:string) {
+    if(suppressClick.current){suppressClick.current=false;return;}
+    setSelected(current=>current===id?null:id);
   }
-  async function copyPriorityPrompt() {
-    const prompt = buildPriorityPrompt(plan, leaves);
-    try {
-      await navigator.clipboard.writeText(prompt);
-      setPriorityFeedback("Solicitação copiada. Cole no ChatGPT e depois traga a lista de IDs ordenada.");
-    } catch {
-      saveBlob("prioridade-dos-conteudos-ritmo.txt", prompt);
-      setPriorityFeedback("Não foi possível copiar. Baixei a solicitação em TXT.");
-    }
+  function piece(leaf:SelectedPlanLeaf,day:number) {
+    const group=leaf.path.map(displayNodeName).join(" ");
+    const specific=/especific|física|fisica/i.test(group)&&!/conhecimentos b[aá]sicos|conhecimentos gerais/i.test(leaf.path[0]||"");
+    return <div key={leaf.id} className={`study-piece ${specific?"specific":""} ${selected===leaf.id?"picked":""} ${dragged===leaf.id?"moving":""}`}>
+      <button type="button" className="study-piece-grip" title={displayNodeName(leaf.name)} aria-label={displayNodeName(leaf.name)} aria-pressed={selected===leaf.id}
+        onPointerDown={event=>pointerDown(event,leaf.id)} onPointerMove={pointerMove} onPointerUp={event=>pointerEnd(event)} onPointerCancel={event=>pointerEnd(event,true)} onLostPointerCapture={event=>pointerEnd(event,true)}
+        onClick={()=>selectPiece(leaf.id)}><GripVertical size={13}/><span>{plannerShortTitle(leaf.name)}</span></button>
+      {day>=0&&<button className="study-piece-remove" type="button" aria-label={`Devolver ${displayNodeName(leaf.name)} à biblioteca`} title="Devolver à biblioteca" onClick={()=>move(leaf.id,-1)}>×</button>}
+    </div>;
   }
-  function importPriority() {
-    const rankedIds = parsePriorityOrder(priorityText, leaves);
-    if (rankedIds.length !== leaves.length) {
-      setPriorityFeedback(`Encontrei ${rankedIds.length} de ${leaves.length} IDs. Peça à IA para devolver todos os IDs, uma vez cada, e tente novamente.`);
-      return;
-    }
-    const nextConfig = { ...config, priorityOrder: rankedIds };
-    setConfig(nextConfig);
-    setPriorityFeedback("Prioridade importada. A sugestão automática continuará usando somente os conteúdos selecionados.");
-    void onSave({ ...plan, scheduleConfig: nextConfig, assignments, updatedAt: Date.now() });
+  const leafById=new Map(leaves.map(leaf=>[leaf.id,leaf]));
+  const assignedById=new Map(assignments.map(item=>[item.nodeId,item]));
+  const available=leaves.filter(leaf=>!config.days.includes(assignedById.get(leaf.id)?.day??-1));
+  const matching=available.filter(leaf=>!search.trim()||normalizePlanTopic(leaf.path.join(" ")+" "+plannerShortTitle(leaf.name)).includes(normalizePlanTopic(search)));
+  const availableIds=new Set(matching.map(leaf=>leaf.id));
+  const countBranch=(node:PlanNode):number => (availableIds.has(node.id)?1:0)+node.children.reduce((sum,child)=>sum+countBranch(child),0);
+  function renderBranch(node:PlanNode,depth:number):ReactNode {
+    const count=countBranch(node);
+    if(!count)return null;
+    const leaf=availableIds.has(node.id)?leafById.get(node.id):undefined;
+    const children=node.children.filter(child=>countBranch(child)>0);
+    if(!children.length)return leaf?piece(leaf,-1):null;
+    return <details className="piece-branch" key={node.id} open={depth===0||Boolean(search.trim())||undefined}>
+      <summary title={displayNodeName(node.name)}><ChevronRight size={14}/><span>{plannerShortTitle(node.name)}</span><small>{count}</small></summary>
+      <div className="piece-branch-body">{leaf&&piece(leaf,-1)}{children.map(child=>renderBranch(child,depth+1))}</div>
+    </details>;
   }
+  const roots=plan.tree.filter(node=>countBranch(node)>0);
+  const organized=leaves.length-available.length;
+  const weeklyMinutes=config.days.reduce((sum,day)=>sum+minutesForDay(config,day),0);
+  const duration=(minutes:number)=>minutes?(`${Math.floor(minutes/60)?Math.floor(minutes/60)+"h ":""}${minutes%60?minutes%60+"min":""}`).trim():"";
+  const dragging=dragged?leafById.get(dragged):undefined;
+  const hasSession=config.days.some(day=>config.daySchedules?.[day]?.simulation)||organized>0;
   async function finish() {
-    if (!config.days.length) {
-      setScheduleFeedback("Selecione pelo menos um dia para montar seu cronograma.");
-      return;
-    }
-    const normalized = reconcileAssignments(leaves, assignments, config.days);
-    const hasAssignedTopics = normalized.some(item => item.day >= 0 && config.days.includes(item.day));
-    const hasSimulationDay = config.days.some(day => config.daySchedules?.[day]?.simulation);
-    if (!hasAssignedTopics && !hasSimulationDay) {
-      setScheduleFeedback("Distribua pelo menos um conteúdo ou reserve um dia para simulado antes de salvar.");
-      return;
-    }
-    const unassignedCount = normalized.filter(item => item.day === -1).length;
-    await onSave({ ...plan, scheduleConfig: config, assignments: normalized, status: "active", stage: "schedule", updatedAt: Date.now() });
-    setAssignments(normalized);
-    setScheduleFeedback(unassignedCount
-      ? `Plano salvo. ${unassignedCount} conteúdo(s) ficaram sem dia e poderão ser organizados depois.`
-      : "Plano salvo com todos os conteúdos organizados.");
+    if(finishing||!hasSession)return;
+    setFinishing(true);
+    try {
+      const current=latest.current;
+      await commit(current.config,current.assignments,true);
+      setFeedback("Cronograma salvo.");
+    }catch{setFeedback("Não foi possível salvar. Tente novamente.");}
+    finally{setFinishing(false);}
+  }
+  async function goBack() {
+    try{await queue.current;await onSave({...planRef.current, assignments:latest.current.assignments, scheduleConfig:latest.current.config,stage:"selection"});}
+    catch{setSaveState("error");}
+  }
+  function clearDistribution() {
+    if(!organized||finishing)return;
+    if(!window.confirm("Devolver todos os conteúdos à biblioteca? Seus horários e registros de estudo serão mantidos."))return;
+    const current=latest.current;
+    void commit(current.config,current.assignments.map(item=>({...item,day:-1})));
+    setSelected(null);setFeedback("Conteúdos devolvidos à biblioteca.");
   }
 
-  const assignmentById = new Map(assignments.map(item => [item.nodeId, item]));
-  const unassigned = leaves.filter(leaf => {
-    const assignment = assignmentById.get(leaf.id);
-    return !assignment || assignment.day === -1 || !config.days.includes(assignment.day);
-  });
-  const grouped = WEEKDAYS.filter(day => config.days.includes(day.id)).map(day => {
-    const slot = config.daySchedules?.[day.id] || emptyDaySchedule();
-    return {
-      ...day,
-      slot,
-      minutes: durationFromTimes(slot.startTime, slot.endTime),
-      items: leaves.filter(leaf => assignmentById.get(leaf.id)?.day === day.id),
-    };
-  });
-  const simulationDays = grouped.filter(day => day.slot.simulation).length;
-  const autoDays = grouped.filter(day => !day.slot.simulation);
-  const autoReady = autoDays.length > 0 && autoDays.every(day => day.minutes > 0);
-  const assignedCount = grouped.reduce((sum, day) => sum + day.items.length, 0);
-  const blockOf = (leaf: SelectedPlanLeaf) => displayNodeName(leaf.path[0] || "Outros");
-  const disciplineOf = (leaf: SelectedPlanLeaf) => displayNodeName(leaf.path.length > 2 ? leaf.path[1] : leaf.path[0] || "Outros");
-  const blocks = [...new Set(leaves.map(blockOf))];
-  const disciplines = [...new Set(leaves.filter(leaf => block==="all" || blockOf(leaf)===block).map(disciplineOf))];
-  const visible = leaves.filter(leaf => (block==="all" || blockOf(leaf)===block) && (discipline==="all" || disciplineOf(leaf)===discipline) &&
-    (dayFilter==="all" || (assignmentById.get(leaf.id)?.day ?? -1)===Number(dayFilter)) &&
-    (!search.trim() || normalizePlanTopic(leaf.path.join(" ")+" "+plannerShortTitle(leaf.name)).includes(normalizePlanTopic(search))));
-  const allVisibleSelected = visible.length>0 && visible.every(leaf => selectedIds.includes(leaf.id));
-  const editing = WEEKDAYS.find(day=>day.id===openDay)!;
-  const editingSlot=config.daySchedules?.[openDay] || emptyDaySchedule();
-  const editingTopics=grouped.find(day=>day.id===openDay)?.items || [];
-  const editingEnabled=config.days.includes(openDay);
-  const weeklyMinutes=grouped.reduce((sum,day)=>sum+day.minutes,0);
-  const durationLabel=(minutes:number)=>minutes?`${Math.floor(minutes/60)?Math.floor(minutes/60)+"h ":""}${minutes%60?minutes%60+"min":""}`.trim():"Definir";
-  const blockLabel=(value:string)=>{const normalized=normalizePlanTopic(value);return normalized.includes("basicos")?"Básicos":normalized.includes("especificos")?"Específicos":value;};
-  const dragging = leaves.find(leaf => leaf.id===draggedId);
-  return <div className="wizard-content">
-    <section className="hybrid-planner planner-workspace">
-      <div className="hybrid-planner-heading"><div><h2>Organizar semana</h2><span>{assignedCount} de {leaves.length} conteúdos organizados</span></div><details className="hybrid-dates"><summary><CalendarDays size={15}/> Datas do plano</summary><div className="hybrid-date-fields"><label>Início<input type="date" aria-label="Início do plano" value={config.startDate} onChange={event=>changeConfig({startDate:event.target.value})}/></label><label>Prova (opcional)<input type="date" aria-label="Data da prova" value={config.examDate} onChange={event=>changeConfig({examDate:event.target.value})}/></label></div></details></div>
-      <div className="planner-week hybrid-week">
-        <div className="planner-days">{WEEKDAYS.map(day=>{
-          const enabled=config.days.includes(day.id), slot=config.daySchedules?.[day.id];
-          const count=grouped.find(item=>item.id===day.id)?.items.length||0;
-          return <div key={day.id} data-planner-drop={day.id} className={`planner-day ${enabled?"enabled":""} ${openDay===day.id?"editing":""} ${dragOverDay===day.id?"drop-active":""} ${enabled&&slot?.simulation?"simulation":""}`}>
-            <button type="button" className="planner-day-main" aria-pressed={openDay===day.id} aria-label={`${day.label}: ${enabled?count+" conteúdos":"dia livre"}`} onClick={()=>setOpenDay(day.id)}><i className="hybrid-day-dot"/><b>{day.short}</b><strong>{enabled?slot?.simulation&&!count?<Target size={20}/>:count:"–"}</strong><small>{enabled?slot?.simulation?"Simulado":durationLabel(durationFromTimes(slot?.startTime,slot?.endTime)):"Livre"}</small></button>
-          </div>;
-        })}</div>
-        <div className="planner-week-meta"><span>{config.days.length} dias · {weeklyMinutes?durationLabel(weeklyMinutes):"0h"} semanais{simulationDays?` · ${simulationDays} simulado(s)`:""}</span><button type="button" data-planner-drop={-1} className={`planner-unassigned-drop ${dragOverDay===-1?"drop-active":""}`} onClick={()=>setDayFilter(current=>current==="-1"?"all":"-1")}>Sem dia <b>{unassigned.length}</b></button></div>
-      </div>
-      <section className="hybrid-inspector" aria-label="Configurar dia selecionado">
-        <div className="hybrid-inspector-head"><h3>{editing.id>=1&&editing.id<=5?editing.label+"-feira":editing.label}</h3><span>{editingEnabled?`${durationLabel(durationFromTimes(editingSlot.startTime,editingSlot.endTime))} · ${editingTopics.length} assuntos`:"Dia livre"}</span></div>
-        <div className="hybrid-dayconfig">
-          <label className="hybrid-check"><input type="checkbox" checked={editingEnabled} onChange={event=>changeDays(event.target.checked?[...config.days,openDay]:config.days.filter(day=>day!==openDay))}/> Estudar</label>
-          {editingEnabled&&<><input type="time" aria-label={`Horário inicial de ${editing.label}`} value={editingSlot.startTime} onChange={event=>setDaySchedule(openDay,{startTime:event.target.value})}/><span>–</span><input type="time" aria-label={`Horário final de ${editing.label}`} value={editingSlot.endTime} onChange={event=>setDaySchedule(openDay,{endTime:event.target.value})}/><label className="hybrid-check hybrid-sim"><input type="checkbox" checked={editingSlot.simulation} onChange={event=>setDaySchedule(openDay,{simulation:event.target.checked})}/> Simulado</label></>}
-        </div>
-        {editingEnabled&&<div className="hybrid-chips">{editingTopics.length?editingTopics.map(leaf=><span key={leaf.id} title={displayNodeName(leaf.name)}>{plannerShortTitle(leaf.name)}<button type="button" aria-label={`Retirar ${displayNodeName(leaf.name)} do dia`} onClick={()=>moveTopics([leaf.id],-1)}>×</button></span>):<small>{editingSlot.simulation?"Simulado reservado":"Arraste conteúdos para este dia"}</small>}</div>}
-      </section>
-      <section className="planner-library hybrid-library">
-        <div className="planner-library-heading"><h3>Conteúdos</h3><span>{visible.length} assuntos</span></div>
-        <div className="hybrid-filters">
-          <div className="hybrid-block-tabs" aria-label="Área"><button type="button" className={block==="all"?"on":""} onClick={()=>{setBlock("all");setDiscipline("all");}}>Todos</button>{blocks.map(name=><button type="button" key={name} className={block===name?"on":""} title={name} onClick={()=>{setBlock(name);setDiscipline("all");}}>{blockLabel(name)}</button>)}</div>
-          <select aria-label="Disciplina" value={discipline} onChange={event=>setDiscipline(event.target.value)}><option value="all">Todas as disciplinas</option>{disciplines.map(name=><option key={name} value={name}>{name}</option>)}</select>
-          <select aria-label="Distribuição" value={dayFilter} onChange={event=>setDayFilter(event.target.value)}><option value="all">Todos os dias</option><option value="-1">Sem dia</option>{WEEKDAYS.map(day=><option key={day.id} value={day.id}>{day.short}</option>)}</select>
-          <input aria-label="Buscar conteúdo" type="search" value={search} onChange={event=>setSearch(event.target.value)} placeholder="Buscar assunto…"/>
-        </div>
-        <div className="planner-bulk"><label className="inline-check"><input type="checkbox" checked={allVisibleSelected} onChange={event=>setSelectedIds(current=>event.target.checked?[...new Set([...current,...visible.map(leaf=>leaf.id)])]:current.filter(id=>!visible.some(leaf=>leaf.id===id)))}/> Selecionar visíveis</label><span>{selectedIds.length?selectedIds.length+" selecionados":"Arraste um assunto"}</span><select aria-label="Destino dos selecionados" value={bulkDay} onChange={event=>setBulkDay(Number(event.target.value))}><option value={-1}>Sem dia</option>{WEEKDAYS.map(day=><option key={day.id} value={day.id}>{day.short}</option>)}</select><button type="button" className="secondary-button compact" disabled={!selectedIds.length} onClick={moveSelected}>Mover</button></div>
-        <div className="planner-topic-list">{visible.map(leaf=>{
-          const day=assignmentById.get(leaf.id)?.day??-1;
-          return <article key={leaf.id} className={`planner-topic ${draggedId===leaf.id?"drag-origin":""} ${selectedIds.includes(leaf.id)?"topic-selected":""}`}>
-            <input type="checkbox" aria-label={`Selecionar ${displayNodeName(leaf.name)}`} checked={selectedIds.includes(leaf.id)} onChange={event=>toggleAssignment(leaf.id,event.target.checked)}/>
-            <div className="planner-grab" title={displayNodeName(leaf.name)} onPointerDown={event=>pointerDown(event,leaf.id)} onPointerMove={pointerMove} onPointerUp={event=>pointerEnd(event)} onPointerCancel={event=>pointerEnd(event,true)} onLostPointerCapture={event=>pointerEnd(event,true)}><GripVertical size={17}/><div><strong>{plannerShortTitle(leaf.name)}</strong><small>{disciplineOf(leaf)}</small></div></div>
-            <button type="button" className="planner-topic-info" aria-label="Ver texto original do edital" aria-expanded={original===leaf.id} onClick={()=>setOriginal(current=>current===leaf.id?null:leaf.id)}><Info size={15}/></button>
-            <select aria-label={`Dia para ${displayNodeName(leaf.name)}`} value={day} onChange={event=>moveTopics([leaf.id],Number(event.target.value))}><option value={-1}>Sem dia</option>{WEEKDAYS.map(option=><option key={option.id} value={option.id}>{option.short}</option>)}</select>
-            {original===leaf.id&&<div className="planner-original"><b>{displayNodeName(leaf.name)}</b>{leaf.sourceRef&&<small>{leaf.sourceRef}</small>}</div>}
+  return <div ref={workspace} className="piece-workspace">
+    <section className="piece-planner" aria-label="Planner semanal">
+      <header className="piece-section-head"><div><h2>Minha semana</h2><small>{organized}/{leaves.length} organizados{weeklyMinutes?` · ${duration(weeklyMinutes)} semanais`:""}</small></div><div className="piece-head-actions">
+        {organized>0&&<button type="button" className="piece-text-action" onClick={clearDistribution}>Limpar distribuição</button>}
+        <details className="hybrid-dates"><summary><CalendarDays size={14}/> Datas</summary><div className="hybrid-date-fields"><label>Início<input type="date" aria-label="Início do plano" value={config.startDate} onChange={event=>changeDates({startDate:event.target.value})}/></label><label>Prova (opcional)<input type="date" aria-label="Data da prova" value={config.examDate} onChange={event=>changeDates({examDate:event.target.value})}/></label></div></details>
+      </div></header>
+      <div className="piece-week-scroll"><div className="piece-week">
+        {WEEKDAYS.map(day=>{
+          const enabled=config.days.includes(day.id);
+          const slot=config.daySchedules?.[day.id]||emptyDaySchedule();
+          const items=assignments.filter(item=>item.day===day.id&&enabled).map(item=>leafById.get(item.nodeId)).filter((leaf):leaf is SelectedPlanLeaf=>Boolean(leaf));
+          return <article key={day.id} data-piece-destination={day.id} className={`piece-day ${enabled?"enabled":""} ${enabled&&slot.simulation?"mock":""} ${over===day.id?"landing":""} ${selected?"select-destination":""}`}>
+            <button type="button" className="piece-day-title" aria-label={`Mover assunto para ${day.label}`} onClick={()=>{if(selected)move(selected,day.id);}}><b>{day.short}</b>{items.length>0&&<small>{items.length}</small>}</button>
+            <details className="piece-day-settings"><summary title={`Configurar ${day.label}`}><Clock3 size={12}/><span>{enabled&&slot.startTime&&slot.endTime?`${slot.startTime}–${slot.endTime}`:enabled?"Definir horário":"Livre"}</span></summary>
+              <div className="piece-day-fields"><label className="piece-toggle"><input type="checkbox" checked={enabled} onChange={event=>toggleDay(day.id,event.target.checked)}/> Estudar</label>{enabled&&<><label>Das<input type="time" aria-label={`Início de ${day.label}`} value={slot.startTime} onChange={event=>setDay(day.id,{startTime:event.target.value})}/></label><label>Às<input type="time" aria-label={`Fim de ${day.label}`} value={slot.endTime} onChange={event=>setDay(day.id,{endTime:event.target.value})}/></label><label className="piece-toggle"><input type="checkbox" checked={slot.simulation} onChange={event=>setDay(day.id,{simulation:event.target.checked})}/> Simulado</label></>}</div>
+            </details>
+            <div className="piece-day-body" onClick={event=>{if(selected&&event.target===event.currentTarget)move(selected,day.id);}}>
+              {enabled&&slot.simulation&&<div className="piece-mock"><Target size={13}/> Simulado</div>}
+              {items.map(leaf=>piece(leaf,day.id))}
+            </div>
           </article>;
-        })}{!visible.length&&<div className="planner-no-results">Nenhum conteúdo neste filtro.</div>}</div>
-      </section>
-      <div className="planner-feedback hybrid-feedback" role="status"><span>{moveFeedback||"Segure o título e solte sobre um dia acima."}</span>{undo&&<button type="button" className="text-button" onClick={()=>{setConfig(undo.config);persist(undo.assignments,undo.config);setUndo(null);setMoveFeedback("Movimentação desfeita.");}}>Desfazer</button>}</div>
-      {dragging&&<div className="planner-drag-ghost" style={{left:point.x+12,top:point.y+12}}><GripVertical size={16}/><span>{selectedIds.includes(dragging.id)&&selectedIds.length>1?`${selectedIds.length} conteúdos`:plannerShortTitle(dragging.name)}</span></div>}
+        })}
+      </div></div>
     </section>
-
-    <details className="panel wizard-panel auto-distribute-panel">
-      <summary><span><Sparkles size={17}/> Quer uma sugestão de distribuição automática?</span><ChevronDown size={17}/></summary>
-      <p>A sugestão é opcional. Ela considera a duração dos seus horários, mas não conhece a dificuldade de cada assunto nem seu cansaço. Revise a proposta e ajuste manualmente. Dias reservados para simulado não recebem assuntos automaticamente.{assignedCount > 0 ? " Ao aplicar, a distribuição atual será substituída." : ""}</p>
-      <div className="field-block schedule-mode-field"><label htmlFor="schedule-mode">Critério da sugestão</label><select id="schedule-mode" value={config.mode} onChange={event => { setPriorityFeedback(""); changeConfig({ mode: event.target.value as ScheduleConfig["mode"] }); }}>
-        <option value="alternate">Equilibrar assuntos entre os dias</option><option value="sequence">Seguir a sequência do edital</option><option value="priority">Priorizar recorrência da banca (com IA)</option>
-      </select></div>
-      {config.mode === "priority" && <div className="priority-ai-panel">
-        <div><strong><Sparkles size={16}/> Prioridade sugerida pela IA</strong><small>Somente os conteúdos selecionados entram na análise. A IA deve separar evidência de estimativa.</small></div>
-        <button className="secondary-button compact" type="button" onClick={copyPriorityPrompt}><Clipboard size={14}/> Copiar solicitação</button>
-        <div className="field-block"><label htmlFor="priority-response">Cole aqui a resposta da IA com os IDs em ordem de prioridade</label><textarea id="priority-response" rows={4} value={priorityText} onChange={event => setPriorityText(event.target.value)} placeholder={leaves.map((leaf, index) => `${index + 1}. ID: ${leaf.id} — ${displayNodeName(leaf.name)}`).join("\n")}/></div>
-        <div className="button-row"><button className="primary-button compact" type="button" disabled={!priorityText.trim()} onClick={importPriority}>Importar prioridade</button><span className="soft-tag">{config.priorityOrder?.length || 0}/{leaves.length} classificados</span></div>
-      </div>}
-      <div className="button-row"><button className="secondary-button" type="button" disabled={!autoReady || (config.mode === "priority" && (config.priorityOrder?.length || 0) !== leaves.length)} onClick={generate}>{assignedCount > 0 ? "Substituir distribuição atual" : "Aplicar sugestão automática"} <ArrowRight size={15}/></button><small className="field-hint">{autoReady ? "A sugestão usará apenas dias com horário definido." : "Defina os horários de todos os dias sem simulado para habilitar a sugestão."}</small></div>
-      {priorityFeedback && <p className="inline-feedback" role="status">{priorityFeedback}</p>}
-    </details>
-
-    <section className="panel wizard-panel">
-      <div className="wizard-navigation"><button className="secondary-button" type="button" onClick={() => onSave({ ...plan, stage: "selection" })}><ArrowLeft size={16}/>Voltar à seleção</button>
-        <button className="primary-button" type="button" disabled={!config.days.length || !leaves.length || (!assignments.some(item => item.day >= 0 && config.days.includes(item.day)) && !config.days.some(day => config.daySchedules?.[day]?.simulation))} onClick={finish}>Salvar meu cronograma <Check size={16}/></button></div>
-      {scheduleFeedback && <p className="inline-feedback" role="status">{scheduleFeedback}</p>}
-      {unassigned.length > 0 && <p className="field-hint">{unassigned.length} conteúdo(s) ainda estão sem dia. Você pode salvar o cronograma e organizá-los depois, sem perder sua seleção.</p>}
+    <section className={`piece-library ${over===-1?"landing":""}`} data-piece-destination={-1} aria-label="Biblioteca do plano">
+      <header className="piece-section-head"><div><h2>Biblioteca</h2><small>{available.length} assuntos disponíveis</small></div><input type="search" aria-label="Buscar assunto na biblioteca" placeholder="Buscar assunto…" value={search} onChange={event=>setSearch(event.target.value)}/></header>
+      <div className="piece-library-scroll"><div className="piece-library-tree">
+        {roots.map(node=><div className="piece-root" key={node.id}>{renderBranch(node,0)}</div>)}
+        {!roots.length&&<p className="piece-library-empty">{available.length?"Nenhum assunto encontrado.":"Todos os assuntos estão no planner."}</p>}
+      </div></div>
     </section>
+    <footer className="piece-footer"><button type="button" className="secondary-button" disabled={finishing} onClick={goBack}><ArrowLeft size={15}/> Voltar</button><span role="status">{saveState==="error"?"Falha ao salvar. Tente salvar novamente.":saveState==="saving"?"Salvando…":selected?"Toque em um dia para mover.":saveState==="saved"?"Salvo neste navegador":feedback}</span><button type="button" className="primary-button" disabled={!hasSession||finishing} onClick={finish}>{finishing?<LoaderCircle className="save-spinner" size={15}/>:<Check size={15}/>} {finishing?"Salvando…":"Salvar cronograma"}</button></footer>
+    {dragging&&<div className="planner-drag-ghost" style={{left:point.x+10,top:point.y+10}}><GripVertical size={15}/><span>{plannerShortTitle(dragging.name)}</span></div>}
   </div>;
 }
 
