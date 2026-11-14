@@ -533,14 +533,14 @@ function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyP
   const [dragOverDay, setDragOverDay] = useState<number | null>(null);
   const [point, setPoint] = useState({x:0,y:0});
   const drag = useRef<{id:string; pointer:number; x:number; y:number; moving:boolean} | null>(null);
-  const [openDay, setOpenDay] = useState<number | null>(null);
+  const [openDay, setOpenDay] = useState<number>(WEEKDAYS[0].id);
   const [block, setBlock] = useState("all");
   const [discipline, setDiscipline] = useState("all");
   const [dayFilter, setDayFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [original, setOriginal] = useState<string | null>(null);
   const [moveFeedback, setMoveFeedback] = useState("");
-  const [undo, setUndo] = useState<PlanAssignment[] | null>(null);
+  const [undo, setUndo] = useState<{ assignments: PlanAssignment[]; config: ScheduleConfig } | null>(null);
 
   useEffect(() => {
     const nextConfig = plan.scheduleConfig || defaultSchedule(plan);
@@ -548,7 +548,7 @@ function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyP
     setAssignments(reconcileAssignments(getSelectedLeaves(plan.tree), plan.assignments, nextConfig.days));
     setSelectedIds([]);
     setBulkDay(nextConfig.days[0] ?? 1);
-    setOpenDay(null); setDayFilter("all"); setBlock("all"); setDiscipline("all"); setSearch("");
+    setOpenDay(WEEKDAYS.find(day=>nextConfig.days.includes(day.id))?.id ?? 1); setDayFilter("all"); setBlock("all"); setDiscipline("all"); setSearch("");
   }, [plan.id]);
 
   function persist(nextAssignments: PlanAssignment[], nextConfig = config) {
@@ -557,7 +557,7 @@ function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyP
   }
   function changeConfig(patch: Partial<ScheduleConfig>) {
     const next = { ...config, ...patch };
-    setConfig(next);
+    setConfig(next); setUndo(null);
     void onSave({ ...plan, scheduleConfig: next, assignments, updatedAt: Date.now() });
   }
   function changeDays(selectedDays: number[]) {
@@ -569,7 +569,6 @@ function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyP
     setConfig(nextConfig);
     setAssignments(nextAssignments);
     setSelectedIds([]); setUndo(null);
-    if (openDay !== null && !days.includes(openDay)) setOpenDay(null);
     if (dayFilter !== "all" && dayFilter !== "-1" && !days.includes(Number(dayFilter))) setDayFilter("all");
     setBulkDay(current => days.includes(current) ? current : (days[0] ?? 1));
     void onSave({ ...plan, scheduleConfig: nextConfig, assignments: nextAssignments, updatedAt: Date.now() });
@@ -579,14 +578,20 @@ function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyP
     changeConfig({ daySchedules: { ...(config.daySchedules || {}), [dayId]: { ...current, ...patch } } });
   }
   function moveTopics(ids: string[], dayId: number) {
-    if (dayId !== -1 && !config.days.includes(dayId)) return;
+    if (dayId !== -1 && !WEEKDAYS.some(day=>day.id===dayId)) return;
     const keys = new Set(ids);
     const next = assignments.map(item => keys.has(item.nodeId) ? {...item, day:dayId} : item);
-    const count = next.filter((item,i) => item.day !== assignments[i].day).length;
-    if (!count) return;
-    setUndo(assignments); persist(next);
-    setSelectedIds(current => current.filter(id => !keys.has(id)));
-    setMoveFeedback(`${count} conteúdo(s) para ${dayId === -1 ? "Sem dia" : WEEKDAYS.find(d => d.id === dayId)?.label}.`);
+    const count=next.filter((item,i)=>item.day!==assignments[i].day).length;
+    if(!count)return;
+    const nextConfig=dayId>=0&&!config.days.includes(dayId)?{...config,
+      days:WEEKDAYS.filter(day=>config.days.includes(day.id)||day.id===dayId).map(day=>day.id),
+      daySchedules:{...(config.daySchedules||{}),[dayId]:config.daySchedules?.[dayId]||emptyDaySchedule()},
+    }:config;
+    setUndo({assignments,config});
+    setConfig(nextConfig); persist(next,nextConfig);
+    if(dayId>=0)setOpenDay(dayId);
+    setSelectedIds(current=>current.filter(id=>!keys.has(id)));
+    setMoveFeedback(`${count} ${count===1?"conteúdo movido":"conteúdos movidos"} → ${dayId===-1?"Sem dia":WEEKDAYS.find(d=>d.id===dayId)?.label}`);
     setScheduleFeedback("");
   }
   function toggleAssignment(id: string, checked: boolean) {
@@ -597,7 +602,7 @@ function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyP
     const el = document.elementFromPoint(x,y)?.closest<HTMLElement>("[data-planner-drop]");
     if (!el) return null;
     const day = Number(el.dataset.plannerDrop);
-    return day === -1 || config.days.includes(day) ? day : null;
+    return day === -1 || WEEKDAYS.some(item=>item.id===day) ? day : null;
   }
   function pointerDown(event: ReactPointerEvent<HTMLElement>, id:string) {
     if (!event.isPrimary || event.button !== 0 || drag.current) return;
@@ -618,7 +623,7 @@ function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyP
     if (!cancel && d.moving) {
       const day=dropTarget(event.clientX,event.clientY);
       if (day!==null) moveTopics(selectedIds.includes(d.id)?selectedIds:[d.id],day);
-      else setMoveFeedback("Solte sobre um dia ativo ou sobre Sem dia.");
+      else setMoveFeedback("Solte sobre um dia da semana ou sobre Sem dia.");
     }
     setDraggedId(null); setDragOverDay(null);
   }
@@ -709,56 +714,56 @@ function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyP
     (dayFilter==="all" || (assignmentById.get(leaf.id)?.day ?? -1)===Number(dayFilter)) &&
     (!search.trim() || normalizePlanTopic(leaf.path.join(" ")+" "+plannerShortTitle(leaf.name)).includes(normalizePlanTopic(search))));
   const allVisibleSelected = visible.length>0 && visible.every(leaf => selectedIds.includes(leaf.id));
-  const editing = grouped.find(day => day.id===openDay);
+  const editing = WEEKDAYS.find(day=>day.id===openDay)!;
+  const editingSlot=config.daySchedules?.[openDay] || emptyDaySchedule();
+  const editingTopics=grouped.find(day=>day.id===openDay)?.items || [];
+  const editingEnabled=config.days.includes(openDay);
+  const weeklyMinutes=grouped.reduce((sum,day)=>sum+day.minutes,0);
+  const durationLabel=(minutes:number)=>minutes?`${Math.floor(minutes/60)?Math.floor(minutes/60)+"h ":""}${minutes%60?minutes%60+"min":""}`.trim():"Definir";
+  const blockLabel=(value:string)=>{const normalized=normalizePlanTopic(value);return normalized.includes("basicos")?"Básicos":normalized.includes("especificos")?"Específicos":value;};
   const dragging = leaves.find(leaf => leaf.id===draggedId);
   return <div className="wizard-content">
-    <section className="panel wizard-panel planner-workspace">
-      <div className="panel-title-row"><div><span className="step-kicker">ETAPA 3 · CRONOGRAMA</span><h2>Seu planner semanal</h2><p>Escolha seus dias e arraste os assuntos para a semana.</p></div><span className="soft-tag">{assignedCount}/{leaves.length} organizados</span></div>
-      <div className="form-grid">
-        <div className="field-block"><label htmlFor="schedule-start">Início do plano</label><input id="schedule-start" type="date" value={config.startDate} onChange={event => changeConfig({startDate:event.target.value})}/></div>
-        <div className="field-block"><label htmlFor="schedule-exam">Data da prova (opcional)</label><input id="schedule-exam" type="date" value={config.examDate} onChange={event => changeConfig({examDate:event.target.value})}/></div>
-      </div>
-      <div className="planner-week">
-        <div className="planner-days">{WEEKDAYS.map(day => {
-          const enabled=config.days.includes(day.id); const slot=config.daySchedules?.[day.id];
-          const count=grouped.find(item=>item.id===day.id)?.items.length || 0;
+    <section className="hybrid-planner planner-workspace">
+      <div className="hybrid-planner-heading"><div><h2>Organizar semana</h2><span>{assignedCount} de {leaves.length} conteúdos organizados</span></div><details className="hybrid-dates"><summary><CalendarDays size={15}/> Datas do plano</summary><div className="hybrid-date-fields"><label>Início<input type="date" aria-label="Início do plano" value={config.startDate} onChange={event=>changeConfig({startDate:event.target.value})}/></label><label>Prova (opcional)<input type="date" aria-label="Data da prova" value={config.examDate} onChange={event=>changeConfig({examDate:event.target.value})}/></label></div></details></div>
+      <div className="planner-week hybrid-week">
+        <div className="planner-days">{WEEKDAYS.map(day=>{
+          const enabled=config.days.includes(day.id), slot=config.daySchedules?.[day.id];
+          const count=grouped.find(item=>item.id===day.id)?.items.length||0;
           return <div key={day.id} data-planner-drop={day.id} className={`planner-day ${enabled?"enabled":""} ${openDay===day.id?"editing":""} ${dragOverDay===day.id?"drop-active":""} ${enabled&&slot?.simulation?"simulation":""}`}>
-            <button type="button" className="planner-day-main" aria-label={`${day.label}: ${enabled?count+" conteúdos":"ativar dia"}`} onClick={()=>{if(!enabled){changeDays([...config.days,day.id]);setOpenDay(day.id);}else{setOpenDay(current=>current===day.id?null:day.id);setDayFilter(String(day.id));}}}>
-              <b>{day.short}</b><strong>{enabled?count:"–"}</strong><small>{enabled?slot?.simulation?"Simulado":slot?.startTime&&slot?.endTime?`${slot.startTime}–${slot.endTime}`:"Definir hora":"Livre"}</small>
-            </button>
-            <label className="planner-day-check"><input type="checkbox" aria-label={`Disponibilidade: ${day.label}`} checked={enabled} onChange={event=>{changeDays(event.target.checked?[...config.days,day.id]:config.days.filter(id=>id!==day.id));if(event.target.checked)setOpenDay(day.id);}}/></label>
+            <button type="button" className="planner-day-main" aria-pressed={openDay===day.id} aria-label={`${day.label}: ${enabled?count+" conteúdos":"dia livre"}`} onClick={()=>setOpenDay(day.id)}><i className="hybrid-day-dot"/><b>{day.short}</b><strong>{enabled?slot?.simulation&&!count?<Target size={20}/>:count:"–"}</strong><small>{enabled?slot?.simulation?"Simulado":durationLabel(durationFromTimes(slot?.startTime,slot?.endTime)):"Livre"}</small></button>
           </div>;
         })}</div>
-        <div className="planner-week-meta"><span>{config.days.length} dias · {simulationDays} simulados</span><button type="button" data-planner-drop={-1} className={`planner-unassigned-drop ${dragOverDay===-1?"drop-active":""}`} onClick={()=>{setDayFilter("-1");setOpenDay(null);}}>Sem dia <b>{unassigned.length}</b></button></div>
+        <div className="planner-week-meta"><span>{config.days.length} dias · {weeklyMinutes?durationLabel(weeklyMinutes):"0h"} semanais{simulationDays?` · ${simulationDays} simulado(s)`:""}</span><button type="button" data-planner-drop={-1} className={`planner-unassigned-drop ${dragOverDay===-1?"drop-active":""}`} onClick={()=>setDayFilter(current=>current==="-1"?"all":"-1")}>Sem dia <b>{unassigned.length}</b></button></div>
       </div>
-      {editing && <div className="planner-editor">
-        <div><b>{editing.label}</b><small>{formatDuration(editing.minutes)}</small></div>
-        <label>Das<input type="time" aria-label={`Horário inicial de ${editing.label}`} value={editing.slot.startTime} onChange={event=>setDaySchedule(editing.id,{startTime:event.target.value})}/></label>
-        <label>Às<input type="time" aria-label={`Horário final de ${editing.label}`} value={editing.slot.endTime} onChange={event=>setDaySchedule(editing.id,{endTime:event.target.value})}/></label>
-        <label className="simulation-toggle"><input type="checkbox" checked={editing.slot.simulation} onChange={event=>setDaySchedule(editing.id,{simulation:event.target.checked})}/> Simulado</label>
-        <button type="button" className="text-button" onClick={()=>{setOpenDay(null);setDayFilter("all");}}>Fechar</button>
-      </div>}
-      <div className="planner-library">
-        <div className="planner-library-heading"><h3>Conteúdos</h3><span>{visible.length} de {leaves.length}</span></div>
-        <div className="planner-filters">
-          <label>Área / bloco<select value={block} onChange={event=>{setBlock(event.target.value);setDiscipline("all");}}><option value="all">Todas as áreas</option>{blocks.map(name=><option key={name} value={name}>{name}</option>)}</select></label>
-          <label>Disciplina<select value={discipline} onChange={event=>setDiscipline(event.target.value)}><option value="all">Todas as disciplinas</option>{disciplines.map(name=><option key={name} value={name}>{name}</option>)}</select></label>
-          <label>Distribuição<select value={dayFilter} onChange={event=>setDayFilter(event.target.value)}><option value="all">Todos os conteúdos</option><option value="-1">Sem dia</option>{grouped.map(day=><option key={day.id} value={day.id}>{day.label}</option>)}</select></label>
-          <label>Buscar<input type="search" value={search} onChange={event=>setSearch(event.target.value)} placeholder="Ex.: Newton, LDB…"/></label>
+      <section className="hybrid-inspector" aria-label="Configurar dia selecionado">
+        <div className="hybrid-inspector-head"><h3>{editing.id>=1&&editing.id<=5?editing.label+"-feira":editing.label}</h3><span>{editingEnabled?`${durationLabel(durationFromTimes(editingSlot.startTime,editingSlot.endTime))} · ${editingTopics.length} assuntos`:"Dia livre"}</span></div>
+        <div className="hybrid-dayconfig">
+          <label className="hybrid-check"><input type="checkbox" checked={editingEnabled} onChange={event=>changeDays(event.target.checked?[...config.days,openDay]:config.days.filter(day=>day!==openDay))}/> Estudar</label>
+          {editingEnabled&&<><input type="time" aria-label={`Horário inicial de ${editing.label}`} value={editingSlot.startTime} onChange={event=>setDaySchedule(openDay,{startTime:event.target.value})}/><span>–</span><input type="time" aria-label={`Horário final de ${editing.label}`} value={editingSlot.endTime} onChange={event=>setDaySchedule(openDay,{endTime:event.target.value})}/><label className="hybrid-check hybrid-sim"><input type="checkbox" checked={editingSlot.simulation} onChange={event=>setDaySchedule(openDay,{simulation:event.target.checked})}/> Simulado</label></>}
         </div>
-        <div className="planner-bulk"><label className="inline-check"><input type="checkbox" checked={allVisibleSelected} onChange={event=>setSelectedIds(current=>event.target.checked?[...new Set([...current,...visible.map(leaf=>leaf.id)])]:current.filter(id=>!visible.some(leaf=>leaf.id===id)))}/> Selecionar visíveis</label><span>{selectedIds.length} selecionado(s)</span><select aria-label="Destino dos selecionados" value={bulkDay} onChange={event=>setBulkDay(Number(event.target.value))}><option value={-1}>Sem dia</option>{grouped.map(day=><option key={day.id} value={day.id}>{day.short}</option>)}</select><button type="button" className="secondary-button compact" disabled={!selectedIds.length||(bulkDay!==-1&&!config.days.includes(bulkDay))} onClick={moveSelected}>Mover</button></div>
-        <div className="planner-feedback" role="status"><span>{moveFeedback||"Segure o título ou a alça e arraste até um dia ativo."}</span>{undo&&<button type="button" className="text-button" onClick={()=>{persist(undo);setUndo(null);setMoveFeedback("Movimentação desfeita.");}}>Desfazer</button>}</div>
+        {editingEnabled&&<div className="hybrid-chips">{editingTopics.length?editingTopics.map(leaf=><span key={leaf.id} title={displayNodeName(leaf.name)}>{plannerShortTitle(leaf.name)}<button type="button" aria-label={`Retirar ${displayNodeName(leaf.name)} do dia`} onClick={()=>moveTopics([leaf.id],-1)}>×</button></span>):<small>{editingSlot.simulation?"Simulado reservado":"Arraste conteúdos para este dia"}</small>}</div>}
+      </section>
+      <section className="planner-library hybrid-library">
+        <div className="planner-library-heading"><h3>Conteúdos</h3><span>{visible.length} assuntos</span></div>
+        <div className="hybrid-filters">
+          <div className="hybrid-block-tabs" aria-label="Área"><button type="button" className={block==="all"?"on":""} onClick={()=>{setBlock("all");setDiscipline("all");}}>Todos</button>{blocks.map(name=><button type="button" key={name} className={block===name?"on":""} title={name} onClick={()=>{setBlock(name);setDiscipline("all");}}>{blockLabel(name)}</button>)}</div>
+          <select aria-label="Disciplina" value={discipline} onChange={event=>setDiscipline(event.target.value)}><option value="all">Todas as disciplinas</option>{disciplines.map(name=><option key={name} value={name}>{name}</option>)}</select>
+          <select aria-label="Distribuição" value={dayFilter} onChange={event=>setDayFilter(event.target.value)}><option value="all">Todos os dias</option><option value="-1">Sem dia</option>{WEEKDAYS.map(day=><option key={day.id} value={day.id}>{day.short}</option>)}</select>
+          <input aria-label="Buscar conteúdo" type="search" value={search} onChange={event=>setSearch(event.target.value)} placeholder="Buscar assunto…"/>
+        </div>
+        <div className="planner-bulk"><label className="inline-check"><input type="checkbox" checked={allVisibleSelected} onChange={event=>setSelectedIds(current=>event.target.checked?[...new Set([...current,...visible.map(leaf=>leaf.id)])]:current.filter(id=>!visible.some(leaf=>leaf.id===id)))}/> Selecionar visíveis</label><span>{selectedIds.length?selectedIds.length+" selecionados":"Arraste um assunto"}</span><select aria-label="Destino dos selecionados" value={bulkDay} onChange={event=>setBulkDay(Number(event.target.value))}><option value={-1}>Sem dia</option>{WEEKDAYS.map(day=><option key={day.id} value={day.id}>{day.short}</option>)}</select><button type="button" className="secondary-button compact" disabled={!selectedIds.length} onClick={moveSelected}>Mover</button></div>
         <div className="planner-topic-list">{visible.map(leaf=>{
           const day=assignmentById.get(leaf.id)?.day??-1;
-          return <article key={leaf.id} className={`planner-topic ${draggedId===leaf.id?"drag-origin":""}`}>
+          return <article key={leaf.id} className={`planner-topic ${draggedId===leaf.id?"drag-origin":""} ${selectedIds.includes(leaf.id)?"topic-selected":""}`}>
             <input type="checkbox" aria-label={`Selecionar ${displayNodeName(leaf.name)}`} checked={selectedIds.includes(leaf.id)} onChange={event=>toggleAssignment(leaf.id,event.target.checked)}/>
             <div className="planner-grab" title={displayNodeName(leaf.name)} onPointerDown={event=>pointerDown(event,leaf.id)} onPointerMove={pointerMove} onPointerUp={event=>pointerEnd(event)} onPointerCancel={event=>pointerEnd(event,true)} onLostPointerCapture={event=>pointerEnd(event,true)}><GripVertical size={17}/><div><strong>{plannerShortTitle(leaf.name)}</strong><small>{disciplineOf(leaf)}</small></div></div>
             <button type="button" className="planner-topic-info" aria-label="Ver texto original do edital" aria-expanded={original===leaf.id} onClick={()=>setOriginal(current=>current===leaf.id?null:leaf.id)}><Info size={15}/></button>
-            <select aria-label={`Dia para ${displayNodeName(leaf.name)}`} value={day} onChange={event=>moveTopics([leaf.id],Number(event.target.value))}><option value={-1}>Sem dia</option>{grouped.map(option=><option key={option.id} value={option.id}>{option.short}</option>)}</select>
+            <select aria-label={`Dia para ${displayNodeName(leaf.name)}`} value={day} onChange={event=>moveTopics([leaf.id],Number(event.target.value))}><option value={-1}>Sem dia</option>{WEEKDAYS.map(option=><option key={option.id} value={option.id}>{option.short}</option>)}</select>
             {original===leaf.id&&<div className="planner-original"><b>{displayNodeName(leaf.name)}</b>{leaf.sourceRef&&<small>{leaf.sourceRef}</small>}</div>}
           </article>;
-        })}{!visible.length&&<div className="planner-no-results">Nenhum conteúdo neste filtro. Altere a seleção acima.</div>}</div>
-      </div>
+        })}{!visible.length&&<div className="planner-no-results">Nenhum conteúdo neste filtro.</div>}</div>
+      </section>
+      <div className="planner-feedback hybrid-feedback" role="status"><span>{moveFeedback||"Segure o título e solte sobre um dia acima."}</span>{undo&&<button type="button" className="text-button" onClick={()=>{setConfig(undo.config);persist(undo.assignments,undo.config);setUndo(null);setMoveFeedback("Movimentação desfeita.");}}>Desfazer</button>}</div>
       {dragging&&<div className="planner-drag-ghost" style={{left:point.x+12,top:point.y+12}}><GripVertical size={16}/><span>{selectedIds.includes(dragging.id)&&selectedIds.length>1?`${selectedIds.length} conteúdos`:plannerShortTitle(dragging.name)}</span></div>}
     </section>
 
@@ -806,7 +811,7 @@ export function PlanWizardRoute() {
 
   return <div className="stack wizard-stack">
     <header className="heading wizard-heading">
-      <div><small>RITMO / VERTICALIZAR EDITAL</small><h1>{plan.title}</h1><p>{[plan.institution, plan.position, plan.area].filter(Boolean).join(" · ")}</p></div>
+      <div><small>MEUS PLANOS / {plan.stage==="schedule"?"CRONOGRAMA":plan.stage==="selection"?"CONTEÚDOS":"EDITAL"}</small><h1>{plan.title}</h1><p>{[plan.institution, plan.position, plan.area].filter(Boolean).join(" · ")}</p></div>
       <Link className="secondary-button" to="/plans"><ArrowLeft size={16}/>Meus planos</Link>
     </header>
     <Stepper stage={plan.stage}/>
