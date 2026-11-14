@@ -158,3 +158,53 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .manual-add-row{display:flex;align-items:center;gap:8px;padding:11px 0;border-bottom:1px solid var(--line)}
 .manual-add-row input{flex:1;min-width:0;height:36px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:11px}
 @media(max-width:600px){.manual-add-row{align-items:stretch;flex-direction:column}.manual-add-row button{width:100%}.inline-node-edit{flex-wrap:wrap}.node-edit-button{width:25px;height:25px;flex-basis:25px}}
+
+
+/* Ritmo 8 · flashcards e revisão espaçada */
+.flashcard-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:17px}
+.filter-pills{display:flex;gap:5px;padding:4px;border-radius:10px;background:#f1ede6}
+.filter-pills button{min-height:31px;padding:0 11px;border:0;border-radius:7px;background:transparent;color:#81766b;font-size:10px;font-weight:700}
+.filter-pills button.active{background:#fff;color:#376b9f;box-shadow:0 1px 4px #382f2912}
+.search-input{width:min(260px,45%);height:37px;padding:0 11px;border:1px solid var(--line);border-radius:8px;background:#fffefc;color:#40362e;font-size:11px}
+.family-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.family-card{display:flex;flex-direction:column;min-height:205px;padding:16px;border:1px solid var(--line);border-radius:12px;background:#fffefc}
+.family-card-top{display:flex;justify-content:space-between;gap:8px}
+.subject-pill{display:inline-flex;align-items:center;padding:5px 8px;border-radius:6px;background:#e7eef5;color:#376b9f;font-size:9px;font-weight:800}
+.subject-pill.fisica{background:#e8eee9;color:#58715f}
+.family-card h2{margin:15px 0 6px;color:#40362e;font:700 17px Georgia;line-height:1.3}
+.family-card>p{display:-webkit-box;overflow:hidden;-webkit-line-clamp:2;-webkit-box-orient:vertical;min-height:32px;margin:0;color:#8b7e72;font-size:10px;line-height:1.6}
+.family-metrics{display:grid;gap:7px;margin:15px 0;color:#84796d;font-size:9px}
+.family-metrics span{display:flex;align-items:center;gap:6px}
+.family-metrics svg{color:#7890a6}
+.family-card-actions{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:auto;padding-top:12px;border-top:1px solid #eee8df}
+.variant-editor-list{display:grid;gap:12px}
+.variant-editor{padding:16px;border:1px solid var(--line);border-radius:12px;background:#fcfaf6}
+.variant-editor-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:13px}
+.variant-editor-heading>div{display:grid;gap:4px}
+.variant-editor-heading span{color:#376b9f;font-size:9px;font-weight:850;letter-spacing:1px}
+.variant-editor-heading strong{color:#4b4037;font-size:12px}
+.icon-button{display:grid;place-items:center;width:29px;height:29px;border:1px solid var(--line);border-radius:8px;background:#fff;color:#8a7e72;font-size:17px}
+.review-start{padding:25px}
+.review-card-panel{padding:0;overflow:hidden}
+.review-card-meta{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:15px 20px;border-bottom:1px solid var(--line);color:#7d7165;font-size:10px}
+.review-card-face{display:grid;justify-items:center;gap:18px;min-height:300px;padding:38px 24px;text-align:center}
+.review-card-face>small{color:#8f8377;font-size:9px;font-weight:850;letter-spacing:1.2px}
+.review-prompt{max-width:760px;color:#3e352e;font:700 clamp(19px,2.4vw,27px)/1.5 Georgia;white-space:pre-wrap}
+.review-image{max-width:min(100%,540px);max-height:280px;object-fit:contain;border-radius:9px}
+.typed-answer{width:min(100%,600px);padding:12px;border:1px solid var(--line);border-radius:9px;background:#fff;color:#40362e;font-size:12px;resize:vertical}
+.review-answer{width:min(100%,760px);padding:20px;border:1px solid #dce6ef;border-radius:12px;background:#f2f6f9;text-align:left}
+.review-answer strong{color:#376b9f;font-size:10px;text-transform:uppercase;letter-spacing:.7px}
+.review-answer p{margin:9px 0 0;color:#40372f;font-size:14px;line-height:1.7;white-space:pre-wrap}
+.review-answer .review-reason{padding-top:10px;border-top:1px solid #dce6ef;color:#7d7165;font-size:11px}
+.grade-panel{padding:18px 20px 22px;border-top:1px solid var(--line);background:#fcfaf6;text-align:center}
+.grade-panel>p{margin:0 0 12px;color:#6d6258;font-size:11px;font-weight:750}
+.grade-buttons{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;max-width:620px;margin:0 auto}
+.grade-buttons button{min-height:44px;border:1px solid var(--line);border-radius:9px;background:white;color:#4b4037;font-size:11px;font-weight:800}
+.grade-buttons button:hover{transform:translateY(-1px)}
+.grade-buttons .grade-again{border-color:#e8d4ce;background:#fbf1ee;color:#9b5546}
+.grade-buttons .grade-hard{border-color:#e9dfca;background:#fbf7ed;color:#927346}
+.grade-buttons .grade-good{border-color:#d5e2ec;background:#eff5f9;color:#376b9f}
+.grade-buttons .grade-easy{border-color:#d5e3db;background:#eff5f1;color:#4d7964}
+.grade-panel>small{display:block;margin-top:12px;color:#968a7e;font-size:9px}
+@media(max-width:900px){.family-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.flashcard-toolbar{align-items:stretch;flex-direction:column}.search-input{width:100%}.family-grid{grid-template-columns:1fr}.family-card{min-height:0}.review-card-face{min-height:260px;padding:28px 16px}.grade-buttons{grid-template-columns:repeat(2,minmax(0,1fr))}.review-card-meta{padding:12px;gap:6px}.variant-editor{padding:12px}}
