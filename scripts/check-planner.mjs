@@ -75,6 +75,7 @@ try{
  await page.reload();await topic(day(page,1),"LDB").waitFor();
  await page.getByRole("button",{name:"Edital",exact:true}).click();await page.locator("#source-text").waitFor();
  assert.equal(await page.locator(".wizard-step.is-current").evaluate(el=>getComputedStyle(el).opacity),"1");
+ await page.waitForFunction(()=>{const active=document.querySelector(".wizard-step.is-current");return active&&getComputedStyle(active).backgroundColor==="rgb(48, 94, 137)";});
  assert.equal(await page.locator(".wizard-step.is-current").evaluate(el=>getComputedStyle(el).backgroundColor),"rgb(48, 94, 137)");
  assert.equal(await page.locator(".rp-flow-card").count(),2);
  await page.screenshot({path:"planner-screenshots/06-edital.png",fullPage:true});
