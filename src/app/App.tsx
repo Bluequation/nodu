@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import {
-  Activity, ArrowRight, BookOpen, Brain, CalendarDays, CheckCircle2, ClipboardList,
+  Activity, ArrowRight, BookOpen, Brain, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList,
   FileText, FolderKanban, LayoutDashboard, Layers3, NotebookPen, Settings, Target,
   Upload, WandSparkles,
 } from "lucide-react";
@@ -26,7 +26,7 @@ const groups = [
 ] as const;
 
 function Heading({ eyebrow, title, desc, action }: { eyebrow: string; title: string; desc: string; action?: ReactNode }) {
-  return <header className="heading"><div><small>{eyebrow}</small><h1>{title}</h1><p>{desc}</p></div>{action}</header>;
+  return <header className="heading"><div><small>{eyebrow}</small><h1>{title}</h1>{desc && <p>{desc}</p>}</div>{action}</header>;
 }
 function Panel({ children, className = "" }: { children: ReactNode; className?: string }) {
   return <section className={`panel ${className}`}>{children}</section>;
@@ -36,7 +36,7 @@ function Shell() {
     <aside className="sidebar">
       <Link to="/" className="brand"><i>R</i><span><b>Ritmo</b><small>SEU ESPAÇO DE ESTUDOS</small></span></Link>
       <nav>{groups.map(([label, items]) => <section key={label}><small>{label}</small>{items.map(([name, path, Icon]) => <NavLink key={path} to={path} end={path === "/"}><Icon size={17}/>{name}</NavLink>)}</section>)}</nav>
-      <footer><b>Estude no seu ritmo.</b><small>Do edital à aprendizagem.</small><small>Seus dados ficam salvos neste navegador.</small></footer>
+      <footer><b>Estude no seu ritmo.</b><small>Seus dados ficam salvos neste navegador.</small></footer>
     </aside>
     <main className="main">
       <header className="mobile-head"><Link to="/">◈ Ritmo</Link><small>8.0 · nova estrutura</small></header>
@@ -84,8 +84,7 @@ function Dashboard() {
   const topics = plans.reduce((sum, plan) => sum + getSelectedLeaves(plan.tree).length, 0);
   const recent = plans.slice(0, 3);
   return <div className="stack">
-    <Heading eyebrow="SEU ESPAÇO DE ESTUDOS" title="Vamos no seu ritmo." desc="Organize o que estudar, acompanhe seu progresso e aprenda com consistência." action={<Link className="primary-button" to="/plans/new">Novo plano <ArrowRight size={16}/></Link>}/>
-    <section className="hero"><small>✦ RITMO 8 · NOVA ESTRUTURA</small><h2>Do edital à aprendizagem, em um só lugar.</h2><p>Transforme o conteúdo do concurso em um percurso de estudos que respeita suas escolhas e sua disponibilidade.</p><Link className="primary-button" to="/plans">Organizar meus estudos <ArrowRight size={16}/></Link></section>
+    <Heading eyebrow="VISÃO GERAL" title="Painel" desc=""/>
     <div className="stats expanded-stats">
       <Panel><small>PLANOS ATIVOS</small><b>{active}</b><span>Planejamentos em andamento</span></Panel>
       <Panel><small>RASCUNHOS</small><b>{drafts}</b><span>Planos que você ainda está montando</span></Panel>
@@ -95,7 +94,7 @@ function Dashboard() {
       <Panel><small>QUESTÕES RESOLVIDAS</small><b>{metrics.questions}</b><span>{metrics.questions ? Math.round(metrics.correct / metrics.questions * 100) : 0}% de acertos registrados</span><Link to="/questions" className="text-link">Ver desempenho <ArrowRight size={13}/></Link></Panel>
     </div>
     <Panel><div className="panel-head"><h2>Retomar planejamento</h2><Link className="text-link" to="/plans">Ver todos <ArrowRight size={15}/></Link></div>
-      {recent.length ? recent.map(plan => <Link className="plan-row" key={plan.id} to={`/plans/${plan.id}/verticalize`}><b>{plan.title}</b><span>{[plan.position, plan.area].filter(Boolean).join(" · ")} · {plan.status === "active" ? "Ativo" : "Rascunho"}</span><ArrowRight size={16}/></Link>) : <div className="empty"><BookOpen size={28}/><h2>Seu primeiro plano começa aqui</h2><p>Cadastre o concurso, escolha o cargo e delimite a área de estudo. Depois, o Ritmo guia a verticalização e a seleção do conteúdo.</p><Link className="primary-button" to="/plans/new">Criar primeiro plano</Link></div>}
+      {recent.length ? recent.map(plan => <Link className="plan-row" key={plan.id} to={`/plans/${plan.id}/verticalize`}><b>{plan.title}</b><span>{[plan.position, plan.area].filter(Boolean).join(" · ")} · {plan.status === "active" ? "Ativo" : "Rascunho"}</span><ArrowRight size={16}/></Link>) : <div className="empty"><BookOpen size={28}/><h2>Seu primeiro plano começa aqui</h2><p>Cadastre o concurso, escolha o cargo e delimite a área de estudo.</p><Link className="primary-button" to="/plans/new">Criar primeiro plano</Link></div>}
     </Panel>
   </div>;
 }
@@ -105,15 +104,16 @@ function Plans() {
   const [loading, setLoading] = useState(true);
   useEffect(() => { listPlans().then(setItems).finally(() => setLoading(false)); }, []);
   return <div className="stack">
-    <Heading eyebrow="PLANEJAMENTO" title="Meus planos" desc="Cada plano representa um concurso, cargo e recorte de estudo. Você escolhe o que entra no seu percurso." action={<Link className="primary-button" to="/plans/new">Novo plano <ArrowRight size={16}/></Link>}/>
-    <Panel><div className="panel-head"><h2>Seus planejamentos</h2><small>{items.length} salvo(s)</small></div>
-      {loading ? <div className="loading-panel">Carregando planos…</div> : items.length ? items.map(plan => {
+    <Heading eyebrow="PLANEJAMENTO" title="Meus planos" desc="Cada card representa um concurso, cargo e recorte de estudo." action={<Link className="primary-button" to="/plans/new">Novo plano <ArrowRight size={16}/></Link>}/>
+    <Panel className="plans-panel">
+      <div className="panel-head"><h2>Seus planejamentos</h2><small>{items.length} salvo(s)</small></div>
+      {loading ? <div className="loading-panel">Carregando planos…</div> : items.length ? <div className="plans-grid">{items.map(plan => {
         const count = getSelectedLeaves(plan.tree).length;
         return <article className="plan-card" key={plan.id}>
           <div className="plan-card-top"><div><span className={`status-pill ${plan.status}`}>{plan.status === "active" ? "Ativo" : plan.status === "completed" ? "Concluído" : "Rascunho"}</span><h3>{plan.title}</h3><p>{[plan.institution, plan.position, plan.area].filter(Boolean).join(" · ")}</p></div><strong>{count}<small>conteúdo(s)</small></strong></div>
           <div className="plan-card-actions"><Link className="secondary-button" to={`/plans/${plan.id}`}>Ver plano</Link><Link className="primary-button" to={`/plans/${plan.id}/verticalize`}>{plan.status === "active" ? "Editar percurso" : "Continuar"} <ArrowRight size={15}/></Link></div>
         </article>;
-      }) : <div className="empty"><FolderKanban size={28}/><h2>Nenhum plano por aqui ainda</h2><p>Comece identificando o concurso, o cargo e a área de estudo que deseja preparar.</p><Link className="primary-button" to="/plans/new">Criar meu primeiro plano</Link></div>}
+      })}</div> : <div className="empty"><FolderKanban size={28}/><h2>Nenhum plano por aqui ainda</h2><p>Comece identificando o concurso, o cargo e a área de estudo que deseja preparar.</p><Link className="primary-button" to="/plans/new">Criar meu primeiro plano</Link></div>}
     </Panel>
   </div>;
 }
@@ -155,36 +155,119 @@ function NewPlan() {
   </div>;
 }
 
-const WEEKDAYS = [{ id: 1, label: "Segunda" }, { id: 2, label: "Terça" }, { id: 3, label: "Quarta" }, { id: 4, label: "Quinta" }, { id: 5, label: "Sexta" }, { id: 6, label: "Sábado" }, { id: 0, label: "Domingo" }];
+const AGENDA_WEEKDAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+function dateKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+function fromDateKey(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+function displayTopicName(name: string) {
+  return name.replace(/^\\s*\\[EDITAL\\]\\s*/i, "").trim();
+}
+function planMinutesForDay(plan: StudyPlan, dayId: number) {
+  const config = plan.scheduleConfig;
+  if (!config) return 0;
+  return config.sameMinutes === false ? (config.dayMinutes?.[dayId] ?? config.minutes) : config.minutes;
+}
 function Agenda() {
   const [plans, setPlans] = useState<StudyPlan[]>([]);
   const [reviewItems, setReviewItems] = useState<Array<{ id: string; topic: string; type: string; subject: string; due: number }>>([]);
+  const [month, setMonth] = useState(() => { const now = new Date(); return new Date(now.getFullYear(), now.getMonth(), 1); });
+  const [selectedDate, setSelectedDate] = useState(() => dateKey(new Date()));
+  const [filterPlan, setFilterPlan] = useState("all");
+
   useEffect(() => {
     Promise.all([listPlans(), listConcepts(), listErrors()]).then(([nextPlans, concepts, errors]) => {
       setPlans(nextPlans);
       const items = [
-        ...concepts.filter(concept => concept.status === "published" && !concept.suspended).map(concept => ({ id: concept.id, topic: concept.topic, type: "Flashcard · FSRS", subject: concept.subject === "tae" ? "TAE" : "Física", due: concept.fsrs.due })),
+        ...concepts.filter(concept => concept.status === "published" && !concept.suspended).map(concept => ({ id: concept.id, topic: concept.topic, type: "Flashcards", subject: concept.subject === "tae" ? "TAE" : "Física", due: concept.fsrs.due })),
         ...errors.filter(error => error.status !== "dominado").map(error => ({ id: error.id, topic: error.topic, type: "Caderno de erros", subject: error.subject === "tae" ? "TAE" : "Física", due: error.nextReview })),
-      ].sort((a, b) => a.due - b.due).slice(0, 30);
+      ].sort((a, b) => a.due - b.due).slice(0, 60);
       setReviewItems(items);
     });
   }, []);
-  const active = plans.filter(plan => plan.status === "active" && plan.assignments.length);
-  const reviewDate = (timestamp: number) => {
-    const due = new Date(timestamp); const today = new Date();
-    const day = new Date(due.getFullYear(), due.getMonth(), due.getDate()).getTime();
-    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
-    const diff = Math.round((day - todayStart) / 86_400_000);
-    return diff < 0 ? "Atrasada" : diff === 0 ? "Hoje" : diff === 1 ? "Amanhã" : due.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
-  };
+
+  const active = plans.filter(plan => plan.status === "active" && plan.assignments.length && (filterPlan === "all" || plan.id === filterPlan));
+  const monthStart = new Date(month.getFullYear(), month.getMonth(), 1);
+  const leadingDays = (monthStart.getDay() + 6) % 7;
+  const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+  const totalCells = Math.ceil((leadingDays + daysInMonth) / 7) * 7;
+  const calendarDates = Array.from({ length: totalCells }, (_, index) => new Date(month.getFullYear(), month.getMonth(), index - leadingDays + 1));
+
+  function topicsForDate(date: Date) {
+    const key = dateKey(date);
+    const weekday = date.getDay();
+    return active.flatMap(plan => {
+      const config = plan.scheduleConfig;
+      if (!config || !config.days.includes(weekday)) return [];
+      if (config.startDate && key < config.startDate) return [];
+      if (config.examDate && key > config.examDate) return [];
+      return plan.assignments.filter(item => item.day === weekday).map(item => ({
+        id: item.nodeId, name: displayTopicName(item.name), planTitle: plan.title,
+        planArea: [plan.position, plan.area].filter(Boolean).join(" · "),
+      }));
+    });
+  }
+  function reviewsForDate(date: Date) {
+    const key = dateKey(date);
+    return reviewItems.filter(item => dateKey(new Date(item.due)) === key);
+  }
+  function shiftMonth(amount: number) {
+    const next = new Date(month.getFullYear(), month.getMonth() + amount, 1);
+    setMonth(next);
+    setSelectedDate(dateKey(next));
+  }
+
+  const selected = fromDateKey(selectedDate);
+  const selectedTopics = topicsForDate(selected);
+  const selectedReviews = reviewsForDate(selected);
+  const minutes = active.filter(plan => plan.scheduleConfig?.days.includes(selected.getDay()) && plan.assignments.some(item => item.day === selected.getDay()))
+    .reduce((sum, plan) => sum + planMinutesForDay(plan, selected.getDay()), 0);
+  const monthLabel = month.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  const todayKey = dateKey(new Date());
+
   return <div className="stack">
-    <Heading eyebrow="PLANEJAMENTO" title="Agenda semanal" desc="Veja como os conteúdos dos seus planos estão distribuídos ao longo da semana."/>
-    {active.length ? active.map(plan => <Panel key={plan.id}><div className="panel-head"><div><h2>{plan.title}</h2><p>{[plan.position, plan.area].filter(Boolean).join(" · ")}</p></div><Link className="text-link" to={`/plans/${plan.id}/verticalize`}>Editar <ArrowRight size={15}/></Link></div><div className="agenda-week">{WEEKDAYS.filter(day => plan.scheduleConfig?.days.includes(day.id)).map(day => {
-      const topics = plan.assignments.filter(item => item.day === day.id);
-      return <section key={day.id}><div className="agenda-day-title"><strong>{day.label}</strong><span>{topics.length}</span></div>{topics.length ? topics.map(item => <div className="agenda-topic" key={item.nodeId}><span>{item.name}</span><small>{item.path.slice(0, -1).join(" / ")}</small></div>) : <p className="empty-day">Sem tópicos distribuídos.</p>}</section>;
-    })}</div></Panel>) : <Panel><div className="empty"><CalendarDays size={28}/><h2>Sua agenda começa com um plano</h2><p>Depois de selecionar os conteúdos e definir seus dias disponíveis, a distribuição aparecerá aqui.</p><Link className="primary-button" to="/plans">Abrir meus planos</Link></div></Panel>}
-    <Panel><div className="panel-head"><div><h2>Revisões programadas</h2><p>Flashcards e caderno de erros aparecem juntos, mas mantêm ciclos independentes.</p></div><span className="soft-tag">{reviewItems.length} registro(s)</span></div>
-      {reviewItems.length ? <div className="upcoming-reviews">{reviewItems.map(item => <article className="upcoming-review" key={`${item.type}-${item.id}`}><div><span className={item.type.startsWith("Flashcard") ? "origin-pill" : "origin-pill suggested"}>{item.type}</span><strong>{item.topic}</strong><small>{item.subject}</small></div><span className={new Date(item.due).getTime() <= Date.now() ? "review-date overdue" : "review-date"}>{reviewDate(item.due)}</span><Link to={item.type.startsWith("Flashcard") ? "/reviews" : "/errors"} aria-label={`Abrir ${item.type}`}><ArrowRight size={15}/></Link></article>)}</div> : <div className="empty-state"><CalendarDays size={25}/><strong>Nenhuma revisão programada</strong><span>Depois de publicar flashcards ou registrar erros, os próximos retornos aparecerão aqui.</span></div>}
+    <Heading eyebrow="PLANEJAMENTO" title="Agenda" desc=""/>
+    <Panel className="agenda-calendar-panel">
+      <div className="agenda-calendar-toolbar">
+        <div className="cal-head"><h2>{monthLabel}</h2><div>
+          <button type="button" aria-label="Mês anterior" onClick={() => shiftMonth(-1)}><ChevronLeft size={16}/></button>
+          <button type="button" aria-label="Mês seguinte" onClick={() => shiftMonth(1)}><ChevronRight size={16}/></button>
+        </div></div>
+        <select aria-label="Filtrar agenda por plano" value={filterPlan} onChange={event => setFilterPlan(event.target.value)}>
+          <option value="all">Todos os planos</option>
+          {plans.filter(plan => plan.status === "active" && plan.assignments.length).map(plan => <option key={plan.id} value={plan.id}>{plan.title}</option>)}
+        </select>
+      </div>
+      <div className="agenda-calendar-layout">
+        <div className="agenda-calendar-main">
+          <div className="agenda-calendar-weekdays">{AGENDA_WEEKDAYS.map(day => <span key={day}>{day}</span>)}</div>
+          <div className="agenda-calendar-grid">
+            {calendarDates.map(date => {
+              const key = dateKey(date);
+              const topicCount = topicsForDate(date).length;
+              const reviewCount = reviewsForDate(date).length;
+              const isSelected = key === selectedDate;
+              const isOutside = date.getMonth() !== month.getMonth();
+              const isToday = key === todayKey;
+              return <button type="button" key={key} className={`agenda-calendar-date ${isSelected ? "selected" : ""} ${isOutside ? "outside" : ""} ${isToday ? "today" : ""}`} onClick={() => setSelectedDate(key)} aria-label={`${date.toLocaleDateString("pt-BR")} · ${topicCount} conteúdo(s) · ${reviewCount} revisão(ões)`}>
+                <span>{date.getDate()}</span>
+                {(topicCount > 0 || reviewCount > 0) && <i className="agenda-date-markers">{topicCount > 0 && <b className="study-marker"/>}{reviewCount > 0 && <b className="review-marker"/>}</i>}
+                {topicCount > 0 && <small>{topicCount}</small>}
+              </button>;
+            })}
+          </div>
+          <div className="agenda-legend"><span><i className="study-marker"/> Conteúdos</span><span><i className="review-marker"/> Revisões</span></div>
+        </div>
+        <aside className="agenda-day-detail">
+          <div className="agenda-detail-head"><small>RESUMO DO DIA</small><h3>{selected.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}</h3>{minutes > 0 && <span>{minutes} min disponíveis</span>}</div>
+          {selectedTopics.length > 0 && <section className="agenda-detail-section"><strong>Conteúdos <span>{selectedTopics.length}</span></strong>{selectedTopics.map((item, index) => <article className="agenda-event study" key={`${item.id}-${index}`}><b>{item.name}</b><small>{item.planTitle} · {item.planArea}</small></article>)}</section>}
+          {selectedReviews.length > 0 && <section className="agenda-detail-section"><strong>Revisões <span>{selectedReviews.length}</span></strong>{selectedReviews.map(item => <article className="agenda-event review" key={`${item.type}-${item.id}`}><b>{item.topic}</b><small>{item.type} · {item.subject}</small><Link to={item.type === "Flashcards" ? "/reviews" : "/errors"}>Abrir <ArrowRight size={12}/></Link></article>)}</section>}
+          {selectedTopics.length === 0 && selectedReviews.length === 0 && <div className="agenda-day-empty"><CalendarDays size={23}/><span>Nenhuma atividade marcada para este dia.</span></div>}
+        </aside>
+      </div>
     </Panel>
   </div>;
 }
