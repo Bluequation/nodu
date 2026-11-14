@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
-  ArrowLeft, ArrowRight, CalendarDays, Check, ChevronDown, ChevronRight,
-  Clipboard, FolderOpen, Info, Pencil, Plus, Sparkles, Upload,
+  ArrowLeft, ArrowRight, AlertCircle, BookOpen, CalendarDays, Check, CheckCircle2,
+  ChevronDown, ChevronRight, Clock3, Flame, FolderOpen, Info, Lightbulb, ListChecks,
+  NotebookPen, Pencil, Target, TrendingUp, Upload,
 } from "lucide-react";
 import { getPlan, savePlan } from "../../data/plans";
+import { listConcepts, listErrors, listQuestionBlocks } from "../../data/study";
+import type { Concept, ErrorRecord, QuestionBlock } from "../../domain/study";
 import type { PlanNode, PlanStage, ScheduleConfig, StudyPlan } from "../../domain/models";
 import {
   addManualChildToTree, buildVerticalPrompt, getNodeSelectionState,
@@ -627,20 +630,334 @@ export function PlanWizardRoute() {
   </div>;
 }
 
+function planDateKey(date: Date) {
+  return date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
+}
+function planDateFromKey(value: string) {
+  const parts = value.split("-").map(Number);
+  return new Date(parts[0], parts[1] - 1, parts[2]);
+}
+function shiftPlanDate(date: Date, days: number) {
+  const next = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  next.setDate(next.getDate() + days);
+  return next;
+}
+function mondayOfWeek(date: Date) {
+  return shiftPlanDate(date, -((date.getDay() + 6) % 7));
+}
+function planDateLabel(date: Date, options: Intl.DateTimeFormatOptions = { day: "2-digit", month: "long" }) {
+  return date.toLocaleDateString("pt-BR", options);
+}
+function normalizePlanTopic(value: string) {
+  return value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+function planSubjectFilter(plan: StudyPlan): "tae" | "fisica" | null {
+  const area = normalizePlanTopic(plan.area);
+  if (area.includes("fisica")) return "fisica";
+  if (area.includes("tae") || area.includes("tecnico administrativo")) return "tae";
+  return null;
+}
+function planDateIsActive(date: Date, config: ScheduleConfig) {
+  const key = planDateKey(date);
+  return (!config.startDate || key >= config.startDate) && (!config.examDate || key <= config.examDate);
+}
+function findNextPlanStudyDate(plan: StudyPlan, from = new Date()) {
+  const config = plan.scheduleConfig;
+  if (!config || !plan.assignments.length) return null;
+  const today = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const configuredStart = config.startDate ? planDateFromKey(config.startDate) : today;
+  const start = configuredStart > today ? configuredStart : today;
+  for (let offset = 0; offset <= 370; offset += 1) {
+    const date = shiftPlanDate(start, offset);
+    if (config.examDate && planDateKey(date) > config.examDate) break;
+    if (!config.days.includes(date.getDay())) continue;
+    const tasks = plan.assignments.filter(item => item.day === date.getDay());
+    if (!tasks.length) continue;
+    const key = planDateKey(date);
+    if (tasks.some(item => !(item.completedDates || []).includes(key))) return date;
+  }
+  return null;
+}
+
 export function PlanDetailRoute() {
   const { id = "" } = useParams();
   const [plan, setPlan] = useState<StudyPlan | null>(null);
-  useEffect(() => { getPlan(id).then(found => setPlan(found || null)); }, [id]);
-  if (!plan) return <div className="loading-panel">Abrindo plano…</div>;
-  const leaves = getSelectedLeaves(plan.tree);
-  const done = plan.assignments.length;
-  return <div className="stack">
-    <header className="heading"><div><small>RITMO / MEUS PLANOS</small><h1>{plan.title}</h1><p>{[plan.institution, plan.position, plan.area].filter(Boolean).join(" · ")}</p></div><Link className="secondary-button" to="/plans"><ArrowLeft size={16}/>Meus planos</Link></header>
-    <section className="panel plan-overview">
-      <span className="soft-tag">{plan.status === "active" ? "Plano ativo" : "Rascunho"}</span>
-      <h2>Seu percurso de estudos</h2>
-      <div className="selection-summary-grid"><div><strong>{leaves.length}</strong><span>Conteúdos selecionados</span></div><div><strong>{done}</strong><span>Conteúdos distribuídos</span></div><div><strong>{plan.scheduleConfig?.days.length || 0}</strong><span>Dias por semana</span></div></div>
-      <Link className="primary-button" to={`/plans/${plan.id}/verticalize`}>{plan.status === "active" ? "Editar plano" : "Continuar configuração"}<Pencil size={16}/></Link>
+  const [concepts, setConcepts] = useState<Concept[]>([]);
+  const [errors, setErrors] = useState<ErrorRecord[]>([]);
+  const [questionBlocks, setQuestionBlocks] = useState<QuestionBlock[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [savingCompletion, setSavingCompletion] = useState(false);
+  const [loadError, setLoadError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setLoadError("");
+    Promise.all([getPlan(id), listConcepts(), listErrors(), listQuestionBlocks()])
+      .then(([found, nextConcepts, nextErrors, nextQuestions]) => {
+        if (!active) return;
+        setPlan(found || null);
+        setConcepts(nextConcepts);
+        setErrors(nextErrors);
+        setQuestionBlocks(nextQuestions);
+      })
+      .catch(() => { if (active) setLoadError("Não foi possível carregar os dados deste plano."); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [id]);
+
+  const today = new Date();
+  const todayKey = planDateKey(today);
+  const config = plan?.scheduleConfig || null;
+
+  const weekEntries = useMemo(() => {
+    if (!plan || !config) return [];
+    const monday = mondayOfWeek(new Date());
+    return WEEKDAYS.filter(day => config.days.includes(day.id)).map(day => {
+      const date = shiftPlanDate(monday, day.id === 0 ? 6 : day.id - 1);
+      const key = planDateKey(date);
+      const items = plan.assignments.filter(item => item.day === day.id);
+      const completed = items.filter(item => (item.completedDates || []).includes(key)).length;
+      return { ...day, date, key, items, completed, active: planDateIsActive(date, config), isToday: key === todayKey };
+    });
+  }, [plan, config, todayKey]);
+
+  const nextStudyDate = useMemo(() => plan ? findNextPlanStudyDate(plan) : null, [plan]);
+  const nextStudyKey = nextStudyDate ? planDateKey(nextStudyDate) : "";
+  const nextStudyItems = nextStudyDate && plan
+    ? plan.assignments.filter(item => item.day === nextStudyDate.getDay() && !(item.completedDates || []).includes(nextStudyKey))
+    : [];
+  const nextStudyMinutes = config && nextStudyDate ? minutesForDay(config, nextStudyDate.getDay()) : 0;
+  const todayEntry = weekEntries.find(day => day.isToday);
+  const todayFinished = Boolean(todayEntry && todayEntry.items.length > 0 && todayEntry.completed === todayEntry.items.length);
+  const weeklyPlanned = weekEntries.filter(day => day.active).reduce((sum, day) => sum + day.items.length, 0);
+  const weeklyCompleted = weekEntries.filter(day => day.active).reduce((sum, day) => sum + day.completed, 0);
+  const weeklyPercent = weeklyPlanned ? Math.round(weeklyCompleted / weeklyPlanned * 100) : 0;
+
+  const topicKeys = useMemo(() => new Set((plan?.assignments || []).map(item => normalizePlanTopic(displayNodeName(item.name)))), [plan]);
+  const subjectFilter = plan ? planSubjectFilter(plan) : null;
+  const relevantConcepts = concepts.filter(item =>
+    item.status === "published" && !item.suspended &&
+    topicKeys.has(normalizePlanTopic(item.topic)) &&
+    (!subjectFilter || item.subject === subjectFilter)
+  );
+  const dueConcepts = relevantConcepts.filter(item => item.fsrs.due <= Date.now());
+  const relevantErrors = errors.filter(item =>
+    item.status !== "dominado" &&
+    topicKeys.has(normalizePlanTopic(item.topic)) &&
+    (!subjectFilter || item.subject === subjectFilter)
+  );
+  const dueErrors = relevantErrors.filter(item => item.nextReview <= Date.now()).sort((a, b) => a.nextReview - b.nextReview);
+
+  const performanceByTopic = new Map<string, { topic: string; total: number; correct: number }>();
+  questionBlocks.filter(item =>
+    topicKeys.has(normalizePlanTopic(item.topic)) &&
+    (!subjectFilter || item.subject === subjectFilter)
+  ).forEach(block => {
+    const key = normalizePlanTopic(block.topic);
+    const current = performanceByTopic.get(key) || { topic: block.topic, total: 0, correct: 0 };
+    current.total += block.total;
+    current.correct += block.correct;
+    performanceByTopic.set(key, current);
+  });
+  const lowestPerformance = [...performanceByTopic.values()]
+    .filter(item => item.total > 0)
+    .map(item => ({ ...item, percent: Math.round(item.correct / item.total * 100) }))
+    .sort((a, b) => a.percent - b.percent || b.total - a.total)
+    .slice(0, 3);
+
+  const coverageGroups = new Map<string, { total: number; studied: number }>();
+  (plan?.assignments || []).forEach(item => {
+    const group = displayNodeName(item.path[0] || "Outros");
+    const current = coverageGroups.get(group) || { total: 0, studied: 0 };
+    current.total += 1;
+    if ((item.completedDates || []).length > 0) current.studied += 1;
+    coverageGroups.set(group, current);
+  });
+  const coverageStudied = (plan?.assignments || []).filter(item => (item.completedDates || []).length > 0).length;
+  const coverageTotal = plan?.assignments.length || 0;
+  const coveragePercent = coverageTotal ? Math.round(coverageStudied / coverageTotal * 100) : 0;
+
+  async function toggleStudyCompletion(nodeId: string, dateKey: string) {
+    if (!plan || savingCompletion) return;
+    setSavingCompletion(true);
+    const assignments = plan.assignments.map(item => {
+      if (item.nodeId !== nodeId) return item;
+      const dates = new Set(item.completedDates || []);
+      if (dates.has(dateKey)) dates.delete(dateKey);
+      else dates.add(dateKey);
+      return { ...item, completedDates: [...dates].sort() };
+    });
+    try {
+      const saved = await savePlan({ ...plan, assignments });
+      setPlan(saved);
+    } catch {
+      setLoadError("Não foi possível salvar a conclusão. Tente novamente.");
+    } finally {
+      setSavingCompletion(false);
+    }
+  }
+
+  if (loading) return <div className="stack"><div className="loading-panel">Preparando seu painel de preparação…</div></div>;
+  if (!plan) return <div className="stack"><div className="panel empty-state"><FolderOpen size={28}/><strong>{loadError || "Não encontrei este plano."}</strong><Link to="/plans" className="text-link">Voltar aos planos</Link></div></div>;
+
+  const examDays = config?.examDate
+    ? Math.ceil((planDateFromKey(config.examDate).getTime() - new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()) / 86_400_000)
+    : null;
+  const statusLabel = plan.status === "active" ? "Preparação em andamento" : plan.status === "completed" ? "Plano concluído" : "Plano em construção";
+  const subjectMeta = [plan.institution, plan.position, plan.area, plan.organizer].filter(Boolean).join(" · ");
+  const canStudy = Boolean(config && plan.assignments.length);
+  const todayTasks = todayEntry?.items || [];
+  const todayCompleted = todayEntry?.completed || 0;
+
+  return <div className="stack plan-detail-stack">
+    <header className="heading plan-detail-header">
+      <div>
+        <small>RITMO / SUA PREPARAÇÃO</small>
+        <div className="plan-detail-title-row"><h1>{plan.title}</h1><span className={"plan-status-pill " + plan.status}>{statusLabel}</span></div>
+        <p>{subjectMeta}</p>
+      </div>
+      <div className="plan-detail-actions">
+        <Link className="secondary-button" to="/plans"><ArrowLeft size={15}/>Meus planos</Link>
+        <Link className="primary-button" to={"/plans/" + plan.id + "/verticalize"}><Pencil size={15}/>Editar percurso</Link>
+      </div>
+    </header>
+
+    {!canStudy ? <section className="panel plan-build-state">
+      <div className="plan-build-icon"><ListChecks size={25}/></div>
+      <span className="step-kicker">PRÓXIMA ETAPA</span>
+      <h2>Seu plano ainda precisa ganhar um cronograma.</h2>
+      <p>Finalize a seleção dos conteúdos e defina seus dias de estudo. Depois disso, o Ritmo poderá acompanhar sua preparação de verdade.</p>
+      <Link className="primary-button" to={"/plans/" + plan.id + "/verticalize"}>Continuar configuração <ArrowRight size={15}/></Link>
+    </section> : <>
+      <div className="plan-dashboard-grid">
+        <section className="plan-next-session">
+          <div className="plan-next-topline"><span><Target size={14}/> PRÓXIMO PASSO</span><span>{nextStudyDate ? (nextStudyKey === todayKey ? "HOJE" : "PRÓXIMA SESSÃO") : "CRONOGRAMA"}</span></div>
+          {todayFinished && nextStudyDate && nextStudyKey !== todayKey && <div className="plan-today-success"><CheckCircle2 size={15}/> Você concluiu o que estava previsto para hoje. Bom trabalho!</div>}
+          {nextStudyDate ? <>
+            <div className="plan-next-date">{planDateLabel(nextStudyDate, { weekday: "long", day: "2-digit", month: "long" })}</div>
+            <h2>{nextStudyKey === todayKey ? "Vamos avançar um assunto de cada vez." : "Sua próxima sessão já está organizada."}</h2>
+            <p className="plan-next-description">{nextStudyMinutes} minutos reservados no seu cronograma. Escolha um assunto, estude com atenção e registre o que conseguiu aprender.</p>
+            <div className="plan-next-topic-list">
+              {nextStudyItems.slice(0, 5).map(item => <label className="plan-next-topic" key={item.nodeId}>
+                <span className="plan-topic-bullet"/>
+                <span><b>{displayNodeName(item.name)}</b><small>{item.path.slice(0, -1).map(displayNodeName).join(" / ")}</small></span>
+              </label>)}
+              {nextStudyItems.length > 5 && <span className="plan-more-topics">+ {nextStudyItems.length - 5} outros assuntos previstos nesta sessão</span>}
+            </div>
+            <div className="plan-next-actions">
+              <Link className="plan-light-button" to="/learn"><BookOpen size={15}/>Abrir Aprender</Link>
+              <Link className="plan-hero-link" to="/agenda">Ver agenda <ArrowRight size={14}/></Link>
+            </div>
+          </> : <div className="plan-no-next"><CalendarDays size={28}/><h2>Não há sessões futuras no cronograma.</h2><p>Confira as datas da preparação e a distribuição dos assuntos.</p><Link className="plan-light-button" to={"/plans/" + plan.id + "/verticalize"}>Revisar cronograma</Link></div>}
+        </section>
+
+        <aside className="panel plan-deadline-card">
+          <div className="plan-deadline-icon"><CalendarDays size={19}/></div>
+          <span className="step-kicker">DATA DA PROVA</span>
+          {examDays === null ? <>
+            <strong className="plan-deadline-title">Ainda não definida</strong>
+            <p>Adicionar a data ajuda a visualizar sua reta final e ajustar o cronograma.</p>
+            <Link className="text-link" to={"/plans/" + plan.id + "/verticalize"}>Definir data <ArrowRight size={13}/></Link>
+          </> : <>
+            <strong className="plan-deadline-number">{examDays < 0 ? "Data passada" : examDays === 0 ? "É hoje!" : String(examDays)}</strong>
+            <span className="plan-deadline-caption">{examDays < 0 ? "Confira se o plano ainda precisa de atualização." : examDays === 0 ? "Dia da avaliação" : "dias até a avaliação"}</span>
+            <p>{planDateLabel(planDateFromKey(config?.examDate || ""), { day: "2-digit", month: "long", year: "numeric" })}</p>
+            <Link className="text-link" to={"/plans/" + plan.id + "/verticalize"}>Ajustar cronograma <ArrowRight size={13}/></Link>
+          </>}
+          {plan.organizer && <div className="plan-deadline-banca"><span>BANCA</span><b>{plan.organizer}</b></div>}
+        </aside>
+      </div>
+
+      <section className="panel plan-week-progress">
+        <div className="plan-section-heading">
+          <div><span className="step-kicker">ACOMPANHAMENTO REAL</span><h2>Como está sua semana?</h2><p>Marque os assuntos depois de estudá-los. O progresso é seu, não uma estimativa automática.</p></div>
+          <strong className="plan-week-ratio">{weeklyCompleted}<small> / {weeklyPlanned}</small></strong>
+        </div>
+        <div className="plan-progress-track"><span style={{ width: weeklyPercent + "%" }}/></div>
+        <div className="plan-progress-foot"><span>{weeklyPercent}% do cronograma semanal concluído</span><span>{weeklyPlanned - weeklyCompleted} assunto(s) ainda previsto(s)</span></div>
+        <div className="plan-week-strip">
+          {weekEntries.map(day => <div className={"plan-week-chip " + (day.isToday ? "today" : "") + (day.active ? "" : " inactive")} key={day.id}>
+            <span>{day.short}</span><b>{day.items.length ? day.completed + "/" + day.items.length : "—"}</b>
+          </div>)}
+        </div>
+      </section>
+
+      <div className="plan-detail-columns">
+        <section className="panel plan-weekly-panel">
+          <div className="plan-section-heading compact">
+            <div><span className="step-kicker">SEU CRONOGRAMA</span><h2>Esta semana</h2><p>Abra um dia para marcar o que já estudou.</p></div>
+            <Link className="text-link" to="/agenda">Calendário <ArrowRight size={13}/></Link>
+          </div>
+          <div className="plan-week-list">
+            {weekEntries.map(day => <details className={"plan-week-day " + (day.isToday ? "is-today" : "")} key={day.id} open={Boolean(nextStudyDate && day.id === nextStudyDate.getDay())}>
+              <summary><span className="plan-week-day-name">{day.label}{day.isToday && <em>Hoje</em>}</span><span className="plan-week-day-count">{day.completed}/{day.items.length} estudados</span><ChevronDown size={15}/></summary>
+              {day.items.length ? <div className="plan-week-topic-list">
+                {day.items.map(item => {
+                  const done = (item.completedDates || []).includes(day.key);
+                  return <label className={"plan-week-topic " + (done ? "is-done" : "")} key={item.nodeId}>
+                    <input type="checkbox" checked={done} disabled={savingCompletion || !day.active} onChange={() => toggleStudyCompletion(item.nodeId, day.key)}/>
+                    <span><b>{displayNodeName(item.name)}</b><small>{item.path.slice(0, -1).map(displayNodeName).join(" / ")}</small></span>
+                    <em>{done ? "Estudado" : day.active ? "Marcar como estudado" : "Fora do período"}</em>
+                  </label>;
+                })}
+              </div> : <p className="plan-week-empty">Nenhum assunto distribuído para este dia.</p>}
+            </details>)}
+          </div>
+        </section>
+
+        <section className="panel plan-attention-panel">
+          <div className="plan-section-heading compact">
+            <div><span className="step-kicker">SINAIS DE ATENÇÃO</span><h2>Onde vale retomar?</h2><p>Somente registros relacionados aos assuntos selecionados neste plano.</p></div>
+            <AlertCircle size={20}/>
+          </div>
+          <div className="plan-attention-stats">
+            <div className="plan-attention-stat"><span>Flashcards vencidos</span><strong>{dueConcepts.length}</strong><Link to="/reviews">Revisar <ArrowRight size={12}/></Link></div>
+            <div className="plan-attention-stat"><span>Erros para retomar</span><strong>{dueErrors.length}</strong><Link to="/errors">Abrir caderno <ArrowRight size={12}/></Link></div>
+          </div>
+          {lowestPerformance.length ? <div className="plan-performance">
+            <div className="plan-performance-title"><TrendingUp size={15}/> Menor aproveitamento em questões</div>
+            {lowestPerformance.map(item => <div className="plan-performance-row" key={item.topic}>
+              <div><b>{item.topic}</b><small>{item.correct} de {item.total} acertos</small></div>
+              <div className="plan-performance-track"><span style={{ width: item.percent + "%" }}/></div>
+              <strong>{item.percent}%</strong>
+            </div>)}
+            <Link className="text-link" to="/questions">Ver desempenho em questões <ArrowRight size={13}/></Link>
+          </div> : <div className="plan-attention-empty">
+            <Lightbulb size={19}/><p>Ainda não há blocos de questões registrados para os assuntos deste plano. Registre suas tentativas para descobrir onde concentrar a revisão.</p>
+            <Link to="/questions">Registrar questões <ArrowRight size={12}/></Link>
+          </div>}
+          {dueErrors.length > 0 && <div className="plan-due-error-list">
+            <b>Erros vencidos</b>
+            {dueErrors.slice(0, 3).map(item => <div key={item.id}><span>{item.topic}</span><small>{item.discipline} · {planDateLabel(new Date(item.nextReview))}</small></div>)}
+          </div>}
+        </section>
+      </div>
+
+      <section className="panel plan-coverage-panel">
+        <div className="plan-section-heading">
+          <div><span className="step-kicker">VISÃO DO EDITAL</span><h2>Conteúdos que você já trabalhou</h2><p>Um assunto entra aqui depois que você marca pelo menos uma sessão como estudada. Isso não significa domínio do conteúdo.</p></div>
+          <strong className="plan-coverage-total">{coverageStudied}<small> / {coverageTotal}</small></strong>
+        </div>
+        <div className="plan-coverage-overall"><span style={{ width: coveragePercent + "%" }}/></div>
+        <div className="plan-coverage-grid">
+          {[...coverageGroups.entries()].map(([name, value]) => {
+            const percent = value.total ? Math.round(value.studied / value.total * 100) : 0;
+            return <div className="plan-coverage-item" key={name}>
+              <div><b>{name}</b><small>{value.studied} de {value.total} assuntos</small></div>
+              <div className="plan-coverage-track"><span style={{ width: percent + "%" }}/></div>
+            </div>;
+          })}
+        </div>
+      </section>
+    </>}
+
+    <section className="plan-quick-actions">
+      <Link to="/learn"><BookOpen size={17}/><span><b>Aprender</b><small>Estudar seus materiais</small></span><ArrowRight size={15}/></Link>
+      <Link to="/reviews"><Clock3 size={17}/><span><b>Revisões</b><small>Retomar o que está vencido</small></span><ArrowRight size={15}/></Link>
+      <Link to="/questions"><NotebookPen size={17}/><span><b>Questões</b><small>Medir seu aproveitamento</small></span><ArrowRight size={15}/></Link>
+      <Link to="/errors"><Flame size={17}/><span><b>Caderno de erros</b><small>Trabalhar suas dificuldades</small></span><ArrowRight size={15}/></Link>
     </section>
+    <p className="plan-detail-note">O Ritmo acompanha o que você registra. Ele não prevê aprovação nem transforma tempo de estudo em domínio automático.</p>
   </div>;
 }
