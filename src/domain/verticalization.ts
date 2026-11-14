@@ -220,6 +220,31 @@ export function getSelectedLeaves(nodes: PlanNode[], parentPath: string[] = []):
   return result;
 }
 
+
+export function renameNodeInTree(nodes: PlanNode[], id: string, name: string): PlanNode[] {
+  return nodes.map(node => node.id === id
+    ? { ...node, name: name.trim().slice(0, 240) }
+    : { ...node, children: renameNodeInTree(node.children, id, name) });
+}
+
+export function addManualChildToTree(nodes: PlanNode[], parentId: string, name: string): PlanNode[] {
+  return nodes.map(node => {
+    if (node.id === parentId) {
+      const child: PlanNode = {
+        id: makeId(),
+        name: name.trim().slice(0, 240),
+        origin: "manual",
+        sourceRef: "",
+        sourceText: "",
+        selected: true,
+        children: [],
+      };
+      return { ...node, children: [...node.children, child] };
+    }
+    return { ...node, children: addManualChildToTree(node.children, parentId, name) };
+  });
+}
+
 export function countTreeNodes(nodes: PlanNode[]): number {
   return nodes.reduce((total, node) => total + 1 + countTreeNodes(node.children), 0);
 }
