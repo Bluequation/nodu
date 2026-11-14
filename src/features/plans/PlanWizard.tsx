@@ -377,7 +377,7 @@ function SourceStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyPla
       </div>
       <div className="field-block">
         <label htmlFor="source-text">Conteúdo programático do cargo/área</label>
-        <textarea id="source-text" rows={9} maxLength={180000} value={sourceText} onChange={event => { setSourceText(event.target.value); setSavedSource(false); }} placeholder="Cole aqui somente o conteúdo programático pertinente ao cargo e à área escolhidos."/>
+        <textarea id="source-text" rows={9} maxLength={180000} value={sourceText} onChange={event => { setSourceText(event.target.value); setSavedSource(false); setMessage("Alterações não salvas."); }} placeholder="Cole aqui somente o conteúdo programático pertinente ao cargo e à área escolhidos."/>
         <small>Evite inserir dados pessoais. Se o edital tiver várias áreas, mantenha aqui apenas o recorte que pertence a este plano.</small>
       </div>
       <div className="button-row">
@@ -1052,7 +1052,7 @@ export function PlanDetailRoute() {
               {nextStudyItems.length > 5 && <span className="plan-more-topics">+ {nextStudyItems.length - 5} outros assuntos previstos nesta sessão</span>}
             </div>
             <div className="plan-next-actions">
-              <Link className="plan-light-button" to="/learn"><BookOpen size={15}/>Abrir Aprender</Link>
+              {nextStudySimulation ? <Link className="plan-light-button" to="/questions"><Target size={15}/>Registrar simulado</Link> : <Link className="plan-light-button" to="/learn"><BookOpen size={15}/>Abrir Aprender</Link>}
               <Link className="plan-hero-link" to="/agenda">Ver agenda <ArrowRight size={14}/></Link>
             </div>
           </> : <div className="plan-no-next"><CalendarDays size={28}/><h2>Não há sessões futuras no cronograma.</h2><p>Confira as datas da preparação e a distribuição dos assuntos.</p><Link className="plan-light-button" to={"/plans/" + plan.id + "/verticalize"}>Revisar cronograma</Link></div>}
@@ -1099,7 +1099,7 @@ export function PlanDetailRoute() {
           </div>
           <div className="plan-week-list">
             {weekEntries.map(day => <details className={"plan-week-day " + (day.isToday ? "is-today" : "")} key={day.id} open={day.key === (firstUpcomingDayKey || todayKey)}>
-              <summary><span className="plan-week-day-name">{day.label}{day.isToday && <em>Hoje</em>}</span><span className="plan-week-day-count">{day.simulation ? (day.simulationDone ? "Simulado realizado" : "Dia de simulado") : `${day.completed}/${day.items.length} estudados`}</span><ChevronDown size={15}/></summary>
+              <summary><span className="plan-week-day-name">{day.label}{day.isToday && <em>Hoje</em>}</span><span className="plan-week-day-count">{day.simulation ? `${day.simulationDone ? "Simulado realizado" : "Dia de simulado"}${day.items.length ? ` · ${day.completed}/${day.items.length} estudados` : ""}` : `${day.completed}/${day.items.length} estudados`}</span><ChevronDown size={15}/></summary>
               {(day.slot?.startTime || day.slot?.endTime) && <p className="plan-week-day-time">{day.slot?.startTime || "--:--"} às {day.slot?.endTime || "--:--"} · {formatDuration(day.minutes)}</p>}
               {day.simulation && <div className="plan-week-simulation"><Target size={16}/><span>Dia reservado para simulado.</span><label><input type="checkbox" checked={day.simulationDone} disabled={savingCompletion || !day.active} onChange={() => toggleSimulationCompletion(day.id, day.key)}/>{day.simulationDone ? "Realizado" : "Marcar como realizado"}</label><Link to="/questions">Registrar resultado <ArrowRight size={12}/></Link></div>}
               {day.items.length ? <div className="plan-week-topic-list">
