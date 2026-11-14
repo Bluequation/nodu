@@ -23,6 +23,7 @@ export interface PlanAssignment {
   origin: PlanOrigin;
   sourceRef: string;
   day: number;
+  done?: boolean;
 }
 export interface StudyPlan {
   id: string;
