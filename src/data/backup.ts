@@ -17,7 +17,7 @@ function hasKey(store: StoreName, value: Record<string, unknown>) {
 export async function createBackup(): Promise<string> {
   const db = await database();
   const entries = await Promise.all(STORES.map(store => db.getAll(store)));
-  const data = Object.fromEntries(STORES.map((store, index) => [store, entries[index]])) as BackupData;
+  const data = Object.fromEntries(STORES.map((store, index) => [store, entries[index]])) as unknown as BackupData;
   return JSON.stringify({ format: "ritmo-backup-v1", exportedAt: Date.now(), data }, null, 2);
 }
 export function inspectBackup(raw: string): BackupSummary {
