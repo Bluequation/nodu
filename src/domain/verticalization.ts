@@ -146,18 +146,19 @@ export function getPlanSections(tree: PlanNode[]): VerticalSection[] {
     const path: string[] = [];
     let guard = 0;
     while (current && guard++ < 12) {
-      const officialChildren = current.children.filter(child => child.origin !== "suggested");
+      const activeNode: PlanNode = current;
+      const officialChildren: PlanNode[] = activeNode.children.filter((child: PlanNode) => child.origin !== "suggested");
       if (officialChildren.length === 1) {
-        path.push(current.name);
+        path.push(activeNode.name);
         current = officialChildren[0];
         continue;
       }
       if (officialChildren.length > 1) {
-        sections.push(...officialChildren.map(node => ({ node, path: [...path, current!.name] })));
+        sections.push(...officialChildren.map((child: PlanNode) => ({ node: child, path: [...path, activeNode.name] })));
         current = undefined;
         break;
       }
-      sections.push({ node: current, path });
+      sections.push({ node: activeNode, path });
       current = undefined;
     }
     if (current) sections.push({ node: current, path });
