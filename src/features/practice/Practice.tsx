@@ -1,13 +1,10 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Link,useSearchParams } from "react-router-dom";
-import {MaterialScopePicker,useMaterialPlans,materialLabel} from "../study/MaterialScopePicker";
-import {errorStage} from "../../domain/learningQueue";
 import "../study/materials.css";
 import {useStudyContext} from "../study/useStudyContext";
-import {linkedTo,linkedToPlan,addTopicLink} from "../../domain/topicContext";
-import { ArrowRight, Check, ExternalLink, NotebookPen, Plus, Target, Trash2 } from "lucide-react";
-import type { Concept, ErrorRecord, StudySubject, QuestionBlock } from "../../domain/study";
-import { deleteError, deleteQuestionBlock, listConcepts, listErrors, listQuestionBlocks, saveError, saveQuestionBlock } from "../../data/study";
+import {linkedTo} from "../../domain/topicContext";
+import { ArrowRight, Check, Plus, Target, Trash2 } from "lucide-react";
+import type { StudySubject, QuestionBlock } from "../../domain/study";
+import { deleteQuestionBlock, listQuestionBlocks, saveQuestionBlock } from "../../data/study";
 
 const DAY = 86_400_000;
 const REVIEW_STEPS = [1, 3, 7, 15, 30, 60, 90];
@@ -27,142 +24,7 @@ function safeHttpUrl(value: string) {
   catch { return ""; }
 }
 
-export function ErrorsPage() {
-  const context=useStudyContext(),plans=useMaterialPlans(),[params]=useSearchParams();
-  const [phase,setPhase]=useState("all");
-  const [errors, setErrors] = useState<ErrorRecord[]>([]);
-  const [concepts, setConcepts] = useState<Concept[]>([]);
-  const [form, setForm] = useState(EMPTY_ERROR);
-  const [editingId, setEditingId] = useState("");
-  const [showForm, setShowForm] = useState(false);
-  const [applyId, setApplyId] = useState("");
-  const [feedback, setFeedback] = useState("");
-  async function reload() {
-    const [nextErrors, nextConcepts] = await Promise.all([listErrors(), listConcepts()]);
-    setErrors(nextErrors); setConcepts(nextConcepts);
-  }
-  useEffect(() => { reload(); }, []);
-  const selectedPlan=plans.find(p=>p.id===params.get("plan"));
-  const scoped=errors.filter(error=>context.requested?context.valid&&linkedTo(error,context.ref):params.get("plan")?!!selectedPlan&&linkedToPlan(error,selectedPlan):true);
-  const dueOnly=params.get("due")==="1";
-  const visible=scoped.filter(error=>(!dueOnly||isDue(error))&&(phase==="all"||errorStage(error)===phase));
-  const due = visible.filter(isDue).length;
-  function set<K extends keyof typeof EMPTY_ERROR>(key: K, value: typeof EMPTY_ERROR[K]) {
-    setForm(current => ({ ...current, [key]: value }));
-  }
-  function edit(error: ErrorRecord) {
-    setEditingId(error.id);
-    setForm({
-      subject: error.subject, discipline: error.discipline, area: error.area, topic: error.topic,
-      type: error.type, mistake: error.mistake, fix: error.fix, reviewDays: error.reviewDays,
-      questionUrl: error.questionUrl, conceptId: error.conceptId, questionText: error.questionText,
-      optionsText: error.optionsText, correctAnswer: error.correctAnswer,
-    });
-    setShowForm(true); setFeedback("");
-  }
-  function newError() {
-    if(params.get("plan")&&!context.valid){setFeedback("Escolha um assunto do plano para registrar o erro.");return;}
-    setEditingId("");setForm(context.valid?{...EMPTY_ERROR,topic:context.title,discipline:context.area,area:context.area,subject:/f[ií]sica/i.test(context.plan?.area||"")?"fisica":"tae"}:EMPTY_ERROR);setShowForm(true);setFeedback("");
-  }
-  async function submit(event: FormEvent) {
-    event.preventDefault(); setFeedback("");
-    if(context.requested&&!context.valid){setFeedback("Assunto indisponível.");return;}
-    if (!form.discipline.trim() || !form.area.trim() || !form.topic.trim()) { setFeedback("Preencha disciplina, área e assunto."); return; }
-    if (!form.mistake.trim() || !form.fix.trim()) { setFeedback("Descreva o erro e sua correção fundamentada."); return; }
-    if (form.questionUrl.trim()) {
-      try { const url = new URL(form.questionUrl); if (!["http:", "https:"].includes(url.protocol)) throw new Error(); }
-      catch { setFeedback("Informe um link HTTP ou HTTPS válido."); return; }
-    }
-    const old = errors.find(item => item.id === editingId);
-    const now = Date.now();
-    const record: ErrorRecord = {
-      id: old?.id || crypto.randomUUID(),
-      ...form,
-      at: old?.at || now,
-      nextReview: old?.nextReview || now + form.reviewDays * DAY,
-      successes: old?.successes || 0,
-      failures: old?.failures || 0,
-      status: old?.status === "dominado" ? "pendente" : old?.status || "pendente",
-      history: old?.history || [],
-      ...(context.valid?{planTopics:addTopicLink(old?.planTopics,context.ref)}:old?.planTopics?{planTopics:old.planTopics}:{}),
-    };
-    await saveError(record);
-    setForm(EMPTY_ERROR); setEditingId(""); setShowForm(false);
-    await reload(); setFeedback("Registro salvo.");
-  }
-  async function gradeApplication(id: string, grade: "right" | "wrong") {
-    const record = errors.find(item => item.id === id);
-    if (!record) return;
-    const at = Date.now();
-    const history = [...(record.history || []), { at, grade }];
-    let successes = record.successes || 0;
-    let failures = record.failures || 0;
-    let reviewDays = record.reviewDays || 15;
-    let status: ErrorRecord["status"] = "pendente";
-    if (grade === "right") {
-      const hadSuccessToday = history.slice(0, -1).some(item => item.grade === "right" && new Date(item.at).toDateString() === new Date(at).toDateString());
-      if (!hadSuccessToday) successes += 1;
-      reviewDays = REVIEW_STEPS.find(step => step > reviewDays) || 90;
-      status = successes >= 2 ? "dominado" : "pendente";
-    } else {
-      failures += 1; successes = 0; reviewDays = failures >= 2 ? 1 : 3;
-    }
-    await saveError({ ...record, history, successes, failures, reviewDays, status, nextReview: at + reviewDays * DAY });
-    setApplyId(""); await reload();
-  }
-  async function remove(id: string) {
-    if (!confirm("Excluir este registro do caderno de erros? O histórico de flashcards associado não será apagado.")) return;
-    await deleteError(id); await reload();
-  }
-
-  return <div className="stack ritmo-materials rm-errors">
-    <header className="heading"><div><small>RITMO / PRÁTICA</small><h1>Caderno de erros</h1></div><button className="primary-button" onClick={newError}><Plus size={16}/>Registrar erro</button></header>
-    {context.requested&&<p className="inline-feedback">{context.valid?context.plan?.title+" · "+context.title:"Assunto indisponível ou carregando."} · <Link to={context.returnTo}>Voltar a Aprender</Link></p>}
-    {dueOnly&&<p className="inline-feedback">Mostrando erros com revisão prevista até agora. <Link to={"/reviews?"+new URLSearchParams([...params].filter(([key])=>key!=="due")).toString()}>Voltar a Revisões</Link></p>}
-    <div className="rm-stats">{[["pendente","Pendentes"],["recuperacao","Em recuperação"],["superado","Superados"]].map(([id,label])=><button key={id} className={"rm-error-stat "+(phase===id?"active":"")} data-phase={id} aria-pressed={phase===id} onClick={()=>setPhase(phase===id?"all":id)}><strong>{scoped.filter(e=>errorStage(e)===id).length}</strong><small>{label}</small></button>)}</div>
-    <div className="rm-toolbar"><MaterialScopePicker plans={plans} disabled={showForm} onChange={()=>setPhase("all")}/><Link className="text-button" to={"/errors?"+new URLSearchParams([...params].filter(([key])=>key!=="due")).toString()} onClick={()=>setPhase("all")}>Todos os erros</Link><span>{due} para retomar</span></div>
-    <section className="panel">
-      {showForm && <form className="error-form" onSubmit={submit}>
-        <div className="panel-title-row"><div><span className="step-kicker">{editingId ? "EDITAR REGISTRO" : "NOVO REGISTRO"}</span><h2>{editingId ? "Atualize o erro" : "O que aconteceu?"}</h2><p>O objetivo é registrar a dificuldade real e a correção que permitirá resolvê-la depois.</p></div><button className="icon-button" type="button" onClick={() => setShowForm(false)}>×</button></div>
-        <div className="form-grid">
-          {!context.valid&&<div className="field-block"><label>Área de estudo</label><select value={form.subject} onChange={event => set("subject", event.target.value as StudySubject)}><option value="tae">Geral</option><option value="fisica">Física</option></select></div>}
-          <div className="field-block"><label>Tipo de erro</label><select value={form.type} onChange={event => set("type", event.target.value)}>{["Lacuna", "Revisar", "Interpretação", "Cálculo", "Distração", "Confusão de conceitos"].map(value => <option key={value}>{value}</option>)}</select></div>
-          {context.valid?<div className="field-block"><label>Assunto do plano</label><input value={context.title} readOnly/></div>:<><div className="field-block"><label>Disciplina *</label><input list="error-disciplines" value={form.discipline} onChange={event => set("discipline", event.target.value)} placeholder="Ex.: Legislação educacional"/><datalist id="error-disciplines"><option>Português</option><option>Legislação Educacional</option><option>Conhecimentos Pedagógicos</option><option>Administração Pública</option><option>Física</option><option>Matemática para Física</option></datalist></div>
-          <div className="field-block"><label>Área / eixo *</label><input value={form.area} onChange={event => set("area", event.target.value)} placeholder="Ex.: Educação superior, Mecânica"/></div>
-          <div className="field-block"><label>Assunto *</label><input value={form.topic} onChange={event => set("topic", event.target.value)} placeholder="Ex.: SINAES, Leis de Newton"/></div></>}
-          <div className="field-block"><label>Nova questão após</label><select value={form.reviewDays} onChange={event => set("reviewDays", Number(event.target.value))}>{REVIEW_STEPS.map(days => <option key={days} value={days}>{days} dia(s)</option>)}</select></div>
-          <div className="field-block field-span"><label>O que errei? *</label><textarea rows={3} value={form.mistake} onChange={event => set("mistake", event.target.value)} placeholder="Registre o raciocínio que levou ao erro, a confusão ou o ponto que você não sabia."/></div>
-          <div className="field-block field-span"><label>O que preciso aprender? *</label><textarea rows={3} value={form.fix} onChange={event => set("fix", event.target.value)} placeholder="Explique a regra, o conceito ou o procedimento correto."/></div>
-          <details className="field-span error-extra"><summary>Enunciado e alternativas da questão original (opcional)</summary>
-            <div className="field-block"><label>Enunciado</label><textarea rows={3} value={form.questionText} onChange={event => set("questionText", event.target.value)} placeholder="Cole o enunciado original."/></div>
-            <div className="field-block"><label>Alternativas</label><textarea rows={3} value={form.optionsText} onChange={event => set("optionsText", event.target.value)} placeholder={"A) …\nB) …\nC) …"}/></div>
-            <div className="field-block"><label>Gabarito</label><input value={form.correctAnswer} onChange={event => set("correctAnswer", event.target.value)} placeholder="Ex.: C"/></div>
-          </details>
-          <div className="field-block"><label>Link da questão (opcional)</label><input type="url" value={form.questionUrl} onChange={event => set("questionUrl", event.target.value)} placeholder="https://…"/></div>
-          <div className="field-block"><label>Vincular a uma família de flashcards (opcional)</label><select value={form.conceptId} onChange={event => set("conceptId", event.target.value)}><option value="">Sem vínculo</option>{concepts.filter(concept => context.valid?linkedTo(concept,context.ref):concept.subject === form.subject).map(concept => <option key={concept.id} value={concept.id}>{concept.topic}</option>)}</select></div>
-        </div>
-        {feedback && <p className="inline-feedback" role="alert">{feedback}</p>}
-        <div className="form-actions"><button type="button" className="secondary-button" onClick={() => setShowForm(false)}>Cancelar</button><button className="primary-button" type="submit">Salvar registro <Check size={15}/></button></div>
-      </form>}
-      {!showForm && feedback && <p className="inline-feedback">{feedback}</p>}
-      <div className="error-list">
-        {visible.length ? visible.map(error => {
-          const concept = concepts.find(item => item.id === error.conceptId);
-          const questionLink = safeHttpUrl(error.questionUrl);
-          return <article className="error-card" key={error.id}>
-            <div className="error-card-top"><div><span className="subject-pill">{error.planTopics?.map(ref=>materialLabel(plans,ref)).filter(Boolean).map(label=>label!.title).join(" · ")||error.discipline}</span><span className="soft-tag">{error.type}</span></div><span className={error.status === "dominado" ? "status-pill active" : isDue(error) ? "status-pill due" : "status-pill"}>{error.status === "dominado" ? "Superado" : isDue(error) ? "Retomar agora" : `Próxima: ${dateLabel(error.nextReview)}`}</span></div>
-            <h3>{error.topic}</h3><p className="error-breadcrumb">{error.discipline} / {error.area}</p>
-            <div className="error-content-grid"><div><small>ERRO / LACUNA</small><p>{error.mistake}</p></div><div><small>CORREÇÃO</small><p>{error.fix}</p></div></div>
-            {error.questionText && <details className="source-excerpt"><summary>Ver enunciado original</summary><p>{error.questionText}{error.optionsText ? `\n\n${error.optionsText}` : ""}{error.correctAnswer ? `\nGabarito: ${error.correctAnswer}` : ""}</p></details>}
-            <div className="rm-error-progress" title="Acertos em questões inéditas em dias diferentes"><span style={{width:Math.min(100,(error.successes||0)*50)+"%"}}/></div><div className="error-card-footer"><span>{dateLabel(error.at)} · {error.successes} acerto(s) · {error.failures} novo(s) erro(s){concept ? ` · Flashcard: ${concept.topic}` : ""}</span><div><button className="text-button" onClick={() => edit(error)}>Editar</button><button className="text-button" onClick={() => setApplyId(applyId === error.id ? "" : error.id)}>Nova aplicação</button><button className="icon-button" aria-label="Excluir" onClick={() => remove(error.id)}><Trash2 size={14}/></button></div></div>
-            {applyId === error.id && <div className="apply-error-panel"><strong>Resolva uma questão inédita sobre este assunto.</strong><p>O resultado desta aplicação não altera o FSRS dos flashcards.</p>{questionLink && <a href={questionLink} target="_blank" rel="noreferrer">Consultar questão original <ExternalLink size={12}/></a>}<div className="button-row"><button className="secondary-button compact" onClick={() => gradeApplication(error.id, "wrong")}>Errei novamente</button><button className="primary-button compact" onClick={() => gradeApplication(error.id, "right")}>Acertei uma inédita <Check size={14}/></button></div></div>}
-            {error.history.length > 0 && <details className="error-history"><summary>Histórico de aplicações ({error.history.length})</summary>{error.history.map((entry, index) => <p key={index}>{dateLabel(entry.at)} · {entry.grade === "right" ? "Acerto em questão inédita" : "Erro novamente"}</p>)}</details>}
-          </article>;
-        }) : <div className="empty-state"><NotebookPen size={28}/><strong>Nenhum erro registrado</strong><span>Quando errar uma questão ou identificar uma lacuna, registre o motivo e a correção. O Ritmo cobrará uma nova aplicação depois.</span><button className="primary-button" onClick={newError}>Registrar primeiro erro</button></div>}
-      </div>
-    </section>
-  </div>;
-}
+export { ErrorsPage } from "./ErrorsPage";
 
 export function QuestionsPage() {
   const context=useStudyContext();
