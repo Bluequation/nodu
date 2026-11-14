@@ -733,7 +733,7 @@ export function PlanDetailRoute() {
   const weeklyPlanned = weekEntries.filter(day => day.active).reduce((sum, day) => sum + day.items.length, 0);
   const weeklyCompleted = weekEntries.filter(day => day.active).reduce((sum, day) => sum + day.completed, 0);
   const weeklyPercent = weeklyPlanned ? Math.round(weeklyCompleted / weeklyPlanned * 100) : 0;
-  const firstUpcomingDayKey = weekEntries.find(day => day.active && day.items.length > 0 && day.key >= todayKey)?.key || "";
+  const firstUpcomingDayKey = weekEntries.find(day => day.active && day.key >= todayKey && day.items.some(item => !(item.completedDates || []).includes(day.key)))?.key || "";
 
   const topicKeys = useMemo(() => new Set((plan?.assignments || []).map(item => normalizePlanTopic(displayNodeName(item.name)))), [plan]);
   const subjectFilter = plan ? planSubjectFilter(plan) : null;
