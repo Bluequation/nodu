@@ -12,7 +12,7 @@
 - `app`: shell, navegação e rotas.
 - `features`: fluxos de cada funcionalidade.
 - `domain`: modelos e regras puras, testáveis sem interface.
-- `data`: persistência, repositórios e migração.
+- `data`: persistência, repositórios, backup e migração.
 - `shared`: componentes e estilos reutilizáveis (a consolidar durante a refatoração).
 
 ## Planejamento
@@ -32,17 +32,24 @@ O plano guarda os dados do concurso, o texto de origem, a árvore verticalizada,
 - O sistema propõe uma distribuição semanal editável. O tempo diário é disponibilidade declarada, não uma estimativa automática de domínio do conteúdo.
 - A agenda semanal lê as atribuições salvas; não altera datas ou estados do FSRS.
 
+## Flashcards e curadoria
+- Famílias contêm de 1 a 10 versões, com operação mental, formato, pergunta, resposta, justificativa e fonte.
+- Importação JSON/CSV cria rascunhos; nenhuma versão entra no FSRS até ser aprovada e publicada.
+- A publicação exige ao menos uma versão aprovada, fonte, formato válido para lacunas/imagens e ausência de perguntas duplicadas.
+- O editor preserva estatísticas e status de variantes existentes.
+
 ## Aprendizagem e FSRS
 - A implementação FSRS-6 foi portada das equações e pesos usados pela versão 7.1 e tem testes próprios.
-- Cada família de flashcards mantém seu estado FSRS; suas versões têm estatísticas individuais de uso, acertos e falhas.
+- Cada família mantém seu estado FSRS; suas versões têm estatísticas individuais de uso, acertos e falhas.
 - A fila de revisão respeita retenção desejada, limites diários, cartões novos e cartões vencidos.
 - Autoexplicação, recuperação livre, retomada de erros e prática intercalada usam apenas conteúdo inserido pela pessoa. Essas sessões não atualizam o FSRS nem o calendário do caderno.
 - O caderno de erros tem ciclo separado: a pessoa registra o erro, a correção e depois avalia uma nova questão. Duas aplicações corretas em dias distintos podem marcar o registro como dominado.
 - Blocos de questões registram total e acertos, sem alterar o FSRS.
 
-## Persistência e migração
+## Persistência, backup e migração
 - IndexedDB `ritmo-8`, versão 2; stores: `appState`, `plans`, `concepts`, `reviews`, `errors`, `blocks` e `learningSessions`.
 - Na primeira inicialização, o banco 7.1 é copiado integralmente para `appState/legacy-v7-snapshot`.
-- Conceitos, variantes, estados FSRS, revisões, erros, blocos, sessões e planos são normalizados e importados com seus IDs. A importação é idempotente e registra contagens.
-- A origem localStorage não é apagada nem sobrescrita. `planDraft`, configurações e dados auxiliares permanecem no snapshot quando não têm conversão ativa.
-- A equivalência do FSRS é coberta por testes de regra; antes da publicação, ainda será necessário validar a migração com cópias reais anonimizadas e conferir as contagens.
+- Conceitos e variantes, estados FSRS, revisões, erros, blocos, sessões e planos são normalizados e importados com seus IDs. A importação é idempotente e registra contagens.
+- A origem localStorage não é apagada nem sobrescrita. `planDraft`, configurações auxiliares e dados não mapeados continuam preservados no snapshot.
+- Backup `ritmo-backup-v1` exporta todos os stores e permite mesclar ou substituir os dados do Ritmo 8. A substituição não apaga o localStorage legado.
+- Antes da publicação, validar a migração com cópias reais anonimizadas e conferir as contagens e equivalência dos estados FSRS.
