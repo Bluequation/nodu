@@ -5,7 +5,7 @@ import type { Concept, ErrorAttachment, ErrorRecord, StudySubject } from "../../
 import { deleteError, listConcepts, listErrors, saveError } from "../../data/study";
 import { errorStage } from "../../domain/learningQueue";
 import { useStudyContext } from "../study/useStudyContext";
-import { MaterialScopePicker, materialLabel, useMaterialPlans } from "../study/MaterialScopePicker";
+import { MaterialScopePicker, useMaterialPlans } from "../study/MaterialScopePicker";
 import { addTopicLink, linkedTo, linkedToPlan } from "../../domain/topicContext";
 import "../study/materials.css";
 
