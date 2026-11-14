@@ -82,3 +82,12 @@ export async function getStudyCatalog(): Promise<Record<string, unknown>> {
 export async function saveStudyCatalog(catalog: Record<string, unknown>): Promise<void> {
   await (await database()).put("appState", { key: "study-catalog", value: catalog });
 }
+
+export async function recordConceptReview(concept: Concept, review: ReviewLog): Promise<void> {
+  const tx = (await database()).transaction(["concepts", "reviews"], "readwrite");
+  await Promise.all([
+    tx.objectStore("concepts").put(concept),
+    tx.objectStore("reviews").put(review),
+  ]);
+  await tx.done;
+}
