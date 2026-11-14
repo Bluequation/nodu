@@ -96,6 +96,12 @@ export interface LearningSession {
   subject: StudySubject;
   grade: string;
   at: number;
+  sourceType?: string;
+  sourceId?: string;
+  startedAt?: number;
+  response?: string;
+  autoGraded?: boolean;
+  prompt?: string;
 }
 export interface StudySettings {
   retention: number;
