@@ -2,7 +2,7 @@ import {useEffect,useMemo,useRef,useState,type ReactNode,type PointerEvent as Re
 import {ArrowLeft,CalendarDays,Check,ChevronRight,GripVertical,LoaderCircle,Target} from "lucide-react";
 import type {DaySchedule,PlanAssignment,ScheduleConfig,StudyPlan} from "../../../domain/models";
 import {getSelectedLeaves,type SelectedPlanLeaf} from "../../../domain/verticalization";
-import {WEEKDAYS,defaultSchedule,reconcileAssignments,displayNodeName,emptyDaySchedule,minutesForDay,normalizePlannerText,pieceTitle,topicPlacement,makeLibrary,changePlacement,availableTopics,restartWeek,type LibraryGroup} from "./plannerModel";
+import {WEEKDAYS,defaultSchedule,reconcileAssignments,displayNodeName,emptyDaySchedule,minutesForDay,normalizePlannerText,pieceTitle,topicTone,areaTone,areaDisplayName,makeLibrary,changePlacement,availableTopics,restartWeek,type LibraryGroup} from "./plannerModel";
 import "./planner.css";
 export function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyPlan) => Promise<void> }) {
   const leaves = useMemo(() => getSelectedLeaves(plan.tree), [plan.tree]);
@@ -97,12 +97,13 @@ export function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next:
     if(!current.moving&&Math.hypot(event.clientX-current.x,event.clientY-current.y)<6)return;
     current.moving=true;
     setDragged(current.id);setPoint({x:event.clientX,y:event.clientY});setOver(targetAt(event.clientX,event.clientY));
-    const strip=workspace.current?.querySelector<HTMLElement>(".rp-week-scroll");
-    if(strip){
-      const bounds=strip.getBoundingClientRect();
-      if(event.clientY>=bounds.top&&event.clientY<=bounds.bottom){
-        if(event.clientX<bounds.left+25)strip.scrollLeft-=16;
-        else if(event.clientX>bounds.right-25)strip.scrollLeft+=16;
+    for(const selector of [".rp-week-scroll",".rp-library-scroll"]){
+      const pane=workspace.current?.querySelector<HTMLElement>(selector);
+      if(!pane)continue;
+      const bounds=pane.getBoundingClientRect();
+      if(event.clientX>=bounds.left&&event.clientX<=bounds.right&&event.clientY>=bounds.top&&event.clientY<=bounds.bottom){
+        if(event.clientY<bounds.top+30)pane.scrollTop-=16;
+        else if(event.clientY>bounds.bottom-30)pane.scrollTop+=16;
       }
     }
   }
@@ -122,8 +123,8 @@ export function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next:
     setSelected(current=>current===id?null:id);
   }
   function piece(leaf:SelectedPlanLeaf,day:number) {
-    const specific=topicPlacement(leaf,plan.area).column==="specific";
-    return <div key={leaf.id} className={`rp-tile ${specific?"specific":""} ${selected===leaf.id?"picked":""} ${dragged===leaf.id?"moving":""} ${landed===leaf.id?"placed":""}`} onAnimationEnd={()=>setLanded(current=>current===leaf.id?null:current)}>
+    const tone=topicTone(leaf,plan.area);
+    return <div key={leaf.id} data-tone={tone} className={`rp-tile ${tone==="specific"?"specific":""} ${selected===leaf.id?"picked":""} ${dragged===leaf.id?"moving":""} ${landed===leaf.id?"placed":""}`} onAnimationEnd={()=>setLanded(current=>current===leaf.id?null:current)}>
       <button type="button" className="rp-tile-grip" title={displayNodeName(leaf.name)} aria-label={displayNodeName(leaf.name)} aria-pressed={selected===leaf.id}
         onPointerDown={event=>pointerDown(event,leaf.id)} onPointerMove={pointerMove} onPointerUp={event=>pointerEnd(event)} onPointerCancel={event=>pointerEnd(event,true)} onLostPointerCapture={event=>pointerEnd(event,true)}
         onClick={()=>selectPiece(leaf.id)}><GripVertical size={13}/><span>{pieceTitle(leaf.name)}</span></button>
@@ -135,9 +136,16 @@ export function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next:
   const matching=available.filter(leaf=>!search.trim()||normalizePlannerText(leaf.path.join(" ")+" "+pieceTitle(leaf.name)).includes(normalizePlannerText(search)));
   const columns=makeLibrary(search.trim()?matching:leaves,plan.area,new Set(matching.map(leaf=>leaf.id)));
   const [expanded,setExpanded]=useState<Record<string,boolean>>({});
-  function renderGroup(group:LibraryGroup,initialOpen:boolean):ReactNode{
+  const groupCount=(group:LibraryGroup):number=>group.topics.length+group.groups.reduce((sum,child)=>sum+groupCount(child),0);
+  function renderGroup(group:LibraryGroup,initialOpen:boolean,root=false):ReactNode{
     const open=Boolean(search.trim())||(expanded[group.key]??initialOpen);
-    return <div key={group.key} className="rp-branch"><button type="button" className="rp-branch-title" aria-expanded={open} title={group.label} onClick={()=>setExpanded(previous=>({...previous,[group.key]:!open}))}><ChevronRight size={13}/><span>{group.label}</span></button>{open&&<div className="rp-branch-body">{group.topics.length>0&&<div className="rp-piece-cloud">{group.topics.map(leaf=>piece(leaf,-1))}</div>}{group.groups.map((child,i)=>renderGroup(child,i===0))}{!group.topics.length&&!group.groups.length&&<small className="rp-empty-group">Todos no planner</small>}</div>}</div>;
+    const count=groupCount(group);
+    return <div key={group.key} className={root?"rp-area-card":"rp-branch"} data-tone={root?areaTone(group.key.startsWith("specific/")?"specific":"general",group.label):undefined}>
+      <button type="button" className={root?"rp-area-title":"rp-branch-title"} aria-expanded={open} title={group.label} onClick={()=>setExpanded(previous=>({...previous,[group.key]:!open}))}>
+        {root&&<i className="rp-area-dot" aria-hidden="true"/>}<span>{areaDisplayName(group.label)}</span>{root&&<small>{count}</small>}<ChevronRight size={14}/>
+      </button>
+      {open&&<div className={root?"rp-area-body":"rp-branch-body"}>{group.topics.length>0&&<div className="rp-piece-cloud">{group.topics.map(leaf=>piece(leaf,-1))}</div>}{group.groups.map((child,i)=>renderGroup(child,i===0))}{!count&&<small className="rp-empty-group">Todos no planner</small>}</div>}
+    </div>;
   }
   const organized=leaves.length-available.length;
   const weeklyMinutes=config.days.reduce((sum,day)=>sum+minutesForDay(config,day),0);
@@ -179,7 +187,7 @@ export function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next:
           const slot=config.daySchedules?.[day.id]||emptyDaySchedule();
           const items=assignments.filter(item=>item.day===day.id&&enabled).map(item=>leafById.get(item.nodeId)).filter((leaf):leaf is SelectedPlanLeaf=>Boolean(leaf));
           return <article key={day.id} data-rp-destination={day.id} className={`rp-day ${enabled?"enabled":""} ${enabled&&slot.simulation?"mock":""} ${over===day.id?"landing":""} ${selected?"select-destination":""}`}>
-            <button type="button" className="rp-day-title" aria-label={`Mover assunto para ${day.label}`} onClick={()=>{if(selected)move(selected,day.id);}}><b>{day.short}</b>{items.length>0&&<small className="rp-day-count" aria-label={`${items.length} assuntos`} title={`${items.length} assuntos`}>{items.length}</small>}</button>
+            <button type="button" className="rp-day-title" aria-label={`Mover assunto para ${day.label}`} onClick={()=>{if(selected)move(selected,day.id);}}><b>{day.label}</b>{items.length>0&&<small className="rp-day-count" aria-label={`${items.length} assuntos`} title={`${items.length} assuntos`}>{items.length}</small>}</button>
             <details className="rp-day-settings"><summary title={`Configurar ${day.label}`}><span>{enabled&&slot.startTime&&slot.endTime?`${slot.startTime}–${slot.endTime}`:"Definir horário"}</span></summary>
               <div className="rp-day-fields"><label className="rp-toggle"><input type="checkbox" checked={enabled} onChange={event=>toggleDay(day.id,event.target.checked)}/> Estudar</label>{enabled&&<><label>Das<input type="time" aria-label={`Início de ${day.label}`} value={slot.startTime} onChange={event=>setDay(day.id,{startTime:event.target.value})}/></label><label>Às<input type="time" aria-label={`Fim de ${day.label}`} value={slot.endTime} onChange={event=>setDay(day.id,{endTime:event.target.value})}/></label><label className="rp-toggle"><input type="checkbox" checked={slot.simulation} onChange={event=>setDay(day.id,{simulation:event.target.checked})}/> Simulado</label></>}</div>
             </details>
@@ -194,11 +202,11 @@ export function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next:
     <section className={`rp-library ${over===-1?"landing":""}`} data-rp-destination={-1} aria-label="Biblioteca do plano">
       <header className="rp-section-head"><div><h2>Biblioteca</h2></div><input type="search" aria-label="Buscar assunto na biblioteca" placeholder="Buscar assunto…" value={search} onChange={event=>setSearch(event.target.value)}/></header>
       <div className="rp-library-scroll"><div className="rp-library-tree">
-        {columns.map(column=><div key={column.key} className={"rp-column "+column.key}><h3>{column.label}</h3>{column.groups.length?column.groups.map((group,i)=>renderGroup(group,i===0)):<p className="rp-library-empty">{search.trim()?"Nenhum assunto encontrado.":"Sem assuntos disponíveis nesta área."}</p>}</div>)}
+        {columns.map(column=><section key={column.key} className={"rp-column "+column.key}><div className="rp-section-band"><h3>{column.label}</h3><small>{column.groups.reduce((sum,group)=>sum+groupCount(group),0)} assuntos</small></div>{column.groups.length?<div className="rp-area-grid">{column.groups.map((group,i)=>renderGroup(group,i===0,true))}</div>:<p className="rp-library-empty">{search.trim()?"Nenhum assunto encontrado.":"Nenhum conteúdo selecionado nesta área."}</p>}</section>)}
       </div></div>
     </section>
     <footer className="rp-footer"><button type="button" className="secondary-button" disabled={finishing} onClick={goBack}><ArrowLeft size={15}/> Voltar</button><span role="status">{saveState==="error"?"Falha ao salvar. Tente salvar novamente.":saveState==="saving"?"Salvando…":selected?"Toque em um dia para mover.":saveState==="saved"?"Salvo neste navegador":feedback}</span><button type="button" className="primary-button" disabled={!hasSession||finishing} onClick={finish}>{finishing?<LoaderCircle className="save-spinner" size={15}/>:<Check size={15}/>} {finishing?"Salvando…":"Salvar cronograma"}</button></footer>
-    {dragging&&<div className="rp-ghost" style={{left:point.x+10,top:point.y+10}}><GripVertical size={15}/><span>{pieceTitle(dragging.name)}</span></div>}
+    {dragging&&<div className="rp-ghost" data-tone={topicTone(dragging,plan.area)} style={{left:point.x+10,top:point.y+10}}><GripVertical size={15}/><span>{pieceTitle(dragging.name)}</span></div>}
   </div>;
 }
 

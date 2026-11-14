@@ -182,3 +182,26 @@ export function restartWeek(config:ScheduleConfig,assignments:PlanAssignment[]){
   }
   return {config:{...config,days:[],minutes:0,dayMinutes:{},sameMinutes:false,daySchedules},assignments:assignments.map(item=>({...item,day:-1}))};
 }
+
+/** Stable presentation palette shared by library cards and their assigned pieces. */
+export type AreaTone="law"|"pedagogy"|"administration"|"language"|"data"|"specific"|"neutral";
+export function areaTone(column:"general"|"specific",label:string):AreaTone{
+  if(column==="specific")return "specific";
+  const key=normalizePlannerText(label);
+  if(/legislacao|direito/.test(key))return "law";
+  if(/pedagogia|educacao brasileira|didatica/.test(key))return "pedagogy";
+  if(/administracao|gestao publica/.test(key))return "administration";
+  if(/portugues|lingua portuguesa|linguagem/.test(key))return "language";
+  if(/indicadores|estatistica|dados|raciocinio logico/.test(key))return "data";
+  return "neutral";
+}
+export function topicTone(leaf:SelectedPlanLeaf,area=""):AreaTone{
+  const placement=topicPlacement(leaf,area);
+  return areaTone(placement.column,placement.groups[0]||"");
+}
+export function areaDisplayName(value:string){
+  const key=normalizePlannerText(value);
+  if(/^leitura e interpretacao de dados e indicadores educacionais$/.test(key))return "Dados e indicadores";
+  if(/^lingua portuguesa$/.test(key))return "Português";
+  return value.replace(/\.$/,"");
+}

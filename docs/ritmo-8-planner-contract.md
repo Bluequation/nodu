@@ -1,7 +1,7 @@
 # Ritmo 8 — contrato de interface
 Escopo congelado: Meus planos > cronograma. Não ampliar outras telas antes da aprovação visual.
 ## Referência aprovada (14/11/2026)
-Duas regiões: planner semanal e biblioteca. Sete cartões brancos vazios em uma linha; nomes curtos, horários no próprio cartão, simulado opcional. Biblioteca em duas colunas (Conhecimentos gerais / Conhecimentos específicos), categorias recolhíveis. Peças azuis gerais e lilás específicas. Sem listas duplicadas, seletores repetidos ou painel intermediário. Em telas estreitas, a semana desliza horizontalmente; em largura muito pequena a biblioteca empilha. Não criar assuntos fictícios. Nomes de apresentação não alteram os originais.
+Duas regiões: planner semanal e biblioteca. Layout desktop 40/60: sete cartões brancos vazios na vertical à esquerda; nomes curtos, horários no próprio cartão, simulado opcional. Biblioteca à direita com seções empilhadas (Conhecimentos gerais / Conhecimentos específicos) e cards de área coloridos, recolhíveis, com peças da mesma cor no planner. Sem listas duplicadas, seletores repetidos ou painel intermediário. As duas regiões têm rolagem independente. Em telas estreitas ficam empilhadas, mantendo ambas disponíveis. Não criar assuntos fictícios. Nomes de apresentação não alteram os originais.
 ## Arquitetura
 - plannerModel.ts: adaptação de apresentação, regras puras, distribuição, labels e hierarquia.
 - PlannerEditor.tsx: interface, interação e persistência serializada.
@@ -15,3 +15,6 @@ O arquivo [planner-reference.svg](planner-reference.svg) é uma reprodução esq
 
 ## Refinamento aprovado
 Peças da biblioteca compactas, de largura conforme o título, agrupadas por categoria. Categorias permanecem mesmo quando todos os seus assuntos estão no planner. Rótulos conhecidos usam abreviações semânticas; os demais preservam o texto sem truncamento arbitrário. O número de assuntos e a rolagem do cartão indicam seu conteúdo. Recomeçar semana é uma ação explícita com confirmação, devolve todos os itens à biblioteca e zera horários e simulados sem alterar edital, datas do plano ou registros de conclusão. Planos novos sempre começam vazios; nenhuma migração apaga planos existentes.
+
+## Revisão autorizada — planner vertical
+A proporção 40/60 substitui o desenho anterior de sete dias lado a lado. Cores por área: legislação azul, pedagogia lilás, administração âmbar, português verde acinzentado, dados petróleo, específicos índigo; fallback neutro. Os cards expandidos usam a largura disponível. Os testes verificam geometria desktop, cor persistente e os gestos existentes. A referência SVG é esquemática e não equivale à captura do aplicativo.

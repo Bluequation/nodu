@@ -25,6 +25,8 @@ const day=(page,n)=>page.locator('.rp-day[data-rp-destination="'+n+'"]');
 const library=page=>page.locator(".rp-library");
 const topic=(locator,name)=>locator.locator(".rp-tile-grip").filter({hasText:name});
 async function drag(page,source,target,touch=false){
+ await page.locator(".ritmo-planner").evaluate(el=>el.scrollIntoView({block:"start"}));
+ await target.scrollIntoViewIfNeeded();
  await source.scrollIntoViewIfNeeded();
  const from=await source.boundingBox(),to=await target.boundingBox();
  assert.ok(from&&to,"drag targets must be visible");
@@ -49,12 +51,17 @@ try{
  assert.equal(await page.locator(".rp-day").count(),7);
  assert.equal(await page.locator(".rp-day .rp-tile").count(),0);
  assert.equal(await page.locator(".rp-column").count(),2);
- const geometry=await page.locator(".rp-day").evaluateAll(cards=>cards.map(c=>({top:c.getBoundingClientRect().top,height:c.getBoundingClientRect().height})));
- assert.ok(geometry.every(c=>Math.abs(c.top-geometry[0].top)<1&&c.height<=175),"seven compact aligned cards");
+ const geometry=await page.locator(".rp-day").evaluateAll(cards=>cards.map(c=>({top:c.getBoundingClientRect().top,left:c.getBoundingClientRect().left})));
+ assert.ok(geometry.every((c,i)=>Math.abs(c.left-geometry[0].left)<1&&(!i||c.top>geometry[i-1].top)),"seven vertically aligned cards");
+ const left=await page.locator(".rp-planner").boundingBox(),right=await library(page).boundingBox();
+ assert.ok(left&&right&&left.x+left.width<=right.x&&Math.abs(left.width/(left.width+right.width)-.4)<.035,"40/60 desktop columns");
+ assert.equal(await library(page).locator('.rp-area-card[data-tone="law"]').count(),1);
+ assert.equal(await library(page).locator('.rp-area-card[data-tone="pedagogy"]').count(),1);
  await page.screenshot({path:"planner-screenshots/01-empty-desktop.png",fullPage:true});
  await drag(page,topic(library(page),"LDB"),day(page,1));
  await topic(day(page,1),"LDB").waitFor();
  assert.equal(await topic(library(page),"LDB").count(),0);
+ assert.equal(await day(page,1).locator(".rp-tile").getAttribute("data-tone"),"law");
  await saved(page);
  await page.reload();await topic(day(page,1),"LDB").waitFor();
  await drag(page,topic(day(page,1),"LDB"),day(page,4));
@@ -68,7 +75,7 @@ try{
  await seed(page,fixture("populated",busyTree,busyAssignments,{startDate:"2026-11-14",examDate:"",days:[1],minutes:0,mode:"alternate",daySchedules:{1:{startTime:"18:00",endTime:"20:00",simulation:false}}}));
  assert.equal(await day(page,1).locator(".rp-tile").count(),11);
  assert.equal(await day(page,1).locator(".rp-day-count").textContent(),"11");
- assert.ok((await day(page,1).boundingBox()).height<=175,"populated day remains compact");
+ assert.ok((await day(page,1).boundingBox()).height<=215,"populated day remains compact");
  await page.screenshot({path:"planner-screenshots/03-populated.png",fullPage:true});
  page.once("dialog",dialog=>dialog.accept());
  await page.getByRole("button",{name:"Recomeçar semana"}).click();

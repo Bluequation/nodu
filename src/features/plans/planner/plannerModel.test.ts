@@ -1,5 +1,5 @@
 import {describe,it,expect} from "vitest";
-import {availableTopics,changePlacement,defaultSchedule,makeLibrary,reconcileAssignments,pieceTitle,topicPlacement,restartWeek} from "./plannerModel";
+import {availableTopics,changePlacement,defaultSchedule,makeLibrary,reconcileAssignments,pieceTitle,topicPlacement,restartWeek,areaTone,topicTone,areaDisplayName} from "./plannerModel";
 import type {StudyPlan} from "../../../domain/models";
 import type {SelectedPlanLeaf} from "../../../domain/verticalization";
 const leaf=(id:string,name:string,path:string[]):SelectedPlanLeaf=>({id,name,path:[...path,name],origin:"edital",sourceRef:"item 1"});
@@ -35,5 +35,10 @@ describe("planner contract",()=>{
    expect(next.config.days).toEqual([]); expect(next.config.daySchedules[0]).toEqual({startTime:"",endTime:"",simulation:false,completedDates:["2026-11-08"]});
    expect(next.assignments.every(x=>x.day===-1&&x.completedDates?.length===1)).toBe(true);
    expect(availableTopics(leaves,next.assignments,next.config.days)).toEqual(leaves);
+ });
+ it("uses the same stable area palette in the planner and library",()=>{
+   expect(topicTone(leaves[0],"Física")).toBe("law");expect(topicTone(leaves[1],"Física")).toBe("pedagogy");expect(topicTone(leaves[2],"Física")).toBe("specific");
+   expect(areaTone("general","Administração Pública")).toBe("administration");expect(areaTone("general","Língua Portuguesa")).toBe("language");expect(areaTone("general","Leitura e Interpretação de Dados e Indicadores Educacionais")).toBe("data");
+   expect(areaDisplayName("Língua Portuguesa")).toBe("Português");
  });
 });
