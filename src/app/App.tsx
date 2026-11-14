@@ -1,1 +1,159 @@
-import{useEffect,useState,type FormEvent,type ReactNode}from"react";import{HashRouter,NavLink,Route,Routes,Link,useNavigate,useParams}from"react-router-dom";import{LayoutDashboard,FolderKanban,CalendarDays,Brain,Layers3,RefreshCw,Target,NotebookPen,Upload,SlidersHorizontal,Settings,Plus,ArrowRight,ChevronLeft,ChevronRight,Database}from"lucide-react";import{createPlan,getPlan,listPlans}from"../data/plans";import type{StudyPlan}from"../domain/models";const groups=[["VISÃO GERAL",[["Painel","/",LayoutDashboard]]],["PLANEJAMENTO",[["Meus planos","/plans",FolderKanban],["Agenda","/agenda",CalendarDays]]],["APRENDIZAGEM",[["Aprender","/learn",Brain],["Flashcards","/flashcards",Layers3],["Revisões","/reviews",RefreshCw]]],["PRÁTICA",[["Questões","/questions",Target],["Caderno de erros","/errors",NotebookPen]]],["CONTEÚDOS",[["Importar","/import",Upload],["Curadoria","/curation",SlidersHorizontal]]],["PREFERÊNCIAS",[["Ajustes","/settings",Settings]]]] as const;function Heading({eyebrow,title,desc,action}:{eyebrow:string;title:string;desc:string;action?:ReactNode}){return <header className="heading"><div><small>{eyebrow}</small><h1>{title}</h1><p>{desc}</p></div>{action}</header>}function Panel({children}:{children:ReactNode}){return <section className="panel">{children}</section>}function Shell(){return <div className="shell"><aside className="sidebar"><Link to="/" className="brand"><i>R</i><span><b>Ritmo</b><small>SEU ESPAÇO DE ESTUDOS</small></span></Link><nav>{groups.map(([label,items])=><section key={label}><small>{label}</small>{items.map(([name,path,Icon])=><NavLink key={path} to={path} end={path==="/"}><Icon size={17}/>{name}</NavLink>)}</section>)}</nav><footer><b>Estude no seu ritmo.</b><small>Do edital à aprendizagem.</small></footer></aside><main className="main"><header className="mobile-head"><Link to="/">◈ Ritmo</Link><small>8.0 · nova estrutura</small></header><Routes><Route index element={<Dashboard/>}/><Route path="/plans" element={<Plans/>}/><Route path="/plans/new" element={<NewPlan/>}/><Route path="/plans/:id" element={<PlanDetail/>}/><Route path="/agenda" element={<Agenda/>}/>{["learn","flashcards","reviews","questions","errors","import","curation","settings"].map(p=><Route key={p} path={"/"+p} element={<Feature name={p}/>}/>)}</Routes><footer className="app-footer">Ritmo 8.0 · Seu espaço de estudos</footer></main><nav className="mobile-nav">{[["Painel","/",LayoutDashboard],["Planos","/plans",FolderKanban],["Agenda","/agenda",CalendarDays],["Aprender","/learn",Brain],["Ajustes","/settings",Settings]].map(([label,path,Icon])=><NavLink key={path as string} to={path as string} end={path==="/"}><Icon size={18}/><small>{label as string}</small></NavLink>)}</nav></div>}function Dashboard(){return <div className="stack"><Heading eyebrow="SEU ESPAÇO DE ESTUDOS" title="Vamos no seu ritmo." desc="Um lugar para organizar o que estudar, acompanhar seu progresso e aprender com consistência."/><section className="hero"><small>✦ RITMO 8 · NOVA ESTRUTURA</small><h2>Do edital à aprendizagem, em um só lugar.</h2><p>Estamos preparando seu espaço de estudos. Comece organizando um plano e conheça a nova agenda.</p><Link className="primary" to="/plans">Organizar meus estudos <ArrowRight size={16}/></Link></section><div className="stats">{[["PLANOS","Seus planos de estudo"],["AGENDA","Atividades programadas"],["CONHECIMENTOS","Flashcards preservados na migração"]].map(([a,b])=><Panel key={a}><small>{a}</small><b>—</b><span>{b}</span></Panel>)}</div><Panel><small className="eyebrow">PRÓXIMO PASSO</small><h2>Prepare seu planejamento</h2><p>A nova estrutura separa planos, agenda e ferramentas de aprendizagem.</p><Link className="text-link" to="/plans">Conhecer meus planos <ArrowRight size={15}/></Link></Panel></div>}function Plans(){const[items,setItems]=useState<StudyPlan[]>([]);useEffect(()=>{listPlans().then(setItems)},[]);return <div className="stack"><Heading eyebrow="PLANEJAMENTO" title="Meus planos" desc="Organize o conteúdo do edital e transforme suas escolhas em um percurso de estudos." action={<Link className="primary" to="/plans/new"><Plus size={16}/> Novo plano</Link>}/><Panel><div className="panel-head"><h2>Planos de estudo</h2><small>{items.length} salvo(s)</small></div>{items.length?items.map(p=><Link className="plan-row" key={p.id} to={"/plans/"+p.id}><b>{p.title}</b><span>{[p.institution,p.position,p.area].filter(Boolean).join(" · ")}</span><ArrowRight size={16}/></Link>):<div className="empty"><FolderKanban size={28}/><h2>Seu primeiro plano começa aqui</h2><p>Cadastre concurso, cargo e área. Depois conectaremos a verticalização e a seleção de conteúdos.</p><Link className="primary" to="/plans/new">Criar primeiro plano</Link></div>}</Panel></div>}function NewPlan(){const nav=useNavigate();const[v,setV]=useState({title:"",institution:"",position:"",area:"",organizer:"",examDate:""});const[saving,setSaving]=useState(false);async function submit(e:FormEvent){e.preventDefault();setSaving(true);try{const p=await createPlan(v);nav("/plans/"+p.id)}finally{setSaving(false)}}return <div className="stack"><Heading eyebrow="PLANEJAMENTO · NOVO PLANO" title="Identifique seu concurso" desc="Começamos pelos dados essenciais. A verticalização e a seleção virão em seguida."/><Panel><form onSubmit={submit} className="form"><label>Nome do plano *<input required maxLength={120} placeholder="Ex.: SEDUC — Professor de Física" value={v.title} onChange={e=>setV({...v,title:e.target.value})}/></label>{([["institution","Instituição"],["position","Cargo"],["area","Área ou componente curricular"],["organizer","Banca organizadora"]]as const).map(([key,label])=><label key={key}>{label}<input value={v[key]} onChange={e=>setV({...v,[key]:e.target.value})}/></label>)}<label>Data da prova<input type="date" value={v.examDate} onChange={e=>setV({...v,examDate:e.target.value})}/></label><div className="form-actions"><Link to="/plans">Voltar</Link><button className="primary" disabled={saving}>{saving?"Salvando…":"Salvar e continuar"}</button></div></form></Panel></div>}function PlanDetail(){const{id=""}=useParams();const[p,setP]=useState<StudyPlan>();useEffect(()=>{getPlan(id).then(setP)},[id]);if(!p)return <div className="stack"><Heading eyebrow="MEUS PLANOS" title="Carregando plano" desc=""/></div>;return <div className="stack"><Heading eyebrow="MEUS PLANOS" title={p.title} desc={[p.institution,p.position,p.area].filter(Boolean).join(" · ")}/><Panel><small className="eyebrow">DADOS DO CONCURSO</small><h2>Plano salvo neste dispositivo</h2><p>Instituição: {p.institution||"Não informada"} · Cargo: {p.position||"Não informado"} · Área: {p.area||"Não informada"}</p><hr/><h2>Próxima etapa</h2><p>Verticalizar e selecionar o edital. A estrutura literal, as sugestões e suas escolhas serão organizadas separadamente.</p><small>Em implementação</small></Panel></div>}function Agenda(){const[mode,setMode]=useState<"month"|"week">("month");const[anchor,setAnchor]=useState(new Date());const[selected,setSelected]=useState(new Date());const first=mode==="month"?new Date(anchor.getFullYear(),anchor.getMonth(),1):new Date(anchor);const start=new Date(first);start.setDate(start.getDate()-((start.getDay()+6)%7));const days=Array.from({length:mode==="month"?42:7},(_,i)=>{const d=new Date(start);d.setDate(start.getDate()+i);return d});const move=(n:number)=>{const d=new Date(anchor);mode==="month"?d.setMonth(d.getMonth()+n):d.setDate(d.getDate()+n*7);setAnchor(d)};return <div className="stack"><Heading eyebrow="PLANEJAMENTO" title="Agenda" desc="Uma visão mensal e semanal do seu percurso de estudos."/><Panel><div className="cal-head"><h2>{anchor.toLocaleDateString("pt-BR",{month:"long",year:"numeric"})}</h2><div><button onClick={()=>setMode("month")}>Mês</button><button onClick={()=>setMode("week")}>Semana</button><button onClick={()=>move(-1)}><ChevronLeft size={17}/></button><button onClick={()=>move(1)}><ChevronRight size={17}/></button></div></div><div className="calendar">{["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"].map(x=><b key={x}>{x}</b>)}{days.map(d=><button className={(d.getMonth()!==anchor.getMonth()&&mode==="month"?"outside ":"")+(d.toDateString()===selected.toDateString()?"selected":"")} key={d.toISOString()} onClick={()=>setSelected(d)}>{d.getDate()}</button>)}</div></Panel><Panel><small className="eyebrow">DETALHAMENTO DO DIA</small><h2>{selected.toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long"})}</h2><p>As atividades dos planos, revisões FSRS e caderno de erros serão reunidas aqui.</p></Panel></div>}const features:Record<string,[string,string,string[]]>={learn:["Aprender","Atividades construídas a partir do seu próprio material.",["Autoexplicação","Recuperação livre","Retomada de erros","Prática intercalada","Histórico de sessões"]],flashcards:["Flashcards","Famílias de conhecimentos e versões de cartões.",["Famílias de microconhecimentos","Cartões básicos, lacunas e respostas digitadas","Imagens com ocultação","Fontes e justificativas"]],reviews:["Revisões","Revisões programadas pelo FSRS.",["Fila de revisões","Esquecimentos recorrentes","Filtros por área","Histórico de retenção"]],questions:["Questões","Registro de blocos e desempenho.",["Bancas e blocos","Acertos e erros","Histórico","Desempenho por assunto"]],errors:["Caderno de erros","Transforme dificuldades em registros retomáveis.",["Enunciado e alternativas","Causa do erro","Vínculos com conteúdos","Reaplicação programada"]],import:["Importar conteúdos","Traga materiais próprios para a biblioteca.",["JSON e CSV","Pré-visualização","Validação","Preservação das fontes"]],curation:["Curadoria","Revise os conteúdos antes de estudar.",["Editar cartões","Aprovar ou rejeitar","Publicar e suspender","Histórico"]],settings:["Ajustes","Configurações e segurança dos dados.",["Armazenamento local","Migração não destrutiva","Backup e restauração","Preferências FSRS"]]};function Feature({name}:{name:string}){const[title,desc,items]=features[name];const Icon=name==="settings"?Database:Brain;return <div className="stack"><Heading eyebrow="ESPAÇO DE ESTUDOS" title={title} desc={desc}/><Panel><Icon size={25}/><h2>Esta área faz parte da nova arquitetura.</h2><p>Os fluxos completos serão incorporados nas próximas etapas da refatoração.</p><hr/>{items.map(x=><p key={x}>✓ &nbsp;{x}</p>)}</Panel></div>}export function App(){return <HashRouter><Shell/></HashRouter>}
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import {
+  Activity, ArrowRight, BookOpen, Brain, CalendarDays, CheckCircle2, ClipboardList,
+  FileText, FolderKanban, LayoutDashboard, Layers3, NotebookPen, Settings, Target,
+  Upload, WandSparkles,
+} from "lucide-react";
+import { HashRouter, Link, NavLink, Route, Routes, useNavigate } from "react-router-dom";
+import { createPlan, listPlans } from "../data/plans";
+import type { NewStudyPlan, StudyPlan } from "../domain/models";
+import { getSelectedLeaves } from "../domain/verticalization";
+import { PlanDetailRoute, PlanWizardRoute } from "../features/plans/PlanWizard";
+
+const groups = [
+  ["VISÃO GERAL", [["Painel", "/", LayoutDashboard]]],
+  ["PLANEJAMENTO", [["Meus planos", "/plans", FolderKanban], ["Agenda", "/agenda", CalendarDays]]],
+  ["APRENDIZAGEM", [["Aprender", "/learn", Brain], ["Flashcards", "/flashcards", Layers3], ["Revisões", "/reviews", Activity]]],
+  ["PRÁTICA", [["Questões", "/questions", Target], ["Caderno de erros", "/errors", NotebookPen]]],
+  ["CONTEÚDOS", [["Importar", "/import", Upload], ["Curadoria", "/curation", WandSparkles]]],
+  ["PREFERÊNCIAS", [["Ajustes", "/settings", Settings]]],
+] as const;
+
+function Heading({ eyebrow, title, desc, action }: { eyebrow: string; title: string; desc: string; action?: ReactNode }) {
+  return <header className="heading"><div><small>{eyebrow}</small><h1>{title}</h1><p>{desc}</p></div>{action}</header>;
+}
+function Panel({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return <section className={`panel ${className}`}>{children}</section>;
+}
+function Shell() {
+  return <div className="shell">
+    <aside className="sidebar">
+      <Link to="/" className="brand"><i>R</i><span><b>Ritmo</b><small>SEU ESPAÇO DE ESTUDOS</small></span></Link>
+      <nav>{groups.map(([label, items]) => <section key={label}><small>{label}</small>{items.map(([name, path, Icon]) => <NavLink key={path} to={path} end={path === "/"}><Icon size={17}/>{name}</NavLink>)}</section>)}</nav>
+      <footer><b>Estude no seu ritmo.</b><small>Do edital à aprendizagem.</small><small>Seus dados ficam salvos neste navegador.</small></footer>
+    </aside>
+    <main className="main">
+      <header className="mobile-head"><Link to="/">◈ Ritmo</Link><small>8.0 · nova estrutura</small></header>
+      <Routes>
+        <Route index element={<Dashboard/>}/>
+        <Route path="/plans" element={<Plans/>}/>
+        <Route path="/plans/new" element={<NewPlan/>}/>
+        <Route path="/plans/:id/verticalize" element={<PlanWizardRoute/>}/>
+        <Route path="/plans/:id" element={<PlanDetailRoute/>}/>
+        <Route path="/agenda" element={<Agenda/>}/>
+        {["learn","flashcards","reviews","questions","errors","import","curation","settings"].map(name => <Route key={name} path={`/${name}`} element={<Feature name={name}/>}/>)}
+      </Routes>
+      <footer className="app-footer">Ritmo 8.0 · Seu espaço de estudos</footer>
+    </main>
+    <nav className="mobile-nav">{[["Painel","/",LayoutDashboard],["Planos","/plans",FolderKanban],["Agenda","/agenda",CalendarDays],["Aprender","/learn",Brain],["Ajustes","/settings",Settings]].map(([label,path,Icon]) => <NavLink key={path as string} to={path as string} end={path === "/"}><Icon size={18}/><small>{label as string}</small></NavLink>)}</nav>
+  </div>;
+}
+
+function Dashboard() {
+  const [plans, setPlans] = useState<StudyPlan[]>([]);
+  useEffect(() => { listPlans().then(setPlans); }, []);
+  const active = plans.filter(plan => plan.status === "active").length;
+  const drafts = plans.filter(plan => plan.status === "draft").length;
+  const topics = plans.reduce((sum, plan) => sum + getSelectedLeaves(plan.tree).length, 0);
+  const recent = plans.slice(0, 3);
+  return <div className="stack">
+    <Heading eyebrow="SEU ESPAÇO DE ESTUDOS" title="Vamos no seu ritmo." desc="Organize o que estudar, acompanhe seu progresso e aprenda com consistência." action={<Link className="primary-button" to="/plans/new">Novo plano <ArrowRight size={16}/></Link>}/>
+    <section className="hero"><small>✦ RITMO 8 · NOVA ESTRUTURA</small><h2>Do edital à aprendizagem, em um só lugar.</h2><p>Transforme o conteúdo do concurso em um percurso de estudos que respeita suas escolhas e sua disponibilidade.</p><Link className="primary-button" to="/plans">Organizar meus estudos <ArrowRight size={16}/></Link></section>
+    <div className="stats">
+      <Panel><small>PLANOS ATIVOS</small><b>{active}</b><span>Planejamentos em andamento</span></Panel>
+      <Panel><small>RASCUNHOS</small><b>{drafts}</b><span>Planos que você ainda está montando</span></Panel>
+      <Panel><small>CONTEÚDOS SELECIONADOS</small><b>{topics}</b><span>Itens escolhidos nos seus planos</span></Panel>
+    </div>
+    <Panel><div className="panel-head"><h2>Retomar planejamento</h2><Link className="text-link" to="/plans">Ver todos <ArrowRight size={15}/></Link></div>
+      {recent.length ? recent.map(plan => <Link className="plan-row" key={plan.id} to={`/plans/${plan.id}/verticalize`}><b>{plan.title}</b><span>{[plan.position, plan.area].filter(Boolean).join(" · ")} · {plan.status === "active" ? "Ativo" : "Rascunho"}</span><ArrowRight size={16}/></Link>) : <div className="empty"><BookOpen size={28}/><h2>Seu primeiro plano começa aqui</h2><p>Cadastre o concurso, escolha o cargo e delimite a área de estudo. Depois, o Ritmo guia a verticalização e a seleção do conteúdo.</p><Link className="primary-button" to="/plans/new">Criar primeiro plano</Link></div>}
+    </Panel>
+  </div>;
+}
+
+function Plans() {
+  const [items, setItems] = useState<StudyPlan[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { listPlans().then(setItems).finally(() => setLoading(false)); }, []);
+  return <div className="stack">
+    <Heading eyebrow="PLANEJAMENTO" title="Meus planos" desc="Cada plano representa um concurso, cargo e recorte de estudo. Você escolhe o que entra no seu percurso." action={<Link className="primary-button" to="/plans/new">Novo plano <ArrowRight size={16}/></Link>}/>
+    <Panel><div className="panel-head"><h2>Seus planejamentos</h2><small>{items.length} salvo(s)</small></div>
+      {loading ? <div className="loading-panel">Carregando planos…</div> : items.length ? items.map(plan => {
+        const count = getSelectedLeaves(plan.tree).length;
+        return <article className="plan-card" key={plan.id}>
+          <div className="plan-card-top"><div><span className={`status-pill ${plan.status}`}>{plan.status === "active" ? "Ativo" : plan.status === "completed" ? "Concluído" : "Rascunho"}</span><h3>{plan.title}</h3><p>{[plan.institution, plan.position, plan.area].filter(Boolean).join(" · ")}</p></div><strong>{count}<small>conteúdo(s)</small></strong></div>
+          <div className="plan-card-actions"><Link className="secondary-button" to={`/plans/${plan.id}`}>Ver plano</Link><Link className="primary-button" to={`/plans/${plan.id}/verticalize`}>{plan.status === "active" ? "Editar percurso" : "Continuar"} <ArrowRight size={15}/></Link></div>
+        </article>;
+      }) : <div className="empty"><FolderKanban size={28}/><h2>Nenhum plano por aqui ainda</h2><p>Comece identificando o concurso, o cargo e a área de estudo que deseja preparar.</p><Link className="primary-button" to="/plans/new">Criar meu primeiro plano</Link></div>}
+    </Panel>
+  </div>;
+}
+
+function NewPlan() {
+  const navigate = useNavigate();
+  const [values, setValues] = useState<NewStudyPlan>({ title: "", institution: "", position: "", area: "", organizer: "", examDate: "" });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  function change<K extends keyof NewStudyPlan>(key: K, value: NewStudyPlan[K]) {
+    setValues(current => ({ ...current, [key]: value }));
+  }
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setSaving(true); setError("");
+    try {
+      const plan = await createPlan(values);
+      navigate(`/plans/${plan.id}/verticalize`);
+    } catch {
+      setError("Não foi possível salvar o plano neste navegador. Tente novamente.");
+      setSaving(false);
+    }
+  }
+  return <div className="stack">
+    <Heading eyebrow="PLANEJAMENTO · NOVO PLANO" title="Identifique seu concurso" desc="Um concurso pode ter vários cargos e áreas. Cada plano deve representar o recorte que você realmente vai estudar."/>
+    <Panel className="wizard-panel">
+      <div className="panel-title-row"><div><span className="step-kicker">PASSO 1 · IDENTIFICAÇÃO</span><h2>Sobre o que você vai estudar?</h2><p>Essas informações ajudam a IA a não misturar conteúdos de outros cargos ou áreas.</p></div><span className="soft-tag">Você controla o plano</span></div>
+      <form className="form-grid" onSubmit={submit}>
+        <div className="field-block field-span"><label htmlFor="plan-title">Nome do plano *</label><input id="plan-title" required maxLength={120} placeholder="Ex.: SEDUC-CE 2026" value={values.title} onChange={event => change("title", event.target.value)}/></div>
+        <div className="field-block"><label htmlFor="plan-institution">Instituição</label><input id="plan-institution" maxLength={120} placeholder="Ex.: SEDUC-CE" value={values.institution} onChange={event => change("institution", event.target.value)}/></div>
+        <div className="field-block"><label htmlFor="plan-position">Cargo *</label><input id="plan-position" required maxLength={150} placeholder="Ex.: Professor" value={values.position} onChange={event => change("position", event.target.value)}/></div>
+        <div className="field-block"><label htmlFor="plan-area">Área de estudo / recorte *</label><input id="plan-area" required maxLength={150} placeholder="Ex.: Física, Conhecimentos gerais, TAE" value={values.area} onChange={event => change("area", event.target.value)}/><small>Se o concurso tiver várias áreas, crie um plano separado para cada recorte. Assim, a verticalização não mistura programas diferentes.</small></div>
+        <div className="field-block"><label htmlFor="plan-organizer">Banca organizadora</label><input id="plan-organizer" maxLength={100} placeholder="Ex.: CEV/UECE" value={values.organizer} onChange={event => change("organizer", event.target.value)}/></div>
+        <div className="field-block"><label htmlFor="plan-date">Data da prova (opcional)</label><input id="plan-date" type="date" value={values.examDate} onChange={event => change("examDate", event.target.value)}/></div>
+        {error && <p className="inline-feedback field-span" role="alert">{error}</p>}
+        <div className="form-actions field-span"><Link to="/plans">Cancelar</Link><button className="primary-button" disabled={saving}>{saving ? "Salvando…" : "Salvar e continuar"} <ArrowRight size={16}/></button></div>
+      </form>
+    </Panel>
+  </div>;
+}
+
+const WEEKDAYS = [{ id: 1, label: "Segunda" }, { id: 2, label: "Terça" }, { id: 3, label: "Quarta" }, { id: 4, label: "Quinta" }, { id: 5, label: "Sexta" }, { id: 6, label: "Sábado" }, { id: 0, label: "Domingo" }];
+function Agenda() {
+  const [plans, setPlans] = useState<StudyPlan[]>([]);
+  useEffect(() => { listPlans().then(setPlans); }, []);
+  const active = plans.filter(plan => plan.status === "active" && plan.assignments.length);
+  return <div className="stack">
+    <Heading eyebrow="PLANEJAMENTO" title="Agenda semanal" desc="Veja como os conteúdos dos seus planos estão distribuídos ao longo da semana."/>
+    {active.length ? active.map(plan => <Panel key={plan.id}><div className="panel-head"><div><h2>{plan.title}</h2><p>{[plan.position, plan.area].filter(Boolean).join(" · ")}</p></div><Link className="text-link" to={`/plans/${plan.id}/verticalize`}>Editar <ArrowRight size={15}/></Link></div><div className="agenda-week">{WEEKDAYS.filter(day => plan.scheduleConfig?.days.includes(day.id)).map(day => {
+      const topics = plan.assignments.filter(item => item.day === day.id);
+      return <section key={day.id}><div className="agenda-day-title"><strong>{day.label}</strong><span>{topics.length}</span></div>{topics.length ? topics.map(item => <div className="agenda-topic" key={item.nodeId}><span>{item.name}</span><small>{item.path.slice(0, -1).join(" / ")}</small></div>) : <p className="empty-day">Sem tópicos distribuídos.</p>}</section>;
+    })}</div></Panel>) : <Panel><div className="empty"><CalendarDays size={28}/><h2>Sua agenda começa com um plano</h2><p>Depois de selecionar os conteúdos e definir seus dias disponíveis, a distribuição aparecerá aqui.</p><Link className="primary-button" to="/plans">Abrir meus planos</Link></div></Panel>}
+  </div>;
+}
+
+const features: Record<string, [string, string, string[]]> = {
+  learn: ["Aprender", "Atividades construídas a partir do seu próprio material.", ["Autoexplicação", "Recuperação livre", "Retomada de erros", "Prática intercalada", "Histórico de sessões"]],
+  flashcards: ["Flashcards", "Famílias de conhecimentos e versões de cartões.", ["Famílias de microconhecimentos", "Cartões básicos, lacunas e respostas digitadas", "Imagens com ocultação", "Fontes e justificativas"]],
+  reviews: ["Revisões", "Revisões programadas pelo FSRS.", ["Fila de revisões", "Esquecimentos recorrentes", "Filtros por área", "Histórico de retenção"]],
+  questions: ["Questões", "Registro de blocos e desempenho.", ["Bancas e blocos", "Acertos e erros", "Histórico", "Desempenho por assunto"]],
+  errors: ["Caderno de erros", "Transforme dificuldades em registros retomáveis.", ["Enunciado e alternativas", "Causa do erro", "Vínculos com conteúdos", "Reaplicação programada"]],
+  import: ["Importar conteúdos", "Traga materiais próprios para a biblioteca.", ["JSON e CSV", "Pré-visualização", "Validação", "Preservação das fontes"]],
+  curation: ["Curadoria", "Revise os conteúdos antes de estudar.", ["Editar cartões", "Aprovar ou rejeitar", "Publicar e suspender", "Histórico"]],
+  settings: ["Ajustes", "Configurações e segurança dos dados.", ["Armazenamento local", "Migração não destrutiva", "Backup e restauração", "Preferências FSRS"]],
+};
+function Feature({ name }: { name: string }) {
+  const [title, desc, items] = features[name];
+  return <div className="stack"><Heading eyebrow="ESPAÇO DE ESTUDOS" title={title} desc={desc}/><Panel><ClipboardList size={25}/><h2>Esta área faz parte da nova arquitetura.</h2><p>Os fluxos completos serão incorporados nas próximas etapas da refatoração. Seus recursos não foram removidos da versão anterior.</p><hr/>{items.map(item => <p key={item}>✓ &nbsp;{item}</p>)}</Panel></div>;
+}
+
+export function App() {
+  return <HashRouter><Shell/></HashRouter>;
+}
