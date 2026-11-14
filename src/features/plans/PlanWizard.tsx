@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft, ArrowRight, BookOpen, Check, ChevronDown, ChevronRight,
-  Clipboard, FolderOpen, Info, Pencil, Sparkles, Upload,
+  Clipboard, FolderOpen, Info, Pencil, Plus, Sparkles, Upload,
 } from "lucide-react";
 import { getPlan, savePlan } from "../../data/plans";
 import type { PlanNode, PlanStage, ScheduleConfig, StudyPlan } from "../../domain/models";
@@ -97,13 +97,17 @@ function Stepper({ stage }: { stage: PlanStage }) {
 }
 
 function SelectionNode({
-  node, depth, onToggle,
+  node, depth, onToggle, onRename,
 }: {
   node: PlanNode;
   depth: number;
   onToggle: (id: string, checked: boolean) => void;
+  onRename: (id: string, name: string) => void;
 }) {
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [nameDraft, setNameDraft] = useState(node.name);
+  useEffect(() => setNameDraft(node.name), [node.name]);
   const state = getNodeSelectionState(node);
   const officialChildren = node.children.filter(child => child.origin !== "suggested");
   const suggestedChildren = node.children.filter(child => child.origin === "suggested");
