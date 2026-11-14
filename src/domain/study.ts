@@ -61,7 +61,14 @@ export interface ErrorHistoryEntry {
   at: number;
   grade: "right" | "wrong";
 }
-export interface ErrorAttachment {\n  id: string;\n  name: string;\n  type: string;\n  size: number;\n  dataUrl: string;\n}\nexport interface ErrorRecord {
+export interface ErrorAttachment {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  dataUrl: string;
+}
+export interface ErrorRecord {
   planTopics?: PlanTopicRef[];
   id: string;
   subject: StudySubject;
@@ -83,6 +90,7 @@ export interface ErrorAttachment {\n  id: string;\n  name: string;\n  type: stri
   failures: number;
   status: "pendente" | "dominado" | string;
   history: ErrorHistoryEntry[];
+  attachments?: ErrorAttachment[];
 }
 export interface QuestionBlock {
   planTopics?: PlanTopicRef[];
