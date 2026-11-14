@@ -17,7 +17,7 @@ const FORMATS = [
 ];
 const uid = () => crypto.randomUUID();
 function newVariant(): FlashcardVariant {
-  return { id: uid(), kind: "Definição", format: "basic", q: "", a: "", reason: "", source: "", image: "", mask: null, status: "approved", uses: 0, passes: 0, failures: 0 };
+  return { id: uid(), kind: "Definição", format: "basic", q: "", a: "", reason: "", source: "", image: "", mask: null, status: "pending", uses: 0, passes: 0, failures: 0 };
 }
 function isPublished(concept: Concept) {
   return concept.status === "published" && !concept.suspended && concept.variants.some(variant => variant.status === "approved");
@@ -118,7 +118,7 @@ function FlashcardEditor() {
       if (existing) {
         await saveConcept({ ...existing, subject, topic: topic.trim(), source: source.trim(), variants: clean });
       } else {
-        await createConcept({ subject, topic, source }, clean);
+        await createConcept({ subject, topic, source }, clean, "draft");
       }
       navigate("/flashcards");
     } catch {
