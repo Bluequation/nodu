@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import "../study/materials.css";
 import {useStudyContext} from "../study/useStudyContext";
 import {linkedTo} from "../../domain/topicContext";
@@ -6,23 +7,11 @@ import { ArrowRight, Check, Plus, Target, Trash2 } from "lucide-react";
 import type { StudySubject, QuestionBlock } from "../../domain/study";
 import { deleteQuestionBlock, listQuestionBlocks, saveQuestionBlock } from "../../data/study";
 
-const DAY = 86_400_000;
-const REVIEW_STEPS = [1, 3, 7, 15, 30, 60, 90];
-const EMPTY_ERROR = {
-  subject: "tae" as StudySubject, discipline: "", area: "", topic: "", type: "Lacuna",
-  mistake: "", fix: "", reviewDays: 15, questionUrl: "", conceptId: "",
-  questionText: "", optionsText: "", correctAnswer: "",
-};
 const EMPTY_BLOCK = { subject: "tae" as StudySubject, topic: "", total: 10, correct: 0, note: "" };
 function dateLabel(value: number) {
   return new Date(value).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
 }
-function isDue(error: ErrorRecord) { return error.status !== "dominado" && error.nextReview <= Date.now(); }
 function subjectLabel(subject: StudySubject) { return subject === "tae" ? "TAE" : "Física"; }
-function safeHttpUrl(value: string) {
-  try { const url = new URL(value); return ["http:", "https:"].includes(url.protocol) ? url.href : ""; }
-  catch { return ""; }
-}
 
 export { ErrorsPage } from "./ErrorsPage";
 
