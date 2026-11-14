@@ -32,7 +32,7 @@ export function database() {
 
 function withStableId<T extends Record<string, unknown>>(value: unknown, fallback: string): T {
   const row = value && typeof value === "object" ? value as Record<string, unknown> : {};
-  return { ...row, id: String(row.id ?? fallback) } as T;
+  return { ...row, id: String(row.id ?? fallback) } as unknown as T;
 }
 
 async function preserveLegacySnapshot(db: Awaited<ReturnType<typeof database>>) {
