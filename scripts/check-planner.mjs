@@ -121,6 +121,27 @@ try{
  await drag(mobile,topic(library(mobile),"LDB"),day(mobile,1),true);
  await topic(day(mobile,1),"LDB").waitFor();await saved(mobile);
  await mobile.reload();await topic(day(mobile,1),"LDB").waitFor();
+ await page.goto(url+"/#/learn");
+ await page.locator(".rl-mode").first().waitFor();
+ assert.equal(await page.locator(".rl-mode").count(),4);
+ assert.equal(await page.locator(".rl-mode:disabled").count(),4);
+ const learningCards=await page.locator(".rl-mode").evaluateAll(items=>items.map(el=>({top:el.getBoundingClientRect().top,height:el.getBoundingClientRect().height})));
+ assert.ok(learningCards.every(x=>Math.abs(x.top-learningCards[0].top)<1&&x.height<160),"compact one-row strategy cards");
+ await page.screenshot({path:"planner-screenshots/11-aprender-empty.png",fullPage:true});
+ const studyFixture={id:"learning-test",subject:"fisica",topic:"Leis de Newton",source:"Material de teste",status:"published",variants:[{id:"variant-test",kind:"basic",format:"basic",q:"O que diz a primeira lei?",a:"Princípio da inércia",reason:"",source:"",image:"",mask:null,status:"approved",uses:0,passes:0,failures:0}],createdAt:1,fsrs:{s:1,d:5,last:0,due:0,reps:0,lapses:0,interval:0},lastVariant:"",suspended:false};
+ await page.evaluate(async concept=>{await new Promise((resolve,reject)=>{const req=indexedDB.open("ritmo-8",2);req.onerror=()=>reject(req.error);req.onsuccess=()=>{const db=req.result,tx=db.transaction("concepts","readwrite");tx.objectStore("concepts").put(concept);tx.oncomplete=()=>{db.close();resolve()};tx.onerror=()=>reject(tx.error);};});},studyFixture);
+ await page.reload();await page.locator('.rl-mode[data-mode="recall"]:not(:disabled)').waitFor();
+ await page.getByRole("combobox",{name:"Filtrar área"}).selectOption("tae");assert.equal(await page.locator(".rl-mode:disabled").count(),4);
+ await page.getByRole("combobox",{name:"Filtrar área"}).selectOption("fisica");
+ await page.locator('.rl-mode[data-mode="explain"]').click();await page.locator("#learning-response").fill("A inércia mantém o estado de movimento.");
+ await page.getByRole("button",{name:"Comparar com a referência"}).click();await page.locator(".rl-reference").waitFor();
+ await page.screenshot({path:"planner-screenshots/12-aprender-comparacao.png",fullPage:true});
+ await page.getByRole("button",{name:"Consegui explicar"}).click();await page.getByRole("button",{name:"Voltar às técnicas"}).click();
+ await page.locator(".rl-history-item").first().waitFor();await page.reload();await page.locator(".rl-history-item").first().waitFor();
+ assert.equal(await page.locator(".rl-history-item").count(),1);
+ const stored=await page.evaluate(async()=>await new Promise((resolve,reject)=>{const req=indexedDB.open("ritmo-8",2);req.onerror=()=>reject(req.error);req.onsuccess=()=>{const db=req.result,read=db.transaction("concepts").objectStore("concepts").get("learning-test");read.onsuccess=()=>{db.close();resolve(read.result)};read.onerror=()=>reject(read.error);};}));
+ assert.deepEqual(stored,studyFixture,"learning does not change flashcards or FSRS");
+ await page.setViewportSize({width:390,height:844});await page.screenshot({path:"planner-screenshots/13-aprender-mobile.png",fullPage:true});
  console.log("Planner: layout, mouse, touch, return and persistence verified.");
 }catch(error){
  if(browser)for(const [i,ctx] of browser.contexts().entries())for(const [j,page] of ctx.pages().entries())await page.screenshot({path:"planner-screenshots/failure-"+i+"-"+j+".png",fullPage:true}).catch(()=>{});

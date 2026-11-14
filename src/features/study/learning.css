@@ -1,0 +1,62 @@
+/* Learning workspace: compact, feature-local, no scheduling changes. */
+.ritmo-learning{gap:14px;min-width:0}
+.ritmo-learning .rl-filter{width:auto;max-width:180px;border:1px solid var(--line);border-radius:9px;min-height:38px;background:var(--surface);color:var(--dark);padding:0 10px;font:inherit;font-size:12px}
+.ritmo-learning .rl-section-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.ritmo-learning .rl-section-head h2{display:flex;align-items:center;gap:6px;margin:0;font-size:15px;letter-spacing:-.15px}
+.ritmo-learning .rl-section-head>small{color:var(--muted);font-size:10px;white-space:nowrap}
+.ritmo-learning .rl-mode-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.ritmo-learning [data-mode="recall"]{--rl-bg:#edf3fa;--rl-icon:#dbe8f6;--rl-edge:#d5e3f1;--rl-ink:#315c84}
+.ritmo-learning [data-mode="explain"]{--rl-bg:#f3eef8;--rl-icon:#e8ddf2;--rl-edge:#e7dcef;--rl-ink:#70558c}
+.ritmo-learning [data-mode="errors"]{--rl-bg:#faf4e7;--rl-icon:#f0e2c4;--rl-edge:#eee2c9;--rl-ink:#85622e}
+.ritmo-learning [data-mode="interleave"]{--rl-bg:#eaf3f3;--rl-icon:#d6e8e9;--rl-edge:#d7e7e8;--rl-ink:#38696e}
+.ritmo-learning .rl-mode{display:flex;flex-direction:column;align-items:flex-start;gap:5px;min-width:0;min-height:120px;text-align:left;padding:11px;background:var(--rl-bg);border:1px solid var(--rl-edge);border-radius:11px;color:var(--rl-ink);cursor:pointer;transition:transform .15s,box-shadow .15s}
+.ritmo-learning .rl-mode:not(:disabled):hover{transform:translateY(-2px);box-shadow:0 5px 13px #26354a12}
+.ritmo-learning .rl-mode:disabled{opacity:1;cursor:default}
+.ritmo-learning .rl-mode-top{display:flex;width:100%;align-items:center;justify-content:space-between;gap:6px}
+.ritmo-learning .rl-mode:disabled .rl-mode-top>svg{opacity:.25}
+.ritmo-learning .rl-mode-icon,.ritmo-learning .rl-material-icon{display:grid;place-items:center;flex:none;background:var(--rl-icon);color:var(--rl-ink);width:31px;height:31px;border-radius:8px}
+.ritmo-learning .rl-mode strong{font-size:13px;line-height:1.25;color:inherit;overflow-wrap:anywhere}
+.ritmo-learning .rl-mode>small{font-size:11px;line-height:1.4;color:inherit}
+.ritmo-learning .rl-count{margin-top:auto;font-size:10px;border-top:1px solid var(--rl-edge);padding-top:5px;width:100%;font-weight:600}
+.ritmo-learning .rl-mode:disabled .rl-count{font-weight:400}
+.ritmo-learning .rl-lower{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:12px;align-items:start}
+.ritmo-learning .rl-panel,.ritmo-learning .rl-session,.ritmo-learning .rl-finish{background:var(--surface);border:1px solid var(--line);border-radius:13px;min-width:0;padding:13px}
+.ritmo-learning .rl-panel .rl-section-head{margin-bottom:9px}
+.ritmo-learning .rl-empty{display:flex;align-items:center;gap:10px;color:var(--muted);padding:14px 6px}
+.ritmo-learning .rl-empty>div{display:grid;gap:3px}.ritmo-learning .rl-empty b{font-size:12px;color:var(--text-secondary)}.ritmo-learning .rl-empty span{font-size:11px}
+.ritmo-learning .rl-history-list{display:grid;gap:5px}
+.ritmo-learning .rl-history-item{background:var(--surface-soft);border:1px solid var(--line);border-radius:8px;padding:8px 9px;min-width:0}
+.ritmo-learning .rl-history-item summary{display:flex;align-items:center;justify-content:space-between;gap:7px;cursor:pointer;list-style:none}
+.ritmo-learning .rl-history-item summary::-webkit-details-marker{display:none}
+.ritmo-learning .rl-history-item summary>div{display:grid;gap:3px;min-width:0}
+.ritmo-learning .rl-history-item b{font-size:12px;overflow-wrap:anywhere}.ritmo-learning .rl-history-item small{font-size:10px;color:var(--muted)}
+.ritmo-learning .rl-history-item summary>span{flex:none}.ritmo-learning .rl-history-item p{font-size:11px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5;margin:8px 0 0;color:var(--text-secondary)}
+.ritmo-learning .rl-material-row{display:flex;align-items:center;gap:8px;padding:9px 0;color:var(--text-secondary);border-bottom:1px solid var(--line);text-decoration:none}
+.ritmo-learning .rl-material-row:last-of-type{border:0}.ritmo-learning .rl-material-row>div{display:grid;gap:3px;flex:1;min-width:0}.ritmo-learning .rl-material-row b{font-size:12px;color:var(--dark)}.ritmo-learning .rl-material-row small,.ritmo-learning .rl-material>p{font-size:10px;color:var(--muted)}
+.ritmo-learning .rl-material>p{margin:6px 0 0;line-height:1.5}
+.ritmo-learning .rl-session{max-width:1100px;padding:15px}
+.ritmo-learning .rl-session-head{display:flex;align-items:center;gap:9px;color:var(--rl-ink)}
+.ritmo-learning .rl-session-head>div{flex:1;display:grid;gap:3px;min-width:0}.ritmo-learning .rl-session-head b{font-size:14px}.ritmo-learning .rl-session-head small{font-size:11px;color:var(--muted)}.ritmo-learning .rl-session-head>strong{font-size:14px;font-variant-numeric:tabular-nums}
+.ritmo-learning .rl-progress{height:5px;background:var(--track);border-radius:8px;overflow:hidden;margin:11px 0}
+.ritmo-learning .rl-progress i{display:block;background:var(--blue);height:100%;border-radius:8px;transition:width .2s}
+.ritmo-learning .rl-question{padding:12px;background:var(--surface-soft);border:1px solid var(--line);border-radius:9px;margin-bottom:12px}
+.ritmo-learning .rl-question>small{font-size:9px;color:var(--blue);font-weight:700;letter-spacing:.5px}.ritmo-learning .rl-question h2{font-size:17px;margin:3px 0 6px;overflow-wrap:anywhere}
+.ritmo-learning .rl-question details{font-size:11px;color:var(--muted);margin:0 0 6px}.ritmo-learning .rl-question details p{white-space:pre-wrap;overflow-wrap:anywhere}.ritmo-learning .rl-question summary{cursor:pointer}
+.ritmo-learning .rl-prompt{white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;line-height:1.6;color:var(--dark)}
+.ritmo-learning .rl-workspace{display:grid;gap:10px;min-width:0}.ritmo-learning .rl-workspace.revealed{grid-template-columns:repeat(2,minmax(0,1fr))}
+.ritmo-learning .rl-response,.ritmo-learning .rl-reference{min-width:0;display:flex;flex-direction:column;gap:7px}
+.ritmo-learning .rl-response>label,.ritmo-learning .rl-reference h3{font-size:12px;font-weight:650;margin:0;color:var(--text-secondary)}
+.ritmo-learning .rl-response textarea{box-sizing:border-box;min-height:125px;width:100%;resize:vertical;border:1px solid var(--line);border-radius:8px;padding:9px;color:var(--dark);background:var(--surface);font:inherit;font-size:13px;line-height:1.55;flex:1}
+.ritmo-learning .rl-response>.primary-button{align-self:flex-end;min-height:35px}
+.ritmo-learning .rl-reference{background:#edf3fa;border:1px solid #d5e3f1;border-radius:9px;padding:11px;color:#315c84}
+.ritmo-learning .rl-reference h3{color:#315c84}.ritmo-learning .rl-reference p{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6;font-size:13px;margin:0;max-height:340px;overflow:auto}
+.ritmo-learning .rl-grade{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;border-top:1px solid var(--line);padding-top:12px}
+.ritmo-learning .rl-grade>div:first-child{display:grid;gap:3px}.ritmo-learning .rl-grade b{font-size:12px}.ritmo-learning .rl-grade small{font-size:10px;color:var(--muted)}
+.ritmo-learning .rl-grade-actions{display:flex;gap:5px;flex-wrap:wrap}.ritmo-learning .rl-grade-actions button{display:flex;align-items:center;justify-content:center;gap:4px;min-height:34px;padding:0 9px;border:1px solid transparent;border-radius:7px;font-size:11px;font-weight:650;cursor:pointer}
+.ritmo-learning [data-grade="retry"]{background:#f7e9e5;color:#934b3c}.ritmo-learning [data-grade="partial"]{background:#f5ebd6;color:#84602a}.ritmo-learning [data-grade="complete"]{background:#e1eee5;color:#38684c}
+.ritmo-learning .rl-finish{max-width:480px;text-align:center;display:grid;justify-items:center;gap:9px;padding:24px}.ritmo-learning .rl-finish h2{font-size:20px;margin:0}.ritmo-learning .rl-finish p{margin:0 0 5px;color:var(--muted);font-size:12px}.ritmo-learning .rl-finish-icon{width:47px;height:47px;display:grid;place-items:center;border-radius:13px;background:#e1eee5;color:#38684c}
+.ritmo-learning .rl-feedback{font-size:12px;color:var(--muted);margin:8px 0 0}
+.ritmo-learning :is(button,select,textarea,a,summary):focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+@media(max-width:1080px){.ritmo-learning .rl-mode-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.ritmo-learning .rl-lower,.ritmo-learning .rl-workspace.revealed{grid-template-columns:minmax(0,1fr)}.ritmo-learning .rl-mode{min-height:114px;padding:9px}.ritmo-learning .rl-mode strong{font-size:12px}.ritmo-learning .rl-mode>small{font-size:10px}.ritmo-learning .rl-filter{max-width:145px}.ritmo-learning .rl-grade-actions{width:100%}.ritmo-learning .rl-grade-actions button{flex:1 1 90px}}
+@media(prefers-reduced-motion:reduce){.ritmo-learning *{transition:none!important}}

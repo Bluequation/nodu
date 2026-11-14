@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, ArrowRight, BookOpen, Brain, Check, Lightbulb, Shuffle, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, Brain, Check, Lightbulb, Shuffle, Layers3, NotebookPen, History } from "lucide-react";
+import { Link } from "react-router-dom";
+import "./learning.css";
 import type { Concept, ErrorRecord, LearningSession, StudySubject } from "../../domain/study";
 import { listConcepts, listErrors, listLearningSessions, saveLearningSession } from "../../data/study";
 
@@ -13,11 +15,11 @@ interface LearningItem {
   reference: string;
   context: string;
 }
-const MODES: Array<{ id: LearningMode; title: string; desc: string; icon: typeof Brain }> = [
-  { id: "recall", title: "Recuperação livre", desc: "Tente recuperar o que sabe antes de consultar a resposta.", icon: Brain },
-  { id: "explain", title: "Autoexplicação", desc: "Explique o conceito com suas palavras e compare com a referência.", icon: Lightbulb },
-  { id: "errors", title: "Retomar erros", desc: "Revisite a dificuldade e formule como resolveria uma nova questão.", icon: BookOpen },
-  { id: "interleave", title: "Prática intercalada", desc: "Alterne conhecimentos e erros para treinar a escolha da estratégia.", icon: Shuffle },
+const MODES: Array<{ id: LearningMode; title: string; desc: string; icon: typeof Brain; tone: string }> = [
+  { id: "recall", title: "Recuperação livre", desc: "Lembre antes de consultar.", icon: Brain, tone: "recall" },
+  { id: "explain", title: "Autoexplicação", desc: "Explique com suas palavras.", icon: Lightbulb, tone: "explain" },
+  { id: "errors", title: "Retomar erros", desc: "Reconstrua seu raciocínio.", icon: BookOpen, tone: "errors" },
+  { id: "interleave", title: "Prática intercalada", desc: "Alterne conceitos e erros.", icon: Shuffle, tone: "interleave" },
 ];
 function buildConceptItem(concept: Concept, mode: LearningMode): LearningItem | null {
   const variants = concept.variants.filter(variant => variant.status === "approved");
@@ -69,17 +71,20 @@ export function LearningPage() {
   const [feedback, setFeedback] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   useEffect(() => {
     Promise.all([listConcepts(), listErrors(), listLearningSessions()])
       .then(([nextConcepts, nextErrors, nextHistory]) => { setConcepts(nextConcepts); setErrors(nextErrors); setHistory(nextHistory); })
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, []);
   const current = queue[index];
-  const recentHistory = history.slice(0, 5);
+  const recentHistory = history.filter(item => subject === "all" || item.subject === subject).slice(0, 6);
+  const eligibleConcepts = concepts.filter(concept => concept.status === "published" && !concept.suspended && concept.variants.some(variant => variant.status === "approved") && (subject === "all" || concept.subject === subject));
+  const eligibleErrors = errors.filter(error => error.status !== "dominado" && (subject === "all" || error.subject === subject));
+  const available = (type: LearningMode) => type === "errors" ? eligibleErrors.length : type === "interleave" ? eligibleConcepts.length + eligibleErrors.length : eligibleConcepts.length;
 
   function start(selectedMode: LearningMode) {
-    const eligibleConcepts = concepts.filter(concept => concept.status === "published" && !concept.suspended && (subject === "all" || concept.subject === subject));
-    const eligibleErrors = errors.filter(error => error.status !== "dominado" && (subject === "all" || error.subject === subject));
     const conceptItems = eligibleConcepts.map(concept => buildConceptItem(concept, selectedMode)).filter((item): item is LearningItem => !!item);
     const errorItems = eligibleErrors.map(buildErrorItem);
     let items = selectedMode === "errors" ? errorItems : selectedMode === "interleave" ? interleave(conceptItems, errorItems) : conceptItems;
@@ -117,36 +122,48 @@ export function LearningPage() {
   }
 
   if (loading) return <div className="loading-panel">Preparando suas atividades…</div>;
-  if (mode && complete) return <div className="stack">
-    <header className="heading"><div><small>RITMO / APRENDER</small><h1>Atividade concluída</h1><p>Você trabalhou com {queue.length} item(ns) do seu próprio material.</p></div></header>
-    <section className="panel empty-state"><Check size={30}/><strong>Boa prática de recuperação!</strong><span>Seu registro foi salvo no histórico. Flashcards, FSRS e caderno de erros permaneceram intactos.</span><button className="primary-button" onClick={leave}>Voltar às técnicas</button></section>
+  if (loadError) return <div className="loading-panel" role="alert">Não foi possível carregar seus materiais. <button className="secondary-button compact" onClick={()=>window.location.reload()}>Tentar novamente</button></div>;
+  if (mode && complete) return <div className="stack ritmo-learning">
+    <header className="heading"><div><small>RITMO / APRENDER</small><h1>Atividade concluída</h1></div></header>
+    <section className="rl-finish"><span className="rl-finish-icon"><Check size={26}/></span><h2>{queue.length} {queue.length===1?"item trabalhado":"itens trabalhados"}</h2><p>Suas autoavaliações foram salvas no histórico.</p><button className="primary-button" onClick={leave}>Voltar às técnicas <ArrowRight size={14}/></button></section>
   </div>;
-  if (mode && current) return <div className="stack">
-    <header className="heading"><div><small>RITMO / APRENDER · {MODES.find(item => item.id === mode)?.title.toUpperCase()}</small><h1>{current.topic}</h1><p>Item {index + 1} de {queue.length} · {current.sourceType === "flashcard-family" ? "Flashcard" : "Caderno de erros"}</p></div><button className="secondary-button" onClick={leave}><ArrowLeft size={15}/>Sair da atividade</button></header>
-    <section className="panel learning-card">
-      <div className="learning-progress"><span style={{ width: `${Math.round((index + 1) / queue.length * 100)}%` }}/></div>
-      <div className="learning-context"><span className="subject-pill">{current.subject === "tae" ? "TAE" : "Física"}</span>{current.context && <small>{current.context}</small>}</div>
-      <div className="learning-prompt">{current.prompt}</div>
-      <div className="field-block"><label htmlFor="learning-response">{mode === "explain" ? "Explique com suas palavras" : mode === "errors" ? "Como você corrigiria o raciocínio?" : "Registre o que conseguiu recuperar"}</label><textarea id="learning-response" rows={6} value={response} onChange={event => setResponse(event.target.value)} placeholder="Escreva sua tentativa antes de revelar a referência…"/></div>
-      {!revealed ? <button className="primary-button" disabled={!response.trim()} onClick={() => setRevealed(true)}>Comparar com a referência <ArrowRight size={15}/></button> : <div className="learning-reference"><span>REFERÊNCIA DO SEU MATERIAL</span><p>{current.reference}</p><div className="learning-self-grade"><strong>Como avalia sua explicação?</strong><div className="button-row"><button className="secondary-button compact" disabled={saving} onClick={() => grade("retry")}>Preciso retomar</button><button className="secondary-button compact" disabled={saving} onClick={() => grade("partial")}>Parcialmente</button><button className="primary-button compact" disabled={saving} onClick={() => grade("complete")}>Consegui explicar <Check size={13}/></button></div></div></div>}
-      {feedback && <p className="inline-feedback" role="alert">{feedback}</p>}
-    </section>
-  </div>;
-
-  return <div className="stack">
-    <header className="heading"><div><small>RITMO / APRENDIZAGEM</small><h1>Aprender</h1><p>Técnicas para trabalhar o material que você já cadastrou, sem substituir os flashcards nem alterar o FSRS.</p></div><span className="soft-tag"><Sparkles size={14}/> Sem IA externa</span></header>
-    <section className="panel learning-start">
-      <div className="panel-title-row"><div><span className="step-kicker">ESCOLHA UMA ESTRATÉGIA</span><h2>Como você quer estudar agora?</h2><p>As atividades usam somente suas famílias de flashcards e seus registros do caderno de erros.</p></div></div>
-      <div className="field-block subject-filter"><label>Filtrar área</label><select value={subject} onChange={event => setSubject(event.target.value as "all" | StudySubject)}><option value="all">Todas</option><option value="tae">TAE</option><option value="fisica">Física</option></select></div>
-      <div className="learning-mode-grid">{MODES.map(item => {
-        const Icon = item.icon;
-        return <button className="learning-mode-card" key={item.id} onClick={() => start(item.id)}><span><Icon size={21}/></span><strong>{item.title}</strong><small>{item.desc}</small><i><ArrowRight size={15}/></i></button>;
+  if (mode && current) {
+    const strategy=MODES.find(item=>item.id===mode)!;
+    const StrategyIcon=strategy.icon;
+    return <div className="stack ritmo-learning">
+      <header className="heading"><div><small>RITMO / APRENDER</small><h1>Aprender</h1></div><button className="secondary-button" disabled={saving} onClick={()=>{if(response.trim()&&!window.confirm("Sair sem registrar a resposta atual?"))return;leave();}}><ArrowLeft size={15}/> Voltar</button></header>
+      <section className="rl-session">
+        <header className="rl-session-head" data-mode={mode}><span className="rl-mode-icon"><StrategyIcon size={20}/></span><div><b>{strategy.title}</b><small>{current.sourceType==="flashcard-family"?"Flashcard":"Caderno de erros"} · {current.subject==="tae"?"TAE":"Física"}</small></div><strong>{index+1}/{queue.length}</strong></header>
+        <div className="rl-progress" role="progressbar" aria-label="Itens registrados" aria-valuenow={index} aria-valuemin={0} aria-valuemax={queue.length}><i style={{width:index/queue.length*100+"%"}}/></div>
+        <div className="rl-question"><small>ASSUNTO</small><h2>{current.topic}</h2>{current.context&&<details><summary>Fonte / contexto</summary><p>{current.context}</p></details>}<div className="rl-prompt">{current.prompt}</div></div>
+        <div className={"rl-workspace "+(revealed?"revealed":"")}>
+          <div className="rl-response"><label htmlFor="learning-response">{mode==="explain"?"Explique com suas palavras":mode==="errors"?"Como corrigiria o raciocínio?":"O que você conseguiu recuperar?"}</label><textarea id="learning-response" rows={5} value={response} onChange={event=>setResponse(event.target.value)} disabled={saving} placeholder="Registre sua tentativa…"/>{!revealed&&<button className="primary-button" disabled={!response.trim()} onClick={()=>setRevealed(true)}>Comparar com a referência <ArrowRight size={15}/></button>}</div>
+          {revealed&&<div className="rl-reference"><h3>Referência do seu material</h3><p>{current.reference}</p></div>}
+        </div>
+        {revealed&&<div className="rl-grade"><div><b>Como foi sua tentativa?</b><small>Autoavaliação</small></div><div className="rl-grade-actions"><button type="button" data-grade="retry" disabled={saving||!response.trim()} onClick={()=>grade("retry")}>Preciso retomar</button><button type="button" data-grade="partial" disabled={saving||!response.trim()} onClick={()=>grade("partial")}>Parcialmente</button><button type="button" data-grade="complete" disabled={saving||!response.trim()} onClick={()=>grade("complete")}>Consegui explicar <Check size={13}/></button></div></div>}
+        {feedback&&<p className="rl-feedback" role="alert">{feedback}</p>}
+      </section>
+    </div>;
+  }
+  return <div className="stack ritmo-learning">
+    <header className="heading"><div><small>RITMO / APRENDIZAGEM</small><h1>Aprender</h1></div><select className="rl-filter" aria-label="Filtrar área" value={subject} onChange={event=>{setSubject(event.target.value as "all"|StudySubject);setFeedback("");}}><option value="all">Todas as áreas</option><option value="tae">TAE</option><option value="fisica">Física</option></select></header>
+    <section className="rl-strategies" aria-label="Estratégias de estudo">
+      <div className="rl-section-head"><h2>Escolha uma estratégia</h2><small>Até 12 itens por atividade</small></div>
+      <div className="rl-mode-grid">{MODES.map(item=>{
+        const Icon=item.icon,count=available(item.id);
+        return <button type="button" className="rl-mode" data-mode={item.tone} key={item.id} disabled={!count} onClick={()=>start(item.id)}><span className="rl-mode-top"><span className="rl-mode-icon"><Icon size={19}/></span><ArrowRight size={15}/></span><strong>{item.title}</strong><small>{item.desc}</small><span className="rl-count">{count?count+" "+(count===1?"item disponível":"itens disponíveis"):"Sem material disponível"}</span></button>;
       })}</div>
-      {feedback && <p className="inline-feedback">{feedback}</p>}
+      {feedback&&<p className="rl-feedback" role="status">{feedback}</p>}
     </section>
-    <section className="panel"><div className="panel-head"><h2>Histórico recente</h2><span className="soft-tag">{history.length} atividade(s)</span></div>
-      {recentHistory.length ? recentHistory.map(item => <div className="learning-history-row" key={item.id}><div><strong>{item.topic}</strong><small>{MODES.find(modeItem => modeItem.id === item.mode)?.title || item.mode} · {item.sourceType === "error-notebook" ? "Caderno de erros" : "Flashcard"}</small></div><span className={`self-grade ${item.grade}`}>{item.grade === "complete" ? "Consegui" : item.grade === "partial" ? "Parcial" : "Retomar"}</span></div>) : <div className="empty-state"><BookOpen size={25}/><strong>Nenhuma atividade registrada</strong><span>Escolha uma estratégia acima para começar.</span></div>}
-    </section>
-    <p className="learning-footnote">Autoexplicação, recuperação livre e prática intercalada são atividades de aprendizagem ativa. Elas não reprogramam revisões; o FSRS continua sendo controlado exclusivamente pelos flashcards.</p>
+    <div className="rl-lower">
+      <section className="rl-panel rl-history"><header className="rl-section-head"><h2><History size={17}/> Histórico recente</h2><small>{history.filter(item=>subject==="all"||item.subject===subject).length} registros</small></header>
+        {recentHistory.length?<div className="rl-history-list">{recentHistory.map(item=><details className="rl-history-item" key={item.id}><summary><div><b>{item.topic}</b><small>{MODES.find(m=>m.id===item.mode)?.title||item.mode} · {new Date(item.at).toLocaleDateString("pt-BR")}</small></div><span className={"self-grade "+item.grade}>{item.grade==="complete"?"Consegui":item.grade==="partial"?"Parcial":"Retomar"}</span></summary>{item.prompt&&<p><b>Proposta:</b> {item.prompt}</p>}{item.response?<p><b>Sua tentativa:</b> {item.response}</p>:<p>Resposta não disponível neste registro.</p>}</details>)}</div>:<div className="rl-empty"><History size={23}/><div><b>Nenhum registro ainda</b><span>Suas tentativas aparecerão aqui.</span></div></div>}
+      </section>
+      <section className="rl-panel rl-material"><header className="rl-section-head"><h2>Seu material</h2></header>
+        <Link to="/flashcards" className="rl-material-row"><span className="rl-material-icon" data-mode="recall"><Layers3 size={18}/></span><div><b>Flashcards</b><small>{eligibleConcepts.length} famílias disponíveis</small></div><ArrowRight size={14}/></Link>
+        <Link to="/errors" className="rl-material-row"><span className="rl-material-icon" data-mode="errors"><NotebookPen size={18}/></span><div><b>Caderno de erros</b><small>{eligibleErrors.length} erros disponíveis</small></div><ArrowRight size={14}/></Link>
+        {!eligibleConcepts.length&&!eligibleErrors.length&&<p>Adicione materiais para liberar as estratégias.</p>}
+      </section>
+    </div>
   </div>;
 }
