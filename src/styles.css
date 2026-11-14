@@ -288,3 +288,10 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .self-grade.retry{background:#f7eeea;color:#9b6655}
 .learning-footnote{color:#978a7e;font-size:10px;line-height:1.6}
 @media(max-width:600px){.learning-mode-grid{grid-template-columns:1fr}.learning-mode-card{min-height:0;padding:14px}.learning-card>.field-block{padding:0 14px}.learning-card>.primary-button{margin:0 14px 14px}.learning-context{padding:14px 14px 0}.learning-prompt{padding:0 14px;margin:15px auto 20px}.learning-reference{margin:0 14px 14px}.learning-self-grade .button-row{align-items:stretch;flex-direction:column}.learning-self-grade .button-row button{width:100%}}
+
+.stats.expanded-stats{grid-template-columns:repeat(3,minmax(0,1fr))}
+.stats.expanded-stats .panel{min-height:125px}
+.stats.expanded-stats .panel .text-link{display:inline-flex;align-items:center;gap:4px;margin-top:9px;color:#376b9f;font-size:9px;font-weight:750;text-decoration:none}
+.leech-note{display:block;margin:7px 0 0;color:#9a684d;font-size:9px}
+@media(max-width:900px){.stats.expanded-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.stats.expanded-stats{grid-template-columns:1fr 1fr}.stats.expanded-stats .panel{min-height:110px}}
