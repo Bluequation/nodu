@@ -744,7 +744,7 @@ function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyP
 
     <details className="panel wizard-panel auto-distribute-panel">
       <summary><span><Sparkles size={17}/> Quer uma sugestão de distribuição automática?</span><ChevronDown size={17}/></summary>
-      <p>A sugestão é opcional. Ela considera a duração dos seus horários, mas não conhece a dificuldade de cada assunto nem seu cansaço. Revise a proposta e ajuste manualmente. Dias reservados para simulado não recebem assuntos automaticamente.</p>
+      <p>A sugestão é opcional. Ela considera a duração dos seus horários, mas não conhece a dificuldade de cada assunto nem seu cansaço. Revise a proposta e ajuste manualmente. Dias reservados para simulado não recebem assuntos automaticamente.{assignedCount > 0 ? " Ao aplicar, a distribuição atual será substituída." : ""}</p>
       <div className="field-block schedule-mode-field"><label htmlFor="schedule-mode">Critério da sugestão</label><select id="schedule-mode" value={config.mode} onChange={event => { setPriorityFeedback(""); changeConfig({ mode: event.target.value as ScheduleConfig["mode"] }); }}>
         <option value="alternate">Equilibrar assuntos entre os dias</option><option value="sequence">Seguir a sequência do edital</option><option value="priority">Priorizar recorrência da banca (com IA)</option>
       </select></div>
@@ -754,7 +754,7 @@ function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyP
         <div className="field-block"><label htmlFor="priority-response">Cole aqui a resposta da IA com os IDs em ordem de prioridade</label><textarea id="priority-response" rows={4} value={priorityText} onChange={event => setPriorityText(event.target.value)} placeholder={leaves.map((leaf, index) => `${index + 1}. ID: ${leaf.id} — ${displayNodeName(leaf.name)}`).join("\n")}/></div>
         <div className="button-row"><button className="primary-button compact" type="button" disabled={!priorityText.trim()} onClick={importPriority}>Importar prioridade</button><span className="soft-tag">{config.priorityOrder?.length || 0}/{leaves.length} classificados</span></div>
       </div>}
-      <div className="button-row"><button className="secondary-button" type="button" disabled={!autoReady || (config.mode === "priority" && (config.priorityOrder?.length || 0) !== leaves.length)} onClick={generate}>Aplicar sugestão automática <ArrowRight size={15}/></button><small className="field-hint">{autoReady ? "A sugestão usará apenas dias com horário definido." : "Defina os horários de todos os dias sem simulado para habilitar a sugestão."}</small></div>
+      <div className="button-row"><button className="secondary-button" type="button" disabled={!autoReady || (config.mode === "priority" && (config.priorityOrder?.length || 0) !== leaves.length)} onClick={generate}>{assignedCount > 0 ? "Substituir distribuição atual" : "Aplicar sugestão automática"} <ArrowRight size={15}/></button><small className="field-hint">{autoReady ? "A sugestão usará apenas dias com horário definido." : "Defina os horários de todos os dias sem simulado para habilitar a sugestão."}</small></div>
       {priorityFeedback && <p className="inline-feedback" role="status">{priorityFeedback}</p>}
     </details>
 
