@@ -159,6 +159,24 @@ try{
  await page.goto(url+"/#/agenda");await page.getByRole("combobox",{name:"Filtrar agenda por plano"}).locator('option[value="bound-learning"]').waitFor({state:"attached"});await page.getByRole("combobox",{name:"Filtrar agenda por plano"}).selectOption("bound-learning");
  await page.getByRole("button",{name:"Desmarcar Leis de Newton",exact:true}).waitFor();
  await page.goto(url+"/#/learn?plan=bound-learning&topic=ldb&date="+studyDate);await page.locator(".rl-topic").getByRole("heading",{name:"LDB",exact:true}).waitFor();assert.equal(await page.locator(".rl-mode:disabled").count(),4,"another topic retains separate materials");
+ await page.goto(url+"/#/import?plan=bound-learning&topic=ldb&date="+studyDate);
+ await page.getByRole("button",{name:"Importar arquivo",exact:true}).click();
+ await page.locator("#import-text").fill(JSON.stringify({formato:"ritmo-flashcards-v1",familias:[{disciplina:"tae",assunto:"Princípio de teste",fonte:"Fonte de teste",cartoes:[{tipo:"Definição",formato:"basic",pergunta:"Qual princípio?",resposta:"Uma resposta",fonte:"Fonte de teste"}]}]}));
+ await page.getByRole("button",{name:"Pré-visualizar e validar"}).click();
+ await page.getByRole("button",{name:"Importar para Curadoria"}).click();
+ await page.locator(".curation-card").filter({hasText:"Princípio de teste"}).waitFor();
+ await page.getByRole("button",{name:"Conferir versões"}).click();await page.getByRole("button",{name:"Aprovar",exact:true}).click();await page.getByRole("button",{name:"Publicar",exact:true}).click();
+ await page.getByText("Família “Princípio de teste” publicada e pronta para revisão.",{exact:true}).waitFor();
+ await page.goto(url+"/#/flashcards?plan=bound-learning&topic=ldb");await page.locator(".rm-collection").first().waitFor();
+ await page.screenshot({path:"planner-screenshots/15-flashcards.png",fullPage:true});
+ const errFixture={id:"error-learning-test",subject:"tae",discipline:"Legislação",area:"Educação",topic:"Erro de teste",type:"Lacuna",mistake:"Confundi os conceitos",fix:"Correção registrada",reviewDays:1,questionUrl:"",conceptId:"",questionText:"",optionsText:"",correctAnswer:"",at:Date.now(),nextReview:Date.now(),successes:0,failures:0,status:"pendente",history:[],planTopics:[{planId:"bound-learning",nodeId:"ldb"}]};
+ await page.evaluate(async error=>{await new Promise((resolve,reject)=>{const req=indexedDB.open("ritmo-8",2);req.onerror=()=>reject(req.error);req.onsuccess=()=>{const db=req.result,tx=db.transaction("errors","readwrite");tx.objectStore("errors").put(error);tx.oncomplete=()=>{db.close();resolve()};tx.onerror=()=>reject(tx.error);};});},errFixture);
+ await page.goto(url+"/#/learn?plan=bound-learning&topic=ldb&date="+studyDate);await page.locator('.rl-mode[data-mode="errors"]:not(:disabled)').waitFor();
+ await page.locator('.rl-mode[data-mode="errors"]').click();await page.locator("#learning-response").fill("Minha tentativa de correção");await page.getByRole("button",{name:"Comparar com a referência"}).click();await page.getByRole("button",{name:"Consegui explicar"}).click();await page.getByRole("button",{name:"Voltar às técnicas"}).click();
+ await page.goto(url+"/#/errors?plan=bound-learning&topic=ldb");await page.locator(".error-card").filter({hasText:"Erro de teste"}).waitFor();
+ assert.match(await page.locator(".error-card").first().innerText(),/0 acerto/,"self assessment must not count as a new question");
+ await page.screenshot({path:"planner-screenshots/16-erros.png",fullPage:true});
+ await page.goto(url+"/#/learn?plan=bound-learning&topic=ldb&date="+studyDate);await page.locator(".rl-mode").first().waitFor();
  await page.setViewportSize({width:390,height:844});await page.screenshot({path:"planner-screenshots/13-aprender-mobile.png",fullPage:true});
  console.log("Planner: layout, mouse, touch, return and persistence verified.");
 }catch(error){

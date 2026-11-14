@@ -130,7 +130,7 @@ export function ImportPage() {
 
   return <div className="stack ritmo-materials rm-import">
     <header className="heading"><div><small>RITMO / FLASHCARDS</small><h1>Adicionar flashcards</h1></div><Link className="secondary-button" to={context.valid?topicUrl("/flashcards",context.ref,context.date):"/flashcards"}>Voltar</Link></header>
-    <div className="rm-toolbar"><div className="rm-tabs"><button type="button" aria-pressed={method==="ai"} onClick={()=>setMethod("ai")}>Gerar com IA</button><button type="button" aria-pressed={method==="file"} onClick={()=>setMethod("file")}>Importar arquivo</button><Link to={context.valid?topicUrl("/flashcards/new",context.ref,context.date):"/flashcards/new"}>Manual</Link></div><MaterialScopePicker plans={plans} disabled={busy} onChange={()=>{setFamilies([]);setFeedback("");}}/></div>
+    <div className="rm-toolbar"><div className="rm-tabs"><button type="button" aria-pressed={method==="ai"} onClick={()=>setMethod("ai")}>Gerar com IA</button><button type="button" aria-pressed={method==="file"} onClick={()=>setMethod("file")}>Importar arquivo</button><Link to={context.valid?topicUrl("/flashcards/new",context.ref,context.date):params.get("plan")?"/flashcards/new?plan="+encodeURIComponent(params.get("plan")!):"/flashcards/new"}>Manual</Link></div><MaterialScopePicker plans={plans} disabled={busy} onChange={()=>{setFamilies([]);setFeedback("");}}/></div>
     {params.get("plan")&&!context.valid&&<p className="inline-feedback">Escolha um assunto para vincular os cartões.</p>}
     <div className={"rm-import-layout "+(method==="file"?"file-only":"")}>
     {method==="ai"&&<section className="panel wizard-panel">
@@ -158,7 +158,7 @@ export function ImportPage() {
 
 export function CurationPage() {
   const context=useStudyContext(),plans=useMaterialPlans(),[params]=useSearchParams();
-  const route=(path:string)=>context.valid?topicUrl(path,context.ref,context.date):path;
+  const route=(path:string)=>context.valid?topicUrl(path,context.ref,context.date):params.get("plan")?path+"?plan="+encodeURIComponent(params.get("plan")!):path;
   const [concepts, setConcepts] = useState<Concept[]>([]);
   const [expanded, setExpanded] = useState("");
   const [feedback, setFeedback] = useState("");
@@ -191,12 +191,12 @@ export function CurationPage() {
     <section className="panel">
       <div className="panel-head"><h2>Aguardando conferência</h2><span className="soft-tag">{drafts.length} família(s)</span></div>
       {drafts.length ? <div className="curation-list">{drafts.map(concept => <article className="curation-card" key={concept.id}>
-        <div className="curation-card-head"><div><span className="subject-pill">{concept.planTopics?.map(ref=>materialLabel(plans,ref)).filter(Boolean).map(label=>label!.title).join(" · ")||"Estudo livre"}</span><h3>{concept.topic}</h3><p>{concept.source || "Fonte da família não informada"}</p></div><div className="curation-actions"><span className="soft-tag">{concept.variants.filter(variant => variant.status === "approved").length}/{concept.variants.length} aprovadas</span><button className="secondary-button compact" onClick={() => navigate(route(`/flashcards/${concept.id}/edit`)+(context.valid?"&":"?")+"return=curation")}>Editar família</button><button className="primary-button compact" onClick={() => publish(concept)}>Publicar</button></div></div>
+        <div className="curation-card-head"><div><span className="subject-pill">{concept.planTopics?.map(ref=>materialLabel(plans,ref)).filter(Boolean).map(label=>label!.title).join(" · ")||"Estudo livre"}</span><h3>{concept.topic}</h3><p>{concept.source || "Fonte da família não informada"}</p></div><div className="curation-actions"><span className="soft-tag">{concept.variants.filter(variant => variant.status === "approved").length}/{concept.variants.length} aprovadas</span><button className="secondary-button compact" onClick={() => navigate((context.valid?topicUrl(`/flashcards/${concept.id}/edit`,context.ref,context.date):`/flashcards/${concept.id}/edit`)+(context.valid?"&":"?")+"return=curation")}>Editar família</button><button className="primary-button compact" onClick={() => publish(concept)}>Publicar</button></div></div>
         <button className="text-button" type="button" onClick={() => setExpanded(expanded === concept.id ? "" : concept.id)}>{expanded === concept.id ? "Recolher versões" : "Conferir versões"}</button>
         {expanded === concept.id && <div className="curation-variants">{concept.variants.map((variant, index) => <article className="curation-variant" key={variant.id}>
           <div className="curation-variant-head"><span>VERSÃO {index + 1} · {variant.kind} · {variant.format}</span><span className={`status-pill ${variant.status === "approved" ? "active" : variant.status === "rejected" ? "due" : "draft"}`}>{variant.status === "approved" ? "Aprovada" : variant.status === "rejected" ? "Rejeitada" : "Pendente"}</span></div>
           <strong>{variant.q}</strong><p>Resposta: {variant.a}</p>{variant.reason && <small>Justificativa: {variant.reason}</small>}<small>Fonte: {variant.source || concept.source || "Não informada"}</small>
-          <div className="button-row"><button className="secondary-button compact" onClick={() => navigate(route(`/flashcards/${concept.id}/edit`)+(context.valid?"&":"?")+"return=curation")}>Editar</button><button className="secondary-button compact" onClick={() => changeVariant(concept, index, "approved")}><Check size={13}/>Aprovar</button><button className="text-button" onClick={() => changeVariant(concept, index, "rejected")}>Rejeitar</button></div>
+          <div className="button-row"><button className="secondary-button compact" onClick={() => navigate((context.valid?topicUrl(`/flashcards/${concept.id}/edit`,context.ref,context.date):`/flashcards/${concept.id}/edit`)+(context.valid?"&":"?")+"return=curation")}>Editar</button><button className="secondary-button compact" onClick={() => changeVariant(concept, index, "approved")}><Check size={13}/>Aprovar</button><button className="text-button" onClick={() => changeVariant(concept, index, "rejected")}>Rejeitar</button></div>
         </article>)}</div>}
       </article>)}</div> : <div className="empty-state"><ShieldCheck size={28}/><strong>Nenhuma família aguardando curadoria</strong><span>Cartões importados ou criados como rascunho aparecerão aqui para conferência.</span><Link className="primary-button" to={route("/import")}>Importar cartões</Link></div>}
     </section>

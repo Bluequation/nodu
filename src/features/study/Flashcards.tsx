@@ -51,9 +51,9 @@ function FamilyList() {
  const areas=[...new Set([...groups.values()].map(g=>g.area))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
  const visible=[...groups.values()].filter(g=>!area||g.area===area).map(g=>({...g,items:g.items.filter(c=>(g.title+" "+c.topic).toLocaleLowerCase().includes(search.toLocaleLowerCase()))})).filter(g=>g.items.length).sort((a,b)=>a.title.localeCompare(b.title,"pt-BR"));
  const pub=base.filter(isPublished),due=pub.filter(c=>c.fsrs.due<=Date.now()).length,drafts=base.filter(c=>c.status==="draft").length;
- return <div className="stack ritmo-materials"><header className="heading"><div><small>RITMO / APRENDIZAGEM</small><h1>Flashcards</h1></div><div className="rm-actions"><Link className="secondary-button compact" to={context.valid?route("/flashcards/new"):route("/import")}><Plus size={15}/>Manual</Link><Link className="primary-button" to={route("/import")}><Upload size={16}/>Importar</Link></div></header>
+ return <div className="stack ritmo-materials"><header className="heading"><div><small>RITMO / APRENDIZAGEM</small><h1>Flashcards</h1></div><div className="rm-actions"><Link className="secondary-button compact" to={route("/flashcards/new")}><Plus size={15}/>Manual</Link><Link className="primary-button" to={route("/import")}><Upload size={16}/>Importar</Link></div></header>
  {context.requested&&<p className="inline-feedback">{context.valid?context.plan?.title+" · "+context.title:"Carregando assunto ou indisponível."} · <Link to={context.returnTo}>Voltar a Aprender</Link></p>}
- <div className="rm-stats"><div data-tone="law"><Layers3 size={20}/><strong>{pub.reduce((n,c)=>n+c.variants.filter(v=>v.status==="approved").length,0)}</strong><small>Cartões publicados</small></div><Link data-tone="simulation" to={context.valid?route("/reviews"):"/reviews"}><Clock3 size={20}/><strong>{due}</strong><small>Famílias para revisar</small></Link><Link data-tone="pedagogy" to={route("/curation")}><ShieldCheck size={20}/><strong>{drafts}</strong><small>Em curadoria</small></Link></div>
+ <div className="rm-stats"><div data-tone="law"><Layers3 size={20}/><strong>{pub.reduce((n,c)=>n+c.variants.filter(v=>v.status==="approved").length,0)}</strong><small>Cartões publicados</small></div><Link data-tone="simulation" to={route("/reviews")}><Clock3 size={20}/><strong>{due}</strong><small>Famílias para revisar</small></Link><Link data-tone="pedagogy" to={route("/curation")}><ShieldCheck size={20}/><strong>{drafts}</strong><small>Em curadoria</small></Link></div>
  <div className="rm-toolbar"><MaterialScopePicker plans={plans} onChange={()=>setArea("")}/><label>Disciplina<select aria-label="Filtrar disciplina" value={area} onChange={e=>setArea(e.target.value)}><option value="">Todas</option>{areas.map(a=><option key={a}>{a}</option>)}</select></label><input className="search-input" type="search" aria-label="Buscar conhecimento" placeholder="Buscar conhecimento…" value={search} onChange={e=>setSearch(e.target.value)}/></div>
  <header className="rm-section-head"><h2>Minha coleção</h2><small>{base.length} famílias</small></header>
  {loading?<p>Carregando…</p>:visible.length?<div className="rm-collections">{visible.map(g=><article className="rm-collection" key={g.ref?JSON.stringify(g.ref):"free"} data-tone={g.tone}><div className="rm-collection-head"><Layers3 size={22}/><div><small>{g.plan} · {g.area}</small><h3>{g.title}</h3><span>{g.items.length} famílias · {g.items.reduce((n,c)=>n+c.variants.length,0)} versões</span></div></div><details><summary>Abrir coleção <ArrowRight size={13}/></summary>{g.items.map(c=><div className="rm-family" key={c.id}><div><b>{c.topic}</b><small>{c.suspended?"Suspensa":c.status==="draft"?"Rascunho":dueLabel(c.fsrs.due)} · {c.variants.length} versões</small></div><button className="text-button" onClick={()=>navigate(g.ref?topicUrl("/flashcards/"+c.id+"/edit",g.ref,context.date):"/flashcards/"+c.id+"/edit")}>Editar</button><button className="text-button" onClick={async()=>{await saveConcept({...c,suspended:!c.suspended});setConcepts(await listConcepts());}}>{c.suspended?"Reativar":"Suspender"}</button></div>)}</details>{g.ref&&<Link className="rm-review-link" to={topicUrl("/reviews",g.ref,context.date)}>Revisar assunto <ArrowRight size={13}/></Link>}</article>)}</div>:<div className="rm-empty"><Layers3 size={25}/><div><b>{base.length?"Nenhuma família encontrada":"Sua coleção começa aqui"}</b><small>Importe um lote de cartões e confira na curadoria.</small></div><Link className="primary-button compact" to={route("/import")}>Importar cartões <ArrowRight size={14}/></Link></div>}
@@ -64,7 +64,7 @@ function FlashcardEditor() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const context=useStudyContext();
+  const context=useStudyContext(),plans=useMaterialPlans();
   const destination=searchParams.get("return")==="curation"?"/curation":"/flashcards";
   const returnTo=context.requested?topicUrl(destination,context.ref,context.date):destination;
   const editing = !!id;
@@ -103,7 +103,7 @@ function FlashcardEditor() {
   }
   async function submit(event: FormEvent) {
     event.preventDefault(); setError("");
-    if(context.requested&&!context.valid){setError("O assunto do plano não está disponível.");return;}
+    if(searchParams.get("plan")&&!context.valid){setError("Selecione um assunto válido do plano.");return;}
     if (!topic.trim()) { setError("Informe o conhecimento que esta família vai cobrar."); return; }
     if (!variants.length || variants.some(variant => !variant.q.trim() || !variant.a.trim())) { setError("Cada versão precisa ter pergunta e resposta."); return; }
     const normalizedQuestions = variants.map(variant => variant.q.trim().toLocaleLowerCase().replace(/\\s+/g, " "));
@@ -127,6 +127,7 @@ function FlashcardEditor() {
   if (loading) return <div className="loading-panel">Carregando família…</div>;
   return <div className="stack ritmo-materials rm-editor">
     <header className="heading"><div><small>RITMO / FLASHCARDS</small><h1>{editing ? "Editar família" : "Nova família"}</h1><p>O conteúdo central permanece o mesmo; cada versão muda a forma de recuperação.</p></div><Link className="secondary-button" to={returnTo}><ArrowLeft size={15}/>Voltar</Link></header>
+    {!editing&&<div className="rm-toolbar"><MaterialScopePicker plans={plans} disabled={saving}/></div>}
     {context.requested&&<p className="inline-feedback">{context.loading?"Carregando assunto…":context.valid?context.plan?.title+" · "+context.title+" · Família será salva como rascunho.":"Assunto indisponível."}</p>}
     <form className="stack" onSubmit={submit}>
       <section className="panel wizard-panel">
@@ -190,9 +191,10 @@ function pickReview(concepts: Concept[], reviews: ReviewLog[], settings: StudySe
 }
 
 function ReviewPage() {
-  const context=useStudyContext();
-  const scoped=(items:Concept[])=>context.requested?items.filter(item=>context.valid&&linkedTo(item,context.ref)):items;
-  const selectedSubject=context.requested?"all":undefined;
+  const context=useStudyContext(),plans=useMaterialPlans(),[params]=useSearchParams();
+  const plan=plans.find(p=>p.id===params.get("plan"));
+  const scoped=(items:Concept[])=>context.requested?items.filter(item=>context.valid&&linkedTo(item,context.ref)):params.get("plan")?items.filter(item=>!!plan&&linkedToPlan(item,plan)):items;
+  const selectedSubject=params.get("plan")?"all":undefined;
   const [concepts, setConcepts] = useState<Concept[]>([]);
   const [reviews, setReviews] = useState<ReviewLog[]>([]);
   const [settings, setSettings] = useState<StudySettings>({ retention: 0.9, newLimit: 10, reviewLimit: 70, leech: 4 });
@@ -244,7 +246,7 @@ function ReviewPage() {
   }
 
   if (loading) return <div className="loading-panel">Preparando revisões…</div>;
-  const dueCount = scoped(concepts).filter(concept => isPublished(concept) && concept.fsrs.due <= Date.now() && (context.requested||subject === "all" || concept.subject === subject)).length;
+  const dueCount = scoped(concepts).filter(concept => isPublished(concept) && concept.fsrs.due <= Date.now() && (params.get("plan")||subject === "all" || concept.subject === subject)).length;
   return <div className="stack">
     <header className="heading"><div><small>RITMO / APRENDIZAGEM</small><h1>Revisões</h1><p>O FSRS agenda cada família de conhecimentos; a cobrança varia entre as versões cadastradas.</p></div><Link className="secondary-button" to={context.valid?topicUrl("/flashcards",context.ref,context.date):"/flashcards"}><Layers3 size={15}/>Flashcards</Link></header>
     {context.requested&&<p className="inline-feedback">{context.valid?context.plan?.title+" · "+context.title:"Assunto indisponível ou carregando."} · <Link to={context.returnTo}>Voltar a Aprender</Link></p>}
@@ -252,13 +254,13 @@ function ReviewPage() {
       <div className="panel-title-row"><div><span className="step-kicker">SESSÃO DE ESTUDO</span><h2>O que vamos revisar?</h2><p>{dueCount} família(s) vencida(s) no filtro atual.</p></div><span className="soft-tag">FSRS-6</span></div>
       <div className="form-grid">
         <div className="field-block"><label>Tipo de sessão</label><select value={mode} onChange={event => setMode(event.target.value as ReviewMode)}><option value="normal">Revisões do dia</option><option value="difficult">Esquecimentos recorrentes</option><option value="law">Lei seca e exceções</option></select></div>
-        <div className="field-block"><label>Área</label><select value={subject} onChange={event => setSubject(event.target.value as "all" | StudySubject)}><option value="all">Todas</option><option value="tae">Geral</option><option value="fisica">Física</option></select></div>
+        <div className="field-block"><MaterialScopePicker plans={plans}/></div>
       </div>
-      <button className="primary-button" disabled={context.requested&&!context.valid} onClick={startSession}><BookOpen size={16}/>Começar revisão <ArrowRight size={16}/></button>
+      <button className="primary-button" disabled={(context.requested&&!context.valid)|| (!!params.get("plan")&&!plan)} onClick={startSession}><BookOpen size={16}/>Começar revisão <ArrowRight size={16}/></button>
       <p className="field-hint">Limites diários: {settings.newLimit} novas famílias e {settings.reviewLimit} revisões antigas. As versões não multiplicam a carga de revisão.</p>
     </section>}
     {current && <section className="panel review-card-panel">
-      <div className="review-card-meta"><span className={`subject-pill ${current.concept.subject}`}>{current.concept.subject === "tae" ? "TAE" : "Física"}</span><span>{current.concept.topic}</span><span className="origin-pill">{current.variant.kind}</span><span className="soft-tag">{current.wasNew ? "Primeiro contato" : dueLabel(current.concept.fsrs.due)}</span></div>
+      <div className="review-card-meta"><span className={`subject-pill ${current.concept.subject}`}>{context.valid?context.title:current.concept.planTopics?.map(ref=>materialLabel(plans,ref)?.title).filter(Boolean).join(" · ")||"Estudo livre"}</span><span>{current.concept.topic}</span><span className="origin-pill">{current.variant.kind}</span><span className="soft-tag">{current.wasNew ? "Primeiro contato" : dueLabel(current.concept.fsrs.due)}</span></div>
       <div className="review-card-face">
         <small>{current.variant.format === "cloze" ? "COMPLETE A LACUNA" : "RECUPERE A RESPOSTA"}</small>
         {current.variant.format === "image" && current.variant.image && <img className="review-image" src={current.variant.image} alt="Imagem do cartão"/>}
