@@ -105,8 +105,8 @@ export function pieceTitle(value:string){
 }
 export type LibraryGroup={key:string;label:string;groups:LibraryGroup[];topics:SelectedPlanLeaf[]};
 export type LibraryColumn={key:"general"|"specific";label:string;groups:LibraryGroup[]};
-const basic=/\bconhecimentos (?:basicos|gerais)\b|^p1\b/;
-const specific=/\bconhecimentos especificos\b|^p2\b/;
+const basic=/\bconhecimentos (?:basicos|gerais)\b/;
+const specific=/\bconhecimentos especificos\b/;
 const legal=/\b(?:lei|leis federais|ldb|bncc|pne|planos nacionais de educacao|documento curricular referencial|estatuto|legislacao|constituicao|decreto)\b/;
 const clean=(name:string)=>displayNodeName(name).replace(/^\d+(?:\.\d+)*\.?\s*/,"").trim();
 export function topicPlacement(leaf:SelectedPlanLeaf,area=""){

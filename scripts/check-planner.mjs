@@ -39,7 +39,7 @@ async function drag(page,source,target,touch=false){
   await session.detach();
  }
 }
-async function saved(page){await page.getByRole("status").getByText("Salvo neste navegador",{exact:true}).waitFor({timeout:10000});}
+async function saved(page){await page.locator(".rp-footer [role=status]").filter({hasText:"Salvo neste navegador"}).waitFor({timeout:10000});}
 try{
  for(let n=0;n<80;n++){try{if((await fetch(url)).ok)break}catch{};await new Promise(r=>setTimeout(r,250));}
  await mkdir("planner-screenshots",{recursive:true});
@@ -62,13 +62,20 @@ try{
  await page.screenshot({path:"planner-screenshots/02-filled-desktop.png",fullPage:true});
  await day(page,4).locator(".rp-tile-remove").click();await topic(library(page),"LDB").waitFor();await saved(page);
  assert.equal(await page.locator(".rp-day .rp-tile").count(),0);
+ const more=Array.from({length:11},(_,i)=>node("extra-"+i,"Assunto longo "+(i+1)+" — descrição do edital para validação de espaço"));
+ const busyTree=[node("block","Conhecimentos Básicos",[node("adm","Administração Pública",more)]),specific];
+ const busyAssignments=more.map(n=>({nodeId:n.id,name:n.name,path:["Conhecimentos Básicos","Administração Pública",n.name],origin:"edital",sourceRef:n.sourceRef,day:1}));
+ await seed(page,fixture("populated",busyTree,busyAssignments,{startDate:"2026-11-14",examDate:"",days:[1],minutes:0,mode:"alternate",daySchedules:{1:{startTime:"18:00",endTime:"20:00",simulation:false}}}));
+ assert.equal(await day(page,1).locator(".rp-tile").count(),11);
+ assert.ok((await day(page,1).boundingBox()).height<=175,"populated day remains compact");
+ await page.screenshot({path:"planner-screenshots/03-populated.png",fullPage:true});
  await seed(page,fixture("general-only",[general]));
  assert.equal(await page.locator(".rp-column").count(),2);
  assert.equal(await page.locator(".rp-column.specific .rp-tile").count(),0);
- await page.screenshot({path:"planner-screenshots/03-general-only.png",fullPage:true});
+ await page.screenshot({path:"planner-screenshots/04-general-only.png",fullPage:true});
  const mobile=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true,deviceScaleFactor:1});
  await seed(mobile,fixture("mobile",[general,specific]));
- await mobile.screenshot({path:"planner-screenshots/04-mobile.png",fullPage:true});
+ await mobile.screenshot({path:"planner-screenshots/05-mobile.png",fullPage:true});
  await drag(mobile,topic(library(mobile),"LDB"),day(mobile,1),true);
  await topic(day(mobile,1),"LDB").waitFor();await saved(mobile);
  await mobile.reload();await topic(day(mobile,1),"LDB").waitFor();
