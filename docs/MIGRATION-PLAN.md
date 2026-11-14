@@ -14,6 +14,7 @@ Fontes legadas: `ritmo-notion-v7`, `ritmo-notion-v6`, `ritmo-notion-v5`.
 - A importação é idempotente; `legacy-data-import` guarda o status e as contagens.
 - Manter localStorage intacto como fonte de recuperação.
 - `planDraft`, configurações auxiliares e dados não mapeados continuam preservados no snapshot.
+- Backup exporta todos os stores e oferece mesclagem ou substituição no IndexedDB; a cópia antiga no localStorage não é apagada.
 
 ## Validações antes de publicar
 1. Testar com cópia anonimizada de cada versão de origem.
@@ -21,7 +22,7 @@ Fontes legadas: `ritmo-notion-v7`, `ritmo-notion-v6`, `ritmo-notion-v5`.
 3. Conferir imagens e máscaras, respostas digitadas, referências e URLs.
 4. Conferir os estados FSRS antes/depois sem recalcular nenhum cartão.
 5. Conferir datas e histórico do caderno de erros.
-6. Testar migração repetida, interrupção e recuperação.
+6. Testar migração repetida, interrupção, backup, mesclagem e recuperação.
 7. Só depois do aceite, liberar o uso diário e preparar publicação.
 
 A agenda semanal não altera datas FSRS. Nenhuma chave de origem deve ser apagada durante a migração inicial.
