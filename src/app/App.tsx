@@ -99,22 +99,74 @@ function Dashboard() {
   </div>;
 }
 
+const GALLERY_DAYS = ["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"];
+function galleryWeekStart(now: Date) {
+  return new Date(now.getFullYear(),now.getMonth(),now.getDate()-(now.getDay()+6)%7);
+}
+function galleryDay(plan: StudyPlan,date: Date) {
+  const config=plan.scheduleConfig, key=dateKey(date), day=date.getDay();
+  const active=Boolean(config?.days.includes(day) && (!config.startDate || key>=config.startDate) && (!config.examDate || key<=config.examDate));
+  const slot=active?config?.daySchedules?.[day]:undefined;
+  const tasks=active?plan.assignments.filter(item=>item.day===day):[];
+  const pending=tasks.filter(item=>!(item.completedDates||[]).includes(key)).length;
+  const simulation=Boolean(slot?.simulation);
+  const pendingSimulation=simulation && !(slot?.completedDates||[]).includes(key);
+  return {active,slot,tasks,pending,simulation,pendingSimulation,hasSession:tasks.length>0||simulation};
+}
+function galleryNext(plan:StudyPlan, now:Date) {
+  if(plan.status!=="active"||!plan.scheduleConfig)return null;
+  const today= new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  const start=plan.scheduleConfig.startDate?fromDateKey(plan.scheduleConfig.startDate):today;
+  const base=start>today?start:today;
+  for(let i=0;i<370;i++){
+    const date=new Date(base.getFullYear(),base.getMonth(),base.getDate()+i);
+    if(plan.scheduleConfig.examDate&&dateKey(date)>plan.scheduleConfig.examDate)break;
+    const session=galleryDay(plan,date);
+    if(session.pending||session.pendingSimulation)return {date,...session};
+  }
+  return null;
+}
 function Plans() {
-  const [items, setItems] = useState<StudyPlan[]>([]);
-  const [loading, setLoading] = useState(true);
-  useEffect(() => { listPlans().then(setItems).finally(() => setLoading(false)); }, []);
-  return <div className="stack">
-    <Heading eyebrow="PLANEJAMENTO" title="Meus planos" desc="Cada card representa um concurso, cargo e recorte de estudo." action={<Link className="primary-button" to="/plans/new">Novo plano <ArrowRight size={16}/></Link>}/>
-    <Panel className="plans-panel">
-      <div className="panel-head"><h2>Seus planejamentos</h2><small>{items.length} salvo(s)</small></div>
-      {loading ? <div className="loading-panel">Carregando planos…</div> : items.length ? <div className="plans-grid">{items.map(plan => {
-        const count = getSelectedLeaves(plan.tree).length;
-        return <article className="plan-card" key={plan.id}>
-          <div className="plan-card-top"><div><span className={`status-pill ${plan.status}`}>{plan.status === "active" ? "Ativo" : plan.status === "completed" ? "Concluído" : "Rascunho"}</span><h3>{plan.title}</h3><p>{[plan.institution, plan.position, plan.area].filter(Boolean).join(" · ")}</p></div><strong>{count}<small>conteúdo(s)</small></strong></div>
-          <div className="plan-card-actions"><Link className="secondary-button" to={`/plans/${plan.id}`}>Ver plano</Link><Link className="primary-button" to={`/plans/${plan.id}/verticalize`}>{plan.status === "active" ? "Editar percurso" : "Continuar"} <ArrowRight size={15}/></Link></div>
-        </article>;
-      })}</div> : <div className="empty"><FolderKanban size={28}/><h2>Nenhum plano por aqui ainda</h2><p>Comece identificando o concurso, o cargo e a área de estudo que deseja preparar.</p><Link className="primary-button" to="/plans/new">Criar meu primeiro plano</Link></div>}
-    </Panel>
+  const [items,setItems]=useState<StudyPlan[]>([]);
+  const [loading,setLoading]=useState(true);
+  const [error,setError]=useState("");
+  useEffect(()=>{listPlans().then(setItems).catch(()=>setError("Não foi possível abrir seus planos.")).finally(()=>setLoading(false));},[]);
+  const now=new Date(), weekStart=galleryWeekStart(now);
+  const weekDates=GALLERY_DAYS.map((_,i)=>new Date(weekStart.getFullYear(),weekStart.getMonth(),weekStart.getDate()+i));
+  const active=items.filter(plan=>plan.status==="active");
+  const upcoming=active.map(plan=>({plan,next:galleryNext(plan,now)})).filter(item=>item.next!==null).sort((a,b)=>a.next!.date.getTime()-b.next!.date.getTime());
+  const first=upcoming[0];
+  const todayCount=active.filter(plan=>{const d=galleryDay(plan,now);return d.pending||d.pendingSimulation;}).length;
+  return <div className="stack hybrid-plans">
+    <Heading eyebrow="PLANEJAMENTO" title="Meus planos" desc="" action={<Link className="primary-button" to="/plans/new">Novo plano <ArrowRight size={16}/></Link>}/>
+    {first&&<section className="gallery-today">
+      <div className="gallery-today-icon"><CalendarDays size={22}/></div>
+      <div><small>{todayCount?"HOJE":"PRÓXIMO PASSO"}</small><strong>{todayCount?`${todayCount} ${todayCount===1?"plano com atividade pendente":"planos com atividades pendentes"}`:first.plan.title}</strong><span>{first.plan.title}{first.next?.date&&dateKey(first.next.date)!==dateKey(now)?` · ${first.next.date.toLocaleDateString("pt-BR",{weekday:"short",day:"numeric",month:"short"})}`:""}</span></div>
+      <Link className="secondary-button" to={`/plans/${first.plan.id}`}>Retomar <ArrowRight size={15}/></Link>
+    </section>}
+    <div className="gallery-section-heading"><h2>Seus planejamentos</h2><span>{items.length} {items.length===1?"plano":"planos"}</span></div>
+    {loading?<div className="loading-panel">Carregando planos…</div>:error?<Panel>{error}</Panel>:items.length?<div className="plans-grid gallery-grid">{items.map(plan=>{
+      const leaves=getSelectedLeaves(plan.tree), ids=new Set(leaves.map(item=>item.id));
+      const count=leaves.length, valid=plan.assignments.filter(item=>ids.has(item.nodeId)&&plan.scheduleConfig?.days.includes(item.day));
+      const organized=new Set(valid.map(item=>item.nodeId)).size;
+      const percent=count?Math.round(organized/count*100):0;
+      const next=galleryNext(plan,now);
+      const nextLabel=next?`${dateKey(next.date)===dateKey(now)?"Hoje":next.date.toLocaleDateString("pt-BR",{weekday:"short",day:"numeric",month:"short"})}${next.slot?.startTime&&next.slot.endTime?` · ${next.slot.startTime}–${next.slot.endTime}`:" · Horário a definir"}`:plan.status==="draft"?"Continue a montagem do seu plano":plan.status==="completed"?"Percurso concluído":"Nenhuma sessão futura definida";
+      return <article className="gallery-plan" key={plan.id}>
+        <div className="gallery-plan-top"><span className={`gallery-status ${plan.status}`}>{plan.status==="active"?"Ativo":plan.status==="completed"?"Concluído":"Rascunho"}</span><div className="gallery-ring" style={{background:`conic-gradient(var(--blue) ${percent}%, #eee9e1 0)`}} aria-label={`${percent}% dos conteúdos organizados`}><b>{percent}%</b></div></div>
+        <div className="gallery-name"><h3>{plan.title}</h3><p>{[plan.institution,plan.position,plan.area].filter(Boolean).join(" · ")}</p></div>
+        <div className="gallery-next"><small>{plan.status==="draft"?"EM CONSTRUÇÃO":next?.pendingSimulation?"PRÓXIMO SIMULADO / ESTUDO":"PRÓXIMA SESSÃO"}</small><strong>{nextLabel}</strong>{next&&<span>{next.pending} {next.pending===1?"assunto pendente":"assuntos pendentes"}{next.pendingSimulation?" · Simulado":""}</span>}</div>
+        <div className="gallery-progress-label"><span>Conteúdos organizados</span><b>{organized}/{count}</b></div>
+        <div className="gallery-progress" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100} aria-label="Organização do plano"><i style={{width:percent+"%"}}/></div>
+        <div className="gallery-week" aria-label="Semana atual">{weekDates.map((date,i)=>{
+          const d=galleryDay(plan,date);
+          const state= d.hasSession&&!d.pending&&!d.pendingSimulation?"done":d.simulation?"simulation":d.tasks.length?"study":d.active?"available":"";
+          return <div key={i} title={`${GALLERY_DAYS[i]}: ${d.tasks.length} conteúdo(s)${d.simulation?" · Simulado":""}`}><span>{GALLERY_DAYS[i]}</span><i className={state}>{state==="done"?<CheckCircle2 size={13}/>:d.simulation?"S":d.tasks.length||""}</i></div>;
+        })}</div>
+        {count>organized&&<span className="gallery-pending">{count-organized} conteúdo(s) sem dia</span>}
+        <div className="gallery-actions"><Link className="secondary-button" to={`/plans/${plan.id}`}>Ver plano</Link><Link className="primary-button" to={`/plans/${plan.id}/verticalize`}>{plan.status==="draft"?"Continuar":"Organizar semana"} <ArrowRight size={14}/></Link></div>
+      </article>;
+    })}</div>:<Panel><div className="empty"><FolderKanban size={28}/><h2>Seu primeiro plano</h2><p>Comece escolhendo o concurso e o conteúdo do edital.</p><Link className="primary-button" to="/plans/new">Criar plano</Link></div></Panel>}
   </div>;
 }
 
