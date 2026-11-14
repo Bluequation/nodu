@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, BookOpen, Check, Clock3, Layers3, Plus, RotateCcw, Sparkles } from "lucide-react";
 import type { Concept, FlashcardVariant, ReviewLog, StudySettings, StudySubject } from "../../domain/study";
 import { emptyFsrsState, rateFsrs, type FsrsGrade } from "../../domain/fsrs";
@@ -71,6 +71,8 @@ function FamilyList() {
 function FlashcardEditor() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const returnTo = searchParams.get("return") === "curation" ? "/curation" : "/flashcards";
   const editing = !!id;
   const [subject, setSubject] = useState<StudySubject>("tae");
   const [topic, setTopic] = useState("");
@@ -120,7 +122,7 @@ function FlashcardEditor() {
       } else {
         await createConcept({ subject, topic, source }, clean, "draft");
       }
-      navigate("/flashcards");
+      navigate(returnTo);
     } catch {
       setError("Não foi possível salvar. Seus dados anteriores permanecem preservados.");
       setSaving(false);
