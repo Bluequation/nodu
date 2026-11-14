@@ -1,4 +1,6 @@
 import type { PlanNode, PlanOrigin, ScheduleConfig, StudyPlan } from "../domain/models";
+import { emptyFsrsState } from "../domain/fsrs";
+import type { Concept, ErrorRecord, FlashcardVariant, LearningSession, QuestionBlock, ReviewLog, StudySubject } from "../domain/study";
 
 export const LEGACY_KEYS = ["ritmo-notion-v7", "ritmo-notion-v6", "ritmo-notion-v5"] as const;
 export interface LegacyDb {
@@ -16,6 +18,137 @@ export interface LegacyDb {
   [key: string]: unknown;
 }
 export type MigrationResult = { ok: true; data: LegacyDb } | { ok: false; reason: string };
+
+const asRecord = (value: unknown): Record<string, unknown> =>
+  value && typeof value === "object" ? value as Record<string, unknown> : {};
+const subjectOf = (value: unknown): StudySubject => value === "fisica" ? "fisica" : "tae";
+
+export function normalizeLegacyConcept(value: unknown, index = 0): Concept {
+  const raw = asRecord(value);
+  const now = Date.now();
+  const variantsRaw = Array.isArray(raw.variants) ? raw.variants : [];
+  const variants: FlashcardVariant[] = variantsRaw.map((item, variantIndex) => {
+    const variant = asRecord(item);
+    const mask = asRecord(variant.mask);
+    return {
+      id: String(variant.id ?? `legacy-variant-${index}-${variantIndex}`),
+      kind: String(variant.kind ?? "Definição"),
+      format: String(variant.format ?? "basic"),
+      q: String(variant.q ?? ""),
+      a: String(variant.a ?? ""),
+      reason: String(variant.reason ?? ""),
+      source: String(variant.source ?? ""),
+      image: String(variant.image ?? ""),
+      mask: variant.mask && typeof variant.mask === "object"
+        ? { x: Number(mask.x ?? 0), y: Number(mask.y ?? 0), w: Number(mask.w ?? 0), h: Number(mask.h ?? 0) }
+        : null,
+      status: String(variant.status ?? "approved"),
+      uses: Number(variant.uses ?? 0),
+      passes: Number(variant.passes ?? 0),
+      failures: Number(variant.failures ?? 0),
+    };
+  });
+  const fsrs = asRecord(raw.fsrs);
+  return {
+    id: String(raw.id ?? `legacy-concept-${index}`),
+    subject: subjectOf(raw.subject),
+    topic: String(raw.topic ?? ""),
+    source: String(raw.source ?? ""),
+    status: String(raw.status ?? "published"),
+    variants,
+    createdAt: Number(raw.createdAt ?? now),
+    fsrs: {
+      ...emptyFsrsState(now),
+      s: Number(fsrs.s ?? 0), d: Number(fsrs.d ?? 0), last: Number(fsrs.last ?? 0),
+      due: Number(fsrs.due ?? now - 1), reps: Number(fsrs.reps ?? 0),
+      lapses: Number(fsrs.lapses ?? 0), interval: Number(fsrs.interval ?? 0),
+    },
+    lastVariant: String(raw.lastVariant ?? ""),
+    suspended: Boolean(raw.suspended),
+  };
+}
+
+export function normalizeLegacyReview(value: unknown, index = 0): ReviewLog {
+  const raw = asRecord(value);
+  const grade = ["again", "hard", "good", "easy"].includes(String(raw.grade)) ? raw.grade as ReviewLog["grade"] : "good";
+  return {
+    id: String(raw.id ?? `legacy-review-${index}`),
+    conceptId: String(raw.conceptId ?? ""),
+    subject: subjectOf(raw.subject),
+    topic: String(raw.topic ?? ""),
+    variantId: String(raw.variantId ?? ""),
+    kind: String(raw.kind ?? ""),
+    format: String(raw.format ?? "basic"),
+    grade,
+    at: Number(raw.at ?? Date.now()),
+    wasNew: Boolean(raw.wasNew),
+    preview: Boolean(raw.preview),
+    typed: String(raw.typed ?? ""),
+    s: Number(raw.s ?? 0), d: Number(raw.d ?? 0), due: Number(raw.due ?? 0),
+  };
+}
+
+export function normalizeLegacyError(value: unknown, index = 0): ErrorRecord {
+  const raw = asRecord(value);
+  const history = Array.isArray(raw.history) ? raw.history : [];
+  return {
+    id: String(raw.id ?? `legacy-error-${index}`),
+    subject: subjectOf(raw.subject),
+    discipline: String(raw.discipline ?? ""),
+    area: String(raw.area ?? ""),
+    topic: String(raw.topic ?? ""),
+    type: String(raw.type ?? raw.cause ?? "Lacuna"),
+    mistake: String(raw.mistake ?? ""),
+    fix: String(raw.fix ?? ""),
+    reviewDays: Number(raw.reviewDays ?? 15),
+    questionUrl: String(raw.questionUrl ?? ""),
+    conceptId: String(raw.conceptId ?? ""),
+    questionText: String(raw.questionText ?? ""),
+    optionsText: String(raw.optionsText ?? ""),
+    correctAnswer: String(raw.correctAnswer ?? ""),
+    at: Number(raw.at ?? Date.now()),
+    nextReview: Number(raw.nextReview ?? Date.now() + Number(raw.reviewDays ?? 15) * 86_400_000),
+    successes: Number(raw.successes ?? 0),
+    failures: Number(raw.failures ?? 0),
+    status: String(raw.status ?? "pendente"),
+    history: history.map(item => {
+      const entry = asRecord(item);
+      return { at: Number(entry.at ?? Date.now()), grade: entry.grade === "right" ? "right" as const : "wrong" as const };
+    }),
+  };
+}
+
+export function normalizeLegacyBlock(value: unknown, index = 0): QuestionBlock {
+  const raw = asRecord(value);
+  return {
+    id: String(raw.id ?? `legacy-block-${index}`),
+    subject: subjectOf(raw.subject),
+    topic: String(raw.topic ?? ""),
+    at: Number(raw.at ?? Date.now()),
+    total: Number(raw.total ?? 0),
+    correct: Number(raw.correct ?? 0),
+    note: String(raw.note ?? ""),
+  };
+}
+
+export function normalizeLegacySession(value: unknown, index = 0): LearningSession {
+  const raw = asRecord(value);
+  return {
+    id: String(raw.id ?? `legacy-session-${index}`),
+    mode: String(raw.mode ?? ""),
+    topic: String(raw.topic ?? ""),
+    subject: subjectOf(raw.subject),
+    grade: String(raw.grade ?? ""),
+    at: Number(raw.at ?? Date.now()),
+    sourceType: String(raw.sourceType ?? ""),
+    sourceId: String(raw.sourceId ?? ""),
+    startedAt: Number(raw.startedAt ?? raw.at ?? Date.now()),
+    response: String(raw.response ?? ""),
+    autoGraded: Boolean(raw.autoGraded),
+    prompt: String(raw.prompt ?? ""),
+  };
+}
+
 
 export function validateLegacy(value: unknown): value is LegacyDb {
   if (!value || typeof value !== "object") return false;
