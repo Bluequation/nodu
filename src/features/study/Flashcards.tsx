@@ -172,8 +172,6 @@ function pickReview(concepts: Concept[], reviews: ReviewLog[], settings: StudySe
   const todayKey = new Date().toDateString();
   const seenNew = new Set(reviews.filter(review => new Date(review.at).toDateString() === todayKey && !review.preview && review.wasNew).map(review => review.conceptId));
   const reviewed = reviews.filter(review => new Date(review.at).toDateString() === todayKey && !review.preview && !review.wasNew).length;
-  const newLimit = Math.max(0, settings.newLimit - seenNew.size);
-  const reviewLimit = Math.max(0, settings.reviewLimit - reviewed);
   let candidates = concepts.filter(concept => isPublished(concept) && (subject === "all" || concept.subject === subject));
   if (mode === "difficult") candidates = candidates.filter(concept => concept.fsrs.lapses >= 2 || concept.variants.some(variant => variant.failures >= 2));
   if (mode === "law") candidates = candidates.filter(concept => concept.variants.some(variant => /lei seca|armadilha|competência|condição|exceção/i.test(variant.kind)));
