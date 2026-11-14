@@ -164,7 +164,7 @@ function fromDateKey(value: string) {
   return new Date(year, month - 1, day);
 }
 function displayTopicName(name: string) {
-  return name.replace(/^\\s*\\[EDITAL\\]\\s*/i, "").trim();
+  return name.replace(/^\s*\[EDITAL\]\s*/i, "").trim();
 }
 function planMinutesForDay(plan: StudyPlan, dayId: number) {
   const config = plan.scheduleConfig;
@@ -252,7 +252,7 @@ function Agenda() {
               const isSelected = key === selectedDate;
               const isOutside = date.getMonth() !== month.getMonth();
               const isToday = key === todayKey;
-              return <button type="button" key={key} className={`agenda-calendar-date ${isSelected ? "selected" : ""} ${isOutside ? "outside" : ""} ${isToday ? "today" : ""}`} onClick={() => setSelectedDate(key)} aria-label={`${date.toLocaleDateString("pt-BR")} · ${topicCount} conteúdo(s) · ${reviewCount} revisão(ões)`}>
+              return <button type="button" key={key} className={`agenda-calendar-date ${isSelected ? "selected" : ""} ${isOutside ? "outside" : ""} ${isToday ? "today" : ""}`} onClick={() => { setSelectedDate(key); if (isOutside) setMonth(new Date(date.getFullYear(), date.getMonth(), 1)); }} aria-label={`${date.toLocaleDateString("pt-BR")} · ${topicCount} conteúdo(s) · ${reviewCount} revisão(ões)`}>
                 <span>{date.getDate()}</span>
                 {(topicCount > 0 || reviewCount > 0) && <i className="agenda-date-markers">{topicCount > 0 && <b className="study-marker"/>}{reviewCount > 0 && <b className="review-marker"/>}</i>}
                 {topicCount > 0 && <small>{topicCount}</small>}
