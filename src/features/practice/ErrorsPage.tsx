@@ -424,7 +424,7 @@ export function ErrorsPage() {
               <tr key={error.id}>
                 <td className="rm-nowrap">{shortDateLabel(error.at)}</td>
                 <td><span className="rm-error-type">{error.type}</span></td>
-                <td><strong className="rm-error-discipline">{error.discipline || "—"}</strong><small className="rm-error-subject">{subjectLabel(error.subject)}</small></td>
+                <td><strong className="rm-error-discipline">{error.discipline || "—"}</strong></td>
                 <td>{error.area || "—"}</td>
                 <td><strong>{error.topic}</strong>{concept && <small className="rm-error-subject">Flashcard: {concept.topic}</small>}</td>
                 <td><div className="rm-error-cell-text">{error.mistake}</div></td>
