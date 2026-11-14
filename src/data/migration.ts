@@ -1,6 +1,6 @@
 import type { PlanNode, PlanOrigin, ScheduleConfig, StudyPlan } from "../domain/models";
 import { emptyFsrsState } from "../domain/fsrs";
-import type { Concept, ErrorRecord, FlashcardVariant, LearningSession, QuestionBlock, ReviewLog, StudySubject } from "../domain/study";
+import type { Concept, ErrorAttachment, ErrorRecord, FlashcardVariant, LearningSession, QuestionBlock, ReviewLog, StudySubject } from "../domain/study";
 
 export const LEGACY_KEYS = ["ritmo-notion-v7", "ritmo-notion-v6", "ritmo-notion-v5"] as const;
 export interface LegacyDb {
@@ -115,6 +115,10 @@ export function normalizeLegacyError(value: unknown, index = 0): ErrorRecord {
       const entry = asRecord(item);
       return { at: Number(entry.at ?? Date.now()), grade: entry.grade === "right" ? "right" as const : "wrong" as const };
     }),
+    attachments: Array.isArray(raw.attachments) ? raw.attachments.map(item => {
+      const file = asRecord(item);
+      return { id: String(file.id ?? ""), name: String(file.name ?? ""), type: String(file.type ?? ""), size: Number(file.size ?? 0), dataUrl: String(file.dataUrl ?? "") };
+    }).filter((file: ErrorAttachment) => Boolean(file.id && file.dataUrl)) : [],
   };
 }
 
