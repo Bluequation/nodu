@@ -13,13 +13,13 @@ const DAY = 86_400_000;
 const REVIEW_STEPS = [1, 3, 7, 15, 30, 60, 90];
 const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
 const DISCIPLINE_DEFAULTS = [
-  "Português",
-  "Legislação",
-  "Conhecimentos Pedagógicos",
   "Administração Pública",
-  "Física",
-  "Matemática",
+  "Conhecimentos Pedagógicos",
   "Dados e Indicadores",
+  "Física",
+  "Legislação",
+  "Matemática",
+  "Português",
 ];
 const EMPTY_ERROR = {
   subject: "tae" as StudySubject,
@@ -296,7 +296,7 @@ export function ErrorsPage() {
     </p>}
 
     <div className="rm-toolbar rm-error-toolbar">
-      <MaterialScopePicker plans={plans} disabled={showForm} onChange={() => setPhase("all")}/>
+      <MaterialScopePicker plans={plans} disabled={showForm} onChange={() => { setPhase("all"); setDisciplineTab("Todas"); }}/>
       <label className="rm-error-search">
         <Search size={15}/>
         <input aria-label="Buscar no caderno de erros" value={searchTerm} onChange={event => setSearchTerm(event.target.value)} placeholder="Buscar disciplina, assunto ou erro…"/>
