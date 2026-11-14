@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { HashRouter, Link, NavLink, Route, Routes, useNavigate } from "react-router-dom";
 import { createPlan, listPlans } from "../data/plans";
-import { getStudySettings, listConcepts, listErrors, listQuestionBlocks } from "../data/study";
+import { listConcepts, listErrors, listQuestionBlocks } from "../data/study";
 import type { NewStudyPlan, StudyPlan } from "../domain/models";
 import { getSelectedLeaves } from "../domain/verticalization";
 import { PlanDetailRoute, PlanWizardRoute } from "../features/plans/PlanWizard";
@@ -66,8 +66,8 @@ function Dashboard() {
   const [plans, setPlans] = useState<StudyPlan[]>([]);
   const [metrics, setMetrics] = useState({ dueCards: 0, dueErrors: 0, questions: 0, correct: 0 });
   useEffect(() => {
-    Promise.all([listPlans(), listConcepts(), listErrors(), listQuestionBlocks(), getStudySettings()])
-      .then(([nextPlans, concepts, errors, blocks, settings]) => {
+    Promise.all([listPlans(), listConcepts(), listErrors(), listQuestionBlocks()])
+      .then(([nextPlans, concepts, errors, blocks]) => {
         setPlans(nextPlans);
         setMetrics({
           dueCards: concepts.filter(concept => concept.status === "published" && !concept.suspended && concept.fsrs.due <= Date.now()).length,
