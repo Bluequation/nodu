@@ -179,7 +179,7 @@ function pickReview(concepts: Concept[], reviews: ReviewLog[], settings: StudySe
   const seenNew = new Set(reviews.filter(review => new Date(review.at).toDateString() === todayKey && !review.preview && review.wasNew).map(review => review.conceptId));
   const reviewed = reviews.filter(review => new Date(review.at).toDateString() === todayKey && !review.preview && !review.wasNew).length;
   let candidates = concepts.filter(concept => isPublished(concept) && (subject === "all" || concept.subject === subject));
-  if (mode === "difficult") candidates = candidates.filter(concept => concept.fsrs.lapses >= 2 || concept.variants.some(variant => variant.failures >= 2));
+  if (mode === "difficult") candidates = candidates.filter(concept => concept.fsrs.lapses >= settings.leech || concept.variants.some(variant => variant.failures >= settings.leech));
   if (mode === "law") candidates = candidates.filter(concept => concept.variants.some(variant => /lei seca|armadilha|competência|condição|exceção/i.test(variant.kind)));
   candidates = candidates.filter(concept => concept.fsrs.due <= Date.now());
   candidates.sort((a, b) => Number(a.fsrs.reps === 0) - Number(b.fsrs.reps === 0) || a.fsrs.due - b.fsrs.due);
