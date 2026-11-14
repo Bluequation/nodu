@@ -1,0 +1,1 @@
+export interface StudyPlan{id:string;title:string;institution:string;position:string;area:string;organizer:string;examDate:string;createdAt:number;updatedAt:number;status:"draft"|"active"|"completed"} export type NewStudyPlan=Omit<StudyPlan,"id"|"createdAt"|"updatedAt"|"status">;
