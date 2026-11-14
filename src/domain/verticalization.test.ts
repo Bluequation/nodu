@@ -27,7 +27,7 @@ describe("verticalização em Markdown", () => {
     const mechanics = parsed.tree[0].children[0].children[0];
     expect(mechanics.name).toBe("1. Mecânica");
     expect(mechanics.sourceRef).toBe("p. 14, item 1");
-    expect(mechanics.sourceText).toBe('"1. Mecânica."');
+    expect(mechanics.sourceText).toBe("1. Mecânica.");
     expect(parsed.warnings).toHaveLength(1);
   });
 
