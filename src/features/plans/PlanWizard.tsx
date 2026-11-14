@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent, type DragEvent as ReactDragEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft, ArrowRight, AlertCircle, BookOpen, CalendarDays, Check, CheckCircle2, Clipboard,
@@ -291,7 +291,7 @@ function SourceStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyPla
   const [message, setMessage] = useState("");
   const [savingSource, setSavingSource] = useState(false);
   const [savedSource, setSavedSource] = useState(false);
-  useEffect(() => { setSourceText(plan.sourceText); setSourceFile(plan.sourceFile); setSavedSource(false); }, [plan.id, plan.sourceText, plan.sourceFile]);
+  useEffect(() => { setSourceText(plan.sourceText); setSourceFile(plan.sourceFile); }, [plan.id, plan.sourceText, plan.sourceFile]);
 
   async function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -572,12 +572,12 @@ function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyP
     setSelectedIds([]);
     setScheduleFeedback("");
   }
-  function handleDragStart(event: React.DragEvent<HTMLElement>, nodeId: string) {
+  function handleDragStart(event: ReactDragEvent<HTMLElement>, nodeId: string) {
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", nodeId);
     setDraggedId(nodeId);
   }
-  function handleDrop(event: React.DragEvent<HTMLElement>, dayId: number) {
+  function handleDrop(event: ReactDragEvent<HTMLElement>, dayId: number) {
     event.preventDefault();
     const nodeId = event.dataTransfer.getData("text/plain") || draggedId;
     if (nodeId) moveTopicToDay(nodeId, dayId);
