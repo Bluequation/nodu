@@ -66,9 +66,6 @@ function readFileAsDataUrl(file: File): Promise<string> {
 function sameDiscipline(a: string, b: string) {
   return a.trim().localeCompare(b.trim(), "pt-BR", { sensitivity: "base" }) === 0;
 }
-function subjectLabel(subject: StudySubject) {
-  return subject === "fisica" ? "Física" : "Geral";
-}
 
 export function ErrorsPage() {
   const context = useStudyContext();
