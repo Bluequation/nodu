@@ -13,6 +13,7 @@ export interface DaySchedule {
   startTime: string;
   endTime: string;
   simulation: boolean;
+  completedDates?: string[];
 }
 export interface ScheduleConfig {
   startDate: string;
