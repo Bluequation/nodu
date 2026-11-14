@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { ArrowLeft, ArrowRight, BookOpen, Brain, Check, Layers3, Lightbulb, Shuffle, Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowLeft, ArrowRight, BookOpen, Brain, Check, Lightbulb, Shuffle, Sparkles } from "lucide-react";
 import type { Concept, ErrorRecord, LearningSession, StudySubject } from "../../domain/study";
 import { listConcepts, listErrors, listLearningSessions, saveLearningSession } from "../../data/study";
 
@@ -69,6 +68,7 @@ export function LearningPage() {
   const [complete, setComplete] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   useEffect(() => {
     Promise.all([listConcepts(), listErrors(), listLearningSessions()])
       .then(([nextConcepts, nextErrors, nextHistory]) => { setConcepts(nextConcepts); setErrors(nextErrors); setHistory(nextHistory); })
@@ -79,7 +79,7 @@ export function LearningPage() {
 
   function start(selectedMode: LearningMode) {
     const eligibleConcepts = concepts.filter(concept => concept.status === "published" && !concept.suspended && (subject === "all" || concept.subject === subject));
-    const eligibleErrors = errors.filter(error => subject === "all" || error.subject === subject);
+    const eligibleErrors = errors.filter(error => error.status !== "dominado" && (subject === "all" || error.subject === subject));
     const conceptItems = eligibleConcepts.map(concept => buildConceptItem(concept, selectedMode)).filter((item): item is LearningItem => !!item);
     const errorItems = eligibleErrors.map(buildErrorItem);
     let items = selectedMode === "errors" ? errorItems : selectedMode === "interleave" ? interleave(conceptItems, errorItems) : conceptItems;
@@ -89,19 +89,26 @@ export function LearningPage() {
   }
 
   async function grade(value: "complete" | "partial" | "retry") {
-    if (!current || !response.trim()) { setFeedback("Escreva sua tentativa antes de registrar a atividade."); return; }
+    if (!current || !response.trim() || saving) { setFeedback("Escreva sua tentativa antes de registrar a atividade."); return; }
+    setSaving(true);
     const record: LearningSession = {
       id: crypto.randomUUID(), mode: mode || "recall", sourceType: current.sourceType, sourceId: current.sourceId,
       subject: current.subject, topic: current.topic, at: Date.now(), startedAt,
       grade: value, response, autoGraded: false, prompt: current.prompt,
     };
-    await saveLearningSession(record);
-    setHistory(items => [record, ...items]);
-    setFeedback("");
-    if (index + 1 >= queue.length) {
-      setComplete(true);
-    } else {
-      setIndex(value => value + 1); setResponse(""); setRevealed(false);
+    try {
+      await saveLearningSession(record);
+      setHistory(items => [record, ...items]);
+      setFeedback("");
+      if (index + 1 >= queue.length) {
+        setComplete(true);
+      } else {
+        setIndex(value => value + 1); setResponse(""); setRevealed(false);
+      }
+    } catch {
+      setFeedback("Não foi possível salvar esta atividade. Sua resposta continua na tela; tente novamente.");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -121,7 +128,7 @@ export function LearningPage() {
       <div className="learning-context"><span className="subject-pill">{current.subject === "tae" ? "TAE" : "Física"}</span>{current.context && <small>{current.context}</small>}</div>
       <div className="learning-prompt">{current.prompt}</div>
       <div className="field-block"><label htmlFor="learning-response">{mode === "explain" ? "Explique com suas palavras" : mode === "errors" ? "Como você corrigiria o raciocínio?" : "Registre o que conseguiu recuperar"}</label><textarea id="learning-response" rows={6} value={response} onChange={event => setResponse(event.target.value)} placeholder="Escreva sua tentativa antes de revelar a referência…"/></div>
-      {!revealed ? <button className="primary-button" disabled={!response.trim()} onClick={() => setRevealed(true)}>Comparar com a referência <ArrowRight size={15}/></button> : <div className="learning-reference"><span>REFERÊNCIA DO SEU MATERIAL</span><p>{current.reference}</p><div className="learning-self-grade"><strong>Como avalia sua explicação?</strong><div className="button-row"><button className="secondary-button compact" onClick={() => grade("retry")}>Preciso retomar</button><button className="secondary-button compact" onClick={() => grade("partial")}>Parcialmente</button><button className="primary-button compact" onClick={() => grade("complete")}>Consegui explicar <Check size={13}/></button></div></div></div>}
+      {!revealed ? <button className="primary-button" disabled={!response.trim()} onClick={() => setRevealed(true)}>Comparar com a referência <ArrowRight size={15}/></button> : <div className="learning-reference"><span>REFERÊNCIA DO SEU MATERIAL</span><p>{current.reference}</p><div className="learning-self-grade"><strong>Como avalia sua explicação?</strong><div className="button-row"><button className="secondary-button compact" disabled={saving} onClick={() => grade("retry")}>Preciso retomar</button><button className="secondary-button compact" disabled={saving} onClick={() => grade("partial")}>Parcialmente</button><button className="primary-button compact" disabled={saving} onClick={() => grade("complete")}>Consegui explicar <Check size={13}/></button></div></div></div>}
       {feedback && <p className="inline-feedback" role="alert">{feedback}</p>}
     </section>
   </div>;
