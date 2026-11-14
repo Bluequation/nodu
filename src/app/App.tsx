@@ -158,14 +158,34 @@ function NewPlan() {
 const WEEKDAYS = [{ id: 1, label: "Segunda" }, { id: 2, label: "Terça" }, { id: 3, label: "Quarta" }, { id: 4, label: "Quinta" }, { id: 5, label: "Sexta" }, { id: 6, label: "Sábado" }, { id: 0, label: "Domingo" }];
 function Agenda() {
   const [plans, setPlans] = useState<StudyPlan[]>([]);
-  useEffect(() => { listPlans().then(setPlans); }, []);
+  const [reviewItems, setReviewItems] = useState<Array<{ id: string; topic: string; type: string; subject: string; due: number }>>([]);
+  useEffect(() => {
+    Promise.all([listPlans(), listConcepts(), listErrors()]).then(([nextPlans, concepts, errors]) => {
+      setPlans(nextPlans);
+      const items = [
+        ...concepts.filter(concept => concept.status === "published" && !concept.suspended).map(concept => ({ id: concept.id, topic: concept.topic, type: "Flashcard · FSRS", subject: concept.subject === "tae" ? "TAE" : "Física", due: concept.fsrs.due })),
+        ...errors.filter(error => error.status !== "dominado").map(error => ({ id: error.id, topic: error.topic, type: "Caderno de erros", subject: error.subject === "tae" ? "TAE" : "Física", due: error.nextReview })),
+      ].sort((a, b) => a.due - b.due).slice(0, 30);
+      setReviewItems(items);
+    });
+  }, []);
   const active = plans.filter(plan => plan.status === "active" && plan.assignments.length);
+  const reviewDate = (timestamp: number) => {
+    const due = new Date(timestamp); const today = new Date();
+    const day = new Date(due.getFullYear(), due.getMonth(), due.getDate()).getTime();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+    const diff = Math.round((day - todayStart) / 86_400_000);
+    return diff < 0 ? "Atrasada" : diff === 0 ? "Hoje" : diff === 1 ? "Amanhã" : due.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+  };
   return <div className="stack">
     <Heading eyebrow="PLANEJAMENTO" title="Agenda semanal" desc="Veja como os conteúdos dos seus planos estão distribuídos ao longo da semana."/>
     {active.length ? active.map(plan => <Panel key={plan.id}><div className="panel-head"><div><h2>{plan.title}</h2><p>{[plan.position, plan.area].filter(Boolean).join(" · ")}</p></div><Link className="text-link" to={`/plans/${plan.id}/verticalize`}>Editar <ArrowRight size={15}/></Link></div><div className="agenda-week">{WEEKDAYS.filter(day => plan.scheduleConfig?.days.includes(day.id)).map(day => {
       const topics = plan.assignments.filter(item => item.day === day.id);
       return <section key={day.id}><div className="agenda-day-title"><strong>{day.label}</strong><span>{topics.length}</span></div>{topics.length ? topics.map(item => <div className="agenda-topic" key={item.nodeId}><span>{item.name}</span><small>{item.path.slice(0, -1).join(" / ")}</small></div>) : <p className="empty-day">Sem tópicos distribuídos.</p>}</section>;
     })}</div></Panel>) : <Panel><div className="empty"><CalendarDays size={28}/><h2>Sua agenda começa com um plano</h2><p>Depois de selecionar os conteúdos e definir seus dias disponíveis, a distribuição aparecerá aqui.</p><Link className="primary-button" to="/plans">Abrir meus planos</Link></div></Panel>}
+    <Panel><div className="panel-head"><div><h2>Revisões programadas</h2><p>Flashcards e caderno de erros aparecem juntos, mas mantêm ciclos independentes.</p></div><span className="soft-tag">{reviewItems.length} registro(s)</span></div>
+      {reviewItems.length ? <div className="upcoming-reviews">{reviewItems.map(item => <article className="upcoming-review" key={`${item.type}-${item.id}`}><div><span className={item.type.startsWith("Flashcard") ? "origin-pill" : "origin-pill suggested"}>{item.type}</span><strong>{item.topic}</strong><small>{item.subject}</small></div><span className={new Date(item.due).getTime() <= Date.now() ? "review-date overdue" : "review-date"}>{reviewDate(item.due)}</span><Link to={item.type.startsWith("Flashcard") ? "/reviews" : "/errors"} aria-label={`Abrir ${item.type}`}><ArrowRight size={15}/></Link></article>)}</div> : <div className="empty-state"><CalendarDays size={25}/><strong>Nenhuma revisão programada</strong><span>Depois de publicar flashcards ou registrar erros, os próximos retornos aparecerão aqui.</span></div>}
+    </Panel>
   </div>;
 }
 
