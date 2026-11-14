@@ -528,7 +528,7 @@ function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyP
   function changeConfig(patch: Partial<ScheduleConfig>) {
     const next = { ...config, ...patch };
     setConfig(next);
-    void onSave({ ...plan, scheduleConfig: next, updatedAt: Date.now() });
+    void onSave({ ...plan, scheduleConfig: next, assignments, updatedAt: Date.now() });
   }
   function changeDays(selectedDays: number[]) {
     const days = WEEKDAYS.filter(day => selectedDays.includes(day.id)).map(day => day.id);
@@ -627,7 +627,7 @@ function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyP
     const nextConfig = { ...config, priorityOrder: rankedIds };
     setConfig(nextConfig);
     setPriorityFeedback("Prioridade importada. A sugestão automática continuará usando somente os conteúdos selecionados.");
-    void onSave({ ...plan, scheduleConfig: nextConfig, updatedAt: Date.now() });
+    void onSave({ ...plan, scheduleConfig: nextConfig, assignments, updatedAt: Date.now() });
   }
   async function finish() {
     if (!config.days.length) {
