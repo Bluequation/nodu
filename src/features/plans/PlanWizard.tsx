@@ -3,12 +3,12 @@ import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft, ArrowRight, AlertCircle, BookOpen, CalendarDays, Check, CheckCircle2, Clipboard,
   ChevronDown, ChevronRight, Clock3, Flame, FolderOpen, Info, Lightbulb, ListChecks,
-  NotebookPen, Pencil, Plus, Sparkles, Target, TrendingUp, Upload,
+  NotebookPen, Pencil, Plus, Sparkles, Target, TrendingUp, Upload, GripVertical, LoaderCircle,
 } from "lucide-react";
 import { getPlan, savePlan } from "../../data/plans";
 import { listConcepts, listErrors, listQuestionBlocks } from "../../data/study";
 import type { Concept, ErrorRecord, QuestionBlock } from "../../domain/study";
-import type { PlanNode, PlanStage, ScheduleConfig, StudyPlan } from "../../domain/models";
+import type { DaySchedule, PlanAssignment, PlanNode, PlanStage, ScheduleConfig, StudyPlan } from "../../domain/models";
 import {
   addManualChildToTree, buildVerticalPrompt, getNodeSelectionState,
   getPlanSections, getSelectedLeaves, parseVerticalMarkdown, renameNodeInTree, type SelectedPlanLeaf,
@@ -48,16 +48,60 @@ const today = () => {
 function displayNodeName(name: string) {
   return name.replace(/^\s*\[EDITAL\]\s*/i, "").trim();
 }
+function durationFromTimes(startTime?: string, endTime?: string) {
+  if (!startTime || !endTime) return 0;
+  const [startHour, startMinute] = startTime.split(":").map(Number);
+  const [endHour, endMinute] = endTime.split(":").map(Number);
+  if (![startHour, startMinute, endHour, endMinute].every(Number.isFinite)) return 0;
+  const start = startHour * 60 + startMinute;
+  let end = endHour * 60 + endMinute;
+  if (end < start) end += 24 * 60;
+  return end - start;
+}
 function minutesForDay(config: ScheduleConfig, dayId: number) {
+  const slot = config.daySchedules?.[dayId];
+  if (slot) return durationFromTimes(slot.startTime, slot.endTime);
+  if (config.daySchedules) return 0;
   return config.sameMinutes === false ? (config.dayMinutes?.[dayId] ?? config.minutes) : config.minutes;
+}
+function formatDuration(minutes: number) {
+  if (!minutes) return "Horário ainda não definido";
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  if (hours && remainder) return `${hours}h ${remainder}min disponíveis`;
+  if (hours) return `${hours}h disponíveis`;
+  return `${remainder}min disponíveis`;
+}
+function emptyDaySchedule(): DaySchedule {
+  return { startTime: "", endTime: "", simulation: false };
+}
+function assignmentFromLeaf(leaf: SelectedPlanLeaf, day = 0): PlanAssignment {
+  return {
+    nodeId: leaf.id,
+    name: displayNodeName(leaf.name),
+    path: leaf.path.map(displayNodeName),
+    origin: leaf.origin,
+    sourceRef: leaf.sourceRef,
+    day,
+  };
+}
+function reconcileAssignments(leaves: SelectedPlanLeaf[], existing: PlanAssignment[], days: number[]) {
+  const byId = new Map(existing.map(item => [item.nodeId, item]));
+  return leaves.map(leaf => {
+    const current = byId.get(leaf.id);
+    if (!current) return assignmentFromLeaf(leaf, 0);
+    return { ...assignmentFromLeaf(leaf, current.day), ...current,
+      day: current.day > 0 && days.includes(current.day) ? current.day : 0 };
+  });
 }
 const defaultSchedule = (plan: StudyPlan): ScheduleConfig => ({
   startDate: today(),
   examDate: plan.examDate || "",
-  days: [1, 2, 3, 4, 5],
-  minutes: 90,
-  sameMinutes: true,
-  dayMinutes: { 1: 90, 2: 90, 3: 90, 4: 90, 5: 90 },
+  days: [],
+  minutes: 0,
+  sameMinutes: false,
+  dayMinutes: {},
+  daySchedules: {},
   priorityOrder: [],
   mode: "alternate",
 });
@@ -178,8 +222,10 @@ function SelectionNode({
 
 function distribute(plan: StudyPlan, config: ScheduleConfig) {
   const leaves = getSelectedLeaves(plan.tree);
-  const days = WEEKDAYS.filter(day => config.days.includes(day.id)).map(day => day.id);
-  if (!leaves.length || !days.length) return [];
+  const days = WEEKDAYS
+    .filter(day => config.days.includes(day.id) && !config.daySchedules?.[day.id]?.simulation)
+    .map(day => day.id);
+  if (!leaves.length || !days.length || days.some(day => minutesForDay(config, day) <= 0)) return [];
   const byId = new Map(leaves.map(leaf => [leaf.id, leaf]));
   const ranked = config.mode === "priority"
     ? (config.priorityOrder || []).map(id => byId.get(id)).filter((leaf): leaf is (typeof leaves)[number] => Boolean(leaf))
@@ -187,7 +233,7 @@ function distribute(plan: StudyPlan, config: ScheduleConfig) {
   const ordered = config.mode === "priority"
     ? [...ranked, ...leaves.filter(leaf => !ranked.some(item => item.id === leaf.id))]
     : leaves;
-  const capacity = new Map(days.map(day => [day, Math.max(30, minutesForDay(config, day))]));
+  const capacity = new Map(days.map(day => [day, minutesForDay(config, day)]));
   const load = new Map(days.map(day => [day, 0]));
   const assigned = new Map<string, number>();
   if (config.mode === "sequence") {
@@ -195,26 +241,23 @@ function distribute(plan: StudyPlan, config: ScheduleConfig) {
     days.forEach((day, index) => {
       const remainingTopics = ordered.length - offset;
       if (remainingTopics <= 0) return;
-      const remainingCapacity = days.slice(index).reduce((sum, item) => sum + (capacity.get(item) || 30), 0);
-      const count = index === days.length - 1 ? remainingTopics : Math.min(remainingTopics, Math.max(1, Math.round(remainingTopics * (capacity.get(day) || 30) / remainingCapacity)));
+      const remainingCapacity = days.slice(index).reduce((sum, item) => sum + (capacity.get(item) || 1), 0);
+      const count = index === days.length - 1 ? remainingTopics : Math.min(remainingTopics, Math.max(1, Math.round(remainingTopics * (capacity.get(day) || 1) / remainingCapacity)));
       ordered.slice(offset, offset + count).forEach(leaf => assigned.set(leaf.id, day));
       offset += count;
     });
   } else {
     ordered.forEach(leaf => {
       const day = days.reduce((best, candidate) => {
-        const candidateRatio = (load.get(candidate) || 0) / (capacity.get(candidate) || 30);
-        const bestRatio = (load.get(best) || 0) / (capacity.get(best) || 30);
+        const candidateRatio = (load.get(candidate) || 0) / (capacity.get(candidate) || 1);
+        const bestRatio = (load.get(best) || 0) / (capacity.get(best) || 1);
         return candidateRatio < bestRatio ? candidate : best;
       }, days[0]);
       assigned.set(leaf.id, day);
       load.set(day, (load.get(day) || 0) + 1);
     });
   }
-  return ordered.map(leaf => ({
-    nodeId: leaf.id, name: displayNodeName(leaf.name), path: leaf.path.map(displayNodeName),
-    origin: leaf.origin, sourceRef: leaf.sourceRef, day: assigned.get(leaf.id) ?? days[0],
-  }));
+  return ordered.map(leaf => assignmentFromLeaf(leaf, assigned.get(leaf.id) ?? 0));
 }
 
 function buildPriorityPrompt(plan: StudyPlan, leaves: SelectedPlanLeaf[]) {
@@ -246,13 +289,15 @@ function SourceStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyPla
   const [structureText, setStructureText] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  useEffect(() => { setSourceText(plan.sourceText); setSourceFile(plan.sourceFile); }, [plan.id, plan.sourceText, plan.sourceFile]);
+  const [savingSource, setSavingSource] = useState(false);
+  const [savedSource, setSavedSource] = useState(false);
+  useEffect(() => { setSourceText(plan.sourceText); setSourceFile(plan.sourceFile); setSavedSource(false); }, [plan.id, plan.sourceText, plan.sourceFile]);
 
   async function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
     if (file.size > 25_000_000) { setMessage("O arquivo ultrapassa 25 MB. Escolha um arquivo menor."); return; }
-    setBusy(true); setMessage("");
+    setBusy(true); setSavedSource(false); setMessage("");
     try {
       const text = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")
         ? await readPdf(file)
@@ -262,6 +307,7 @@ function SourceStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyPla
       if (!text) throw new Error("Formato não reconhecido. Envie PDF, TXT ou Markdown.");
       setSourceText(text.slice(0, 180000));
       setSourceFile(file.name);
+      setSavedSource(false);
       setMessage("Texto extraído. Confira se corresponde ao cargo e à área escolhidos.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Não foi possível ler o arquivo.");
@@ -272,8 +318,19 @@ function SourceStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyPla
   }
 
   async function saveSource() {
-    await onSave({ ...plan, sourceText, sourceFile, updatedAt: Date.now() });
-    setMessage("Dados do edital salvos neste navegador.");
+    if (savingSource) return;
+    setSavingSource(true);
+    setSavedSource(false);
+    setMessage("");
+    try {
+      await onSave({ ...plan, sourceText, sourceFile, updatedAt: Date.now() });
+      setSavedSource(true);
+      setMessage("Dados do edital salvos neste navegador.");
+    } catch {
+      setMessage("Não foi possível salvar os dados. Tente novamente.");
+    } finally {
+      setSavingSource(false);
+    }
   }
   async function copyPrompt() {
     const prompt = buildVerticalPrompt({ ...plan, sourceText });
@@ -320,11 +377,13 @@ function SourceStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyPla
       </div>
       <div className="field-block">
         <label htmlFor="source-text">Conteúdo programático do cargo/área</label>
-        <textarea id="source-text" rows={9} maxLength={180000} value={sourceText} onChange={event => setSourceText(event.target.value)} placeholder="Cole aqui somente o conteúdo programático pertinente ao cargo e à área escolhidos."/>
+        <textarea id="source-text" rows={9} maxLength={180000} value={sourceText} onChange={event => { setSourceText(event.target.value); setSavedSource(false); }} placeholder="Cole aqui somente o conteúdo programático pertinente ao cargo e à área escolhidos."/>
         <small>Evite inserir dados pessoais. Se o edital tiver várias áreas, mantenha aqui apenas o recorte que pertence a este plano.</small>
       </div>
       <div className="button-row">
-        <button className="secondary-button" type="button" onClick={saveSource}>Salvar dados do edital</button>
+        <button className={`secondary-button source-save-button ${savingSource ? "is-saving" : savedSource ? "is-saved" : ""}`} type="button" onClick={saveSource} disabled={savingSource || busy}>
+          {savingSource ? <><LoaderCircle size={15} className="save-spinner"/> Salvando dados...</> : savedSource ? <><CheckCircle2 size={15} className="save-success-icon"/> Dados salvos</> : <><Check size={15}/> Salvar dados do edital</>}
+        </button>
       </div>
     </section>
 
@@ -352,7 +411,7 @@ function SourceStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyPla
       </div>
       <div className="note-strip">A IA apenas organiza o que está no edital. Não deve acrescentar assuntos, exemplos, pré-requisitos ou subtemas. O que não estiver no documento só pode entrar se você adicionar manualmente.</div>
     </section>}
-    {message && <p className="inline-feedback" role="status">{busy ? "Lendo arquivo…" : message}</p>}
+    {message && <p className={`inline-feedback source-save-feedback ${savedSource ? "is-saved" : ""}`} role="status">{busy ? "Lendo arquivo…" : message}</p>}
   </div>;
 }
 
@@ -443,20 +502,29 @@ function SelectionStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: Study
 }
 
 function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyPlan) => Promise<void> }) {
+  const leaves = getSelectedLeaves(plan.tree);
   const [config, setConfig] = useState<ScheduleConfig>(plan.scheduleConfig || defaultSchedule(plan));
-  const [assignments, setAssignments] = useState(plan.assignments);
+  const [assignments, setAssignments] = useState<PlanAssignment[]>(() => reconcileAssignments(leaves, plan.assignments, (plan.scheduleConfig || defaultSchedule(plan)).days));
   const [priorityText, setPriorityText] = useState("");
   const [priorityFeedback, setPriorityFeedback] = useState("");
+  const [scheduleFeedback, setScheduleFeedback] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [bulkDay, setBulkDay] = useState<number>(config.days[0] ?? 1);
-  const leaves = getSelectedLeaves(plan.tree);
+  const [bulkDay, setBulkDay] = useState<number>((plan.scheduleConfig?.days || [])[0] ?? 1);
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dragOverDay, setDragOverDay] = useState<number | null>(null);
 
   useEffect(() => {
-    setConfig(plan.scheduleConfig || defaultSchedule(plan));
-    setAssignments(plan.assignments);
+    const nextConfig = plan.scheduleConfig || defaultSchedule(plan);
+    setConfig(nextConfig);
+    setAssignments(reconcileAssignments(getSelectedLeaves(plan.tree), plan.assignments, nextConfig.days));
     setSelectedIds([]);
+    setBulkDay(nextConfig.days[0] ?? 1);
   }, [plan.id]);
 
+  function persist(nextAssignments: PlanAssignment[], nextConfig = config) {
+    setAssignments(nextAssignments);
+    void onSave({ ...plan, scheduleConfig: nextConfig, assignments: nextAssignments, updatedAt: Date.now() });
+  }
   function changeConfig(patch: Partial<ScheduleConfig>) {
     const next = { ...config, ...patch };
     setConfig(next);
@@ -464,51 +532,81 @@ function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyP
   }
   function changeDays(selectedDays: number[]) {
     const days = WEEKDAYS.filter(day => selectedDays.includes(day.id)).map(day => day.id);
-    const dayMinutes = { ...(config.dayMinutes || {}) };
-    days.forEach(day => { if (!dayMinutes[day]) dayMinutes[day] = config.minutes; });
-    const nextConfig = { ...config, days, dayMinutes };
-    const nextAssignments = days.length ? assignments.map((item, index) => days.includes(item.day) ? item : { ...item, day: days[index % days.length] }) : assignments;
-    setConfig(nextConfig); setAssignments(nextAssignments); setSelectedIds([]);
+    const daySchedules = { ...(config.daySchedules || {}) };
+    days.forEach(day => { if (!daySchedules[day]) daySchedules[day] = emptyDaySchedule(); });
+    const nextConfig = { ...config, days, daySchedules };
+    const nextAssignments = assignments.map(item => item.day > 0 && !days.includes(item.day) ? { ...item, day: 0 } : item);
+    setConfig(nextConfig);
+    setAssignments(nextAssignments);
+    setSelectedIds([]);
     setBulkDay(current => days.includes(current) ? current : (days[0] ?? 1));
     void onSave({ ...plan, scheduleConfig: nextConfig, assignments: nextAssignments, updatedAt: Date.now() });
   }
-  function setSharedMinutes(minutes: number) {
-    changeConfig({ minutes, sameMinutes: true, dayMinutes: Object.fromEntries(config.days.map(day => [day, minutes])) });
+  function setDaySchedule(dayId: number, patch: Partial<DaySchedule>) {
+    const current = config.daySchedules?.[dayId] || emptyDaySchedule();
+    changeConfig({ daySchedules: { ...(config.daySchedules || {}), [dayId]: { ...current, ...patch } } });
   }
-  function setIndividualMinutes(dayId: number, minutes: number) {
-    changeConfig({ sameMinutes: false, dayMinutes: { ...(config.dayMinutes || {}), [dayId]: minutes } });
-  }
-  function toggleSharedTime(shared: boolean) {
-    if (shared) {
-      const firstDay = config.days[0];
-      const minutes = firstDay === undefined ? config.minutes : minutesForDay(config, firstDay);
-      changeConfig({ sameMinutes: true, minutes, dayMinutes: Object.fromEntries(config.days.map(day => [day, minutes])) });
-    } else {
-      changeConfig({ sameMinutes: false, dayMinutes: Object.fromEntries(config.days.map(day => [day, minutesForDay(config, day)])) });
-    }
-  }
-  function generate() {
-    if (config.mode === "priority" && (config.priorityOrder?.length || 0) !== leaves.length) {
-      setPriorityFeedback("Antes de distribuir por prioridade, copie a solicitação para a IA e importe a ordem de todos os tópicos.");
-      return;
-    }
-    const next = distribute(plan, config);
-    setAssignments(next); setSelectedIds([]);
-    void onSave({ ...plan, scheduleConfig: config, assignments: next, updatedAt: Date.now() });
-  }
-  function moveAssignment(nodeId: string, day: number) {
-    const next = assignments.map(item => item.nodeId === nodeId ? { ...item, day } : item);
-    setAssignments(next);
-    void onSave({ ...plan, assignments: next, updatedAt: Date.now() });
+  function moveTopicToDay(nodeId: string, dayId: number) {
+    if (dayId !== 0 && !config.days.includes(dayId)) return;
+    const leaf = leaves.find(item => item.id === nodeId);
+    if (!leaf) return;
+    const exists = assignments.some(item => item.nodeId === nodeId);
+    const next = exists
+      ? assignments.map(item => item.nodeId === nodeId ? { ...item, day: dayId } : item)
+      : [...assignments, assignmentFromLeaf(leaf, dayId)];
+    persist(next);
+    setScheduleFeedback("");
   }
   function toggleAssignment(id: string, checked: boolean) {
     setSelectedIds(current => checked ? [...new Set([...current, id])] : current.filter(item => item !== id));
   }
   function moveSelected() {
     if (!selectedIds.length || !config.days.includes(bulkDay)) return;
-    const next = assignments.map(item => selectedIds.includes(item.nodeId) ? { ...item, day: bulkDay } : item);
-    setAssignments(next); setSelectedIds([]);
-    void onSave({ ...plan, assignments: next, updatedAt: Date.now() });
+    const selected = new Set(selectedIds);
+    const byId = new Map(assignments.map(item => [item.nodeId, item]));
+    const next = leaves.map(leaf => {
+      const current = byId.get(leaf.id) || assignmentFromLeaf(leaf, 0);
+      return selected.has(leaf.id) ? { ...current, day: bulkDay } : current;
+    });
+    persist(next);
+    setSelectedIds([]);
+    setScheduleFeedback("");
+  }
+  function handleDragStart(event: React.DragEvent<HTMLElement>, nodeId: string) {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", nodeId);
+    setDraggedId(nodeId);
+  }
+  function handleDrop(event: React.DragEvent<HTMLElement>, dayId: number) {
+    event.preventDefault();
+    const nodeId = event.dataTransfer.getData("text/plain") || draggedId;
+    if (nodeId) moveTopicToDay(nodeId, dayId);
+    setDraggedId(null);
+    setDragOverDay(null);
+  }
+  function handleDragEnd() {
+    setDraggedId(null);
+    setDragOverDay(null);
+  }
+  function generate() {
+    const availableDays = config.days.filter(day => !config.daySchedules?.[day]?.simulation);
+    const completeTimeRanges = availableDays.length > 0 && availableDays.every(day => minutesForDay(config, day) > 0);
+    if (!completeTimeRanges) {
+      setPriorityFeedback("Defina o horário de início e fim de cada dia de estudo antes de pedir uma sugestão automática. Dias de simulado ficam reservados.");
+      return;
+    }
+    if (config.mode === "priority" && (config.priorityOrder?.length || 0) !== leaves.length) {
+      setPriorityFeedback("Antes de distribuir por prioridade, copie a solicitação para a IA e importe a ordem de todos os tópicos.");
+      return;
+    }
+    const next = distribute(plan, config);
+    if (!next.length) {
+      setPriorityFeedback("Não encontrei dias de estudo com horário disponível para distribuir os conteúdos.");
+      return;
+    }
+    persist(next);
+    setSelectedIds([]);
+    setPriorityFeedback("Sugestão aplicada. Confira a carga de cada dia e ajuste manualmente o que precisar.");
   }
   async function copyPriorityPrompt() {
     const prompt = buildPriorityPrompt(plan, leaves);
@@ -528,74 +626,143 @@ function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyP
     }
     const nextConfig = { ...config, priorityOrder: rankedIds };
     setConfig(nextConfig);
-    setPriorityFeedback("Prioridade importada. A distribuição continuará usando somente os conteúdos selecionados.");
+    setPriorityFeedback("Prioridade importada. A sugestão automática continuará usando somente os conteúdos selecionados.");
     void onSave({ ...plan, scheduleConfig: nextConfig, updatedAt: Date.now() });
   }
   async function finish() {
-    const uniqueIds = new Set(assignments.map(item => item.nodeId));
-    if (!assignments.length || uniqueIds.size !== leaves.length || assignments.some(item => !config.days.includes(item.day))) return;
-    await onSave({ ...plan, scheduleConfig: config, assignments, status: "active", stage: "schedule", updatedAt: Date.now() });
+    if (!config.days.length) {
+      setScheduleFeedback("Selecione pelo menos um dia para montar seu cronograma.");
+      return;
+    }
+    const normalized = reconcileAssignments(leaves, assignments, config.days);
+    if (!normalized.some(item => item.day > 0 && config.days.includes(item.day))) {
+      setScheduleFeedback("Distribua pelo menos um conteúdo em um dia para ativar o acompanhamento. Os demais podem ficar sem dia por enquanto.");
+      return;
+    }
+    const unassignedCount = normalized.filter(item => item.day === 0).length;
+    await onSave({ ...plan, scheduleConfig: config, assignments: normalized, status: "active", stage: "schedule", updatedAt: Date.now() });
+    setAssignments(normalized);
+    setScheduleFeedback(unassignedCount
+      ? `Plano salvo. ${unassignedCount} conteúdo(s) ficaram sem dia e poderão ser organizados depois.`
+      : "Plano salvo com todos os conteúdos organizados.");
   }
 
-  const grouped = WEEKDAYS.filter(day => config.days.includes(day.id)).map(day => ({
-    ...day, minutes: minutesForDay(config, day.id), items: assignments.filter(item => item.day === day.id),
-  }));
-  const allSelected = assignments.length > 0 && selectedIds.length === assignments.length;
+  const assignmentById = new Map(assignments.map(item => [item.nodeId, item]));
+  const unassigned = leaves.filter(leaf => {
+    const assignment = assignmentById.get(leaf.id);
+    return !assignment || assignment.day === 0 || !config.days.includes(assignment.day);
+  });
+  const grouped = WEEKDAYS.filter(day => config.days.includes(day.id)).map(day => {
+    const slot = config.daySchedules?.[day.id] || emptyDaySchedule();
+    return {
+      ...day,
+      slot,
+      minutes: durationFromTimes(slot.startTime, slot.endTime),
+      items: leaves.filter(leaf => assignmentById.get(leaf.id)?.day === day.id),
+    };
+  });
+  const allSelected = leaves.length > 0 && selectedIds.length === leaves.length;
+  const simulationDays = grouped.filter(day => day.slot.simulation).length;
+  const autoDays = grouped.filter(day => !day.slot.simulation);
+  const autoReady = autoDays.length > 0 && autoDays.every(day => day.minutes > 0);
+  const assignedCount = grouped.reduce((sum, day) => sum + day.items.length, 0);
+
+  const renderTopic = (leaf: SelectedPlanLeaf, dayId: number) => (
+    <article
+      className={`schedule-topic ${draggedId === leaf.id ? "is-dragging" : ""}`}
+      key={leaf.id}
+      draggable
+      onDragStart={event => handleDragStart(event, leaf.id)}
+      onDragEnd={handleDragEnd}
+    >
+      <input type="checkbox" aria-label={`Selecionar ${displayNodeName(leaf.name)}`} checked={selectedIds.includes(leaf.id)} onChange={event => toggleAssignment(leaf.id, event.target.checked)}/>
+      <div className="schedule-topic-copy"><strong>{displayNodeName(leaf.name)}</strong><small>{leaf.path.slice(0, -1).map(displayNodeName).join(" / ")}</small></div>
+      <div className="schedule-topic-actions">
+        <select aria-label={`Dia de estudo para ${displayNodeName(leaf.name)}`} value={dayId} onChange={event => moveTopicToDay(leaf.id, Number(event.target.value))}>
+          <option value={0}>Sem dia</option>
+          {WEEKDAYS.filter(day => config.days.includes(day.id)).map(day => <option key={day.id} value={day.id}>{day.short}</option>)}
+        </select>
+        <span className="schedule-drag-handle" aria-hidden="true"><GripVertical size={15}/></span>
+      </div>
+    </article>
+  );
 
   return <div className="wizard-content">
-    <section className="panel wizard-panel">
-      <div className="panel-title-row"><div><span className="step-kicker">ETAPA 3 · CRONOGRAMA</span><h2>Defina sua disponibilidade</h2><p>Configure cada dia e escolha como os conteúdos serão distribuídos. Você poderá ajustar tudo depois.</p></div><span className="soft-tag">Decisão do estudante</span></div>
+    <section className="panel wizard-panel schedule-setup-panel">
+      <div className="panel-title-row"><div><span className="step-kicker">ETAPA 3 · CRONOGRAMA</span><h2>Monte uma semana que caiba na sua vida.</h2><p>Escolha os dias, informe seus horários reais e distribua os assuntos conforme o tempo e a energia que você tem em cada dia.</p></div><span className="soft-tag">Tudo ajustável</span></div>
       <div className="form-grid">
         <div className="field-block"><label htmlFor="schedule-start">Início do plano</label><input id="schedule-start" type="date" value={config.startDate} onChange={event => changeConfig({ startDate: event.target.value })}/></div>
         <div className="field-block"><label htmlFor="schedule-exam">Data da prova (opcional)</label><input id="schedule-exam" type="date" value={config.examDate} onChange={event => changeConfig({ examDate: event.target.value })}/></div>
       </div>
-      <div className="field-block"><label>Em quais dias você pode estudar?</label><div className="weekday-grid">
+      <div className="field-block"><label>Quais dias você realmente consegue estudar?</label><div className="weekday-grid">
         {WEEKDAYS.map(day => <label className={config.days.includes(day.id) ? "weekday-choice selected" : "weekday-choice"} key={day.id}><input type="checkbox" checked={config.days.includes(day.id)} onChange={event => changeDays(event.target.checked ? [...config.days, day.id] : config.days.filter(id => id !== day.id))}/><span>{day.short}</span></label>)}
-      </div></div>
-      <div className="availability-heading"><strong>Tempo disponível</strong><label className="inline-check"><input type="checkbox" checked={config.sameMinutes !== false} onChange={event => toggleSharedTime(event.target.checked)}/> Mesmo tempo em todos os dias</label></div>
-      {config.sameMinutes !== false
-        ? <div className="field-block compact-field"><label htmlFor="schedule-minutes">Tempo por dia</label><select id="schedule-minutes" value={config.minutes} onChange={event => setSharedMinutes(Number(event.target.value))}>{MINUTES.map(minutes => <option key={minutes} value={minutes}>{minutes} minutos</option>)}</select></div>
-        : <div className="day-time-grid">{WEEKDAYS.filter(day => config.days.includes(day.id)).map(day => <label className="day-time-row" key={day.id}><span>{day.label}</span><select aria-label={`Tempo disponível na ${day.label}`} value={minutesForDay(config, day.id)} onChange={event => setIndividualMinutes(day.id, Number(event.target.value))}>{MINUTES.map(minutes => <option key={minutes} value={minutes}>{minutes} min</option>)}</select></label>)}</div>}
-      <div className="field-block schedule-mode-field"><label htmlFor="schedule-mode">Distribuição inicial</label><select id="schedule-mode" value={config.mode} onChange={event => { setPriorityFeedback(""); changeConfig({ mode: event.target.value as ScheduleConfig["mode"] }); }}>
+      </div><small className="field-hint">Não precisa selecionar todos os dias. Escolha apenas os dias que cabem na sua rotina.</small></div>
+      {config.days.length > 0 ? <>
+        <div className="schedule-week-summary"><strong>{config.days.length} dia(s) configurado(s)</strong><span>{assignedCount} de {leaves.length} conteúdo(s) distribuídos · {simulationDays} dia(s) de simulado</span></div>
+        <div className="schedule-day-grid">
+          {grouped.map(day => (
+            <section
+              className={`schedule-day-card ${dragOverDay === day.id ? "drag-over" : ""} ${day.slot.simulation ? "is-simulation" : ""}`}
+              key={day.id}
+              onDragOver={event => { event.preventDefault(); setDragOverDay(day.id); }}
+              onDragLeave={() => setDragOverDay(current => current === day.id ? null : current)}
+              onDrop={event => handleDrop(event, day.id)}
+            >
+              <header className="schedule-day-card-header">
+                <div><h3>{day.label}</h3><span>{day.items.length} conteúdo(s)</span></div>
+                <label className="simulation-toggle"><input type="checkbox" checked={day.slot.simulation} onChange={event => setDaySchedule(day.id, { simulation: event.target.checked })}/><span>Dia de simulado</span></label>
+              </header>
+              <div className="schedule-time-fields">
+                <label><span>Das</span><input type="time" aria-label={`Horário inicial de ${day.label}`} value={day.slot.startTime} onChange={event => setDaySchedule(day.id, { startTime: event.target.value })}/></label>
+                <label><span>Às</span><input type="time" aria-label={`Horário final de ${day.label}`} value={day.slot.endTime} onChange={event => setDaySchedule(day.id, { endTime: event.target.value })}/></label>
+                <strong>{formatDuration(day.minutes)}</strong>
+              </div>
+              <div className="schedule-day-dropzone">
+                {day.items.length ? day.items.map(leaf => renderTopic(leaf, day.id)) : <div className="schedule-drop-empty"><GripVertical size={17}/><span>Arraste os conteúdos para cá ou escolha o dia no menu de cada assunto.</span></div>}
+              </div>
+            </section>
+          ))}
+        </div>
+      </> : <div className="schedule-empty-days"><CalendarDays size={25}/><strong>Comece escolhendo seus dias.</strong><span>Depois, cada dia terá seus próprios horários, conteúdos e opção de simulado.</span></div>}
+    </section>
+
+    <section
+      className={`panel wizard-panel schedule-unassigned-panel ${dragOverDay === 0 ? "drag-over" : ""}`}
+      onDragOver={event => { event.preventDefault(); setDragOverDay(0); }}
+      onDragLeave={() => setDragOverDay(current => current === 0 ? null : current)}
+      onDrop={event => handleDrop(event, 0)}
+    >
+      <div className="panel-title-row"><div><span className="step-kicker">ORGANIZAÇÃO DOS ASSUNTOS</span><h2>Conteúdos ainda sem dia</h2><p>Esta é sua lista de conteúdos selecionados. Arraste cada assunto para o dia em que ele cabe melhor. No celular, use o seletor ao lado do assunto.</p></div><span className="soft-tag">{unassigned.length} restante(s)</span></div>
+      <div className="assignment-toolbar">
+        <label className="inline-check"><input type="checkbox" checked={allSelected} onChange={event => setSelectedIds(event.target.checked ? leaves.map(item => item.id) : [])}/> Selecionar todos os conteúdos</label>
+        <div className="button-row"><select aria-label="Dia de destino dos conteúdos selecionados" value={bulkDay} onChange={event => setBulkDay(Number(event.target.value))} disabled={!config.days.length}>{WEEKDAYS.filter(day => config.days.includes(day.id)).map(day => <option key={day.id} value={day.id}>{day.label}</option>)}</select><button className="secondary-button compact" type="button" disabled={!selectedIds.length || !config.days.length} onClick={moveSelected}>Mover selecionados ({selectedIds.length})</button></div>
+      </div>
+      {unassigned.length ? <div className="schedule-topic-list">{unassigned.map(leaf => renderTopic(leaf, 0))}</div> : <div className="schedule-all-assigned"><CheckCircle2 size={20}/><strong>Todos os conteúdos já têm um dia.</strong><span>Você ainda pode arrastar assuntos entre os dias ou alterar o dia no seletor.</span></div>}
+    </section>
+
+    <details className="panel wizard-panel auto-distribute-panel">
+      <summary><span><Sparkles size={17}/> Quer uma sugestão de distribuição automática?</span><ChevronDown size={17}/></summary>
+      <p>A sugestão é opcional. Ela considera a duração dos seus horários, mas não conhece a dificuldade de cada assunto nem seu cansaço. Revise a proposta e ajuste manualmente. Dias reservados para simulado não recebem assuntos automaticamente.</p>
+      <div className="field-block schedule-mode-field"><label htmlFor="schedule-mode">Critério da sugestão</label><select id="schedule-mode" value={config.mode} onChange={event => { setPriorityFeedback(""); changeConfig({ mode: event.target.value as ScheduleConfig["mode"] }); }}>
         <option value="alternate">Equilibrar assuntos entre os dias</option><option value="sequence">Seguir a sequência do edital</option><option value="priority">Priorizar recorrência da banca (com IA)</option>
-      </select><small>A distribuição considera sua disponibilidade. Nenhum tópico será acrescentado ou removido.</small></div>
+      </select></div>
       {config.mode === "priority" && <div className="priority-ai-panel">
         <div><strong><Sparkles size={16}/> Prioridade sugerida pela IA</strong><small>Somente os conteúdos selecionados entram na análise. A IA deve separar evidência de estimativa.</small></div>
         <button className="secondary-button compact" type="button" onClick={copyPriorityPrompt}><Clipboard size={14}/> Copiar solicitação</button>
         <div className="field-block"><label htmlFor="priority-response">Cole aqui a resposta da IA com os IDs em ordem de prioridade</label><textarea id="priority-response" rows={4} value={priorityText} onChange={event => setPriorityText(event.target.value)} placeholder={leaves.map((leaf, index) => `${index + 1}. ID: ${leaf.id} — ${displayNodeName(leaf.name)}`).join("\n")}/></div>
         <div className="button-row"><button className="primary-button compact" type="button" disabled={!priorityText.trim()} onClick={importPriority}>Importar prioridade</button><span className="soft-tag">{config.priorityOrder?.length || 0}/{leaves.length} classificados</span></div>
-        {priorityFeedback && <p className="inline-feedback" role="status">{priorityFeedback}</p>}
       </div>}
-      <button className="primary-button" type="button" disabled={!config.days.length || !leaves.length || (config.mode === "priority" && (config.priorityOrder?.length || 0) !== leaves.length)} onClick={generate}>Distribuir conteúdos na semana <ArrowRight size={16}/></button>
-      <p className="field-hint">{leaves.length} tópico(s) selecionado(s). O tempo é sua disponibilidade, não uma estimativa de domínio do assunto.</p>
-      {!config.days.length && <p className="inline-feedback">Selecione pelo menos um dia para organizar a distribuição.</p>}
-    </section>
+      <div className="button-row"><button className="secondary-button" type="button" disabled={!autoReady || (config.mode === "priority" && (config.priorityOrder?.length || 0) !== leaves.length)} onClick={generate}>Aplicar sugestão automática <ArrowRight size={15}/></button><small className="field-hint">{autoReady ? "A sugestão usará apenas dias com horário definido." : "Defina os horários de todos os dias sem simulado para habilitar a sugestão."}</small></div>
+      {priorityFeedback && <p className="inline-feedback" role="status">{priorityFeedback}</p>}
+    </details>
 
     <section className="panel wizard-panel">
-      <div className="panel-title-row"><div><h2>Revise a distribuição</h2><p>{assignments.length} de {leaves.length} tópico(s) distribuído(s). Você pode mover um ou vários conteúdos.</p></div>{assignments.length > 0 && <span className="soft-tag">Rascunho editável</span>}</div>
-      {assignments.length === 0
-        ? <div className="empty-state"><CalendarDays size={28}/><strong>Monte sua primeira distribuição</strong><span>Escolha os dias disponíveis e gere a distribuição inicial.</span></div>
-        : <>
-          <div className="assignment-toolbar"><label className="inline-check"><input type="checkbox" checked={allSelected} onChange={event => setSelectedIds(event.target.checked ? assignments.map(item => item.nodeId) : [])}/> Selecionar todos</label>
-            <div className="button-row"><select aria-label="Dia de destino dos conteúdos selecionados" value={bulkDay} onChange={event => setBulkDay(Number(event.target.value))}>{WEEKDAYS.filter(day => config.days.includes(day.id)).map(day => <option key={day.id} value={day.id}>{day.label}</option>)}</select><button className="secondary-button compact" type="button" disabled={!selectedIds.length} onClick={moveSelected}>Mover {selectedIds.length ? `(${selectedIds.length})` : "selecionados"}</button><button className="text-button" type="button" onClick={generate}>Redistribuir</button></div>
-          </div>
-          <div className="assignment-groups">{grouped.map(day => <section className="assignment-day" key={day.id}>
-            <div className="assignment-day-heading"><strong>{day.label}</strong><span>{day.items.length} tópico(s) · {day.minutes} min disponíveis</span></div>
-            {day.items.length ? day.items.map(item => <div className="assignment-row" key={item.nodeId}>
-              <input type="checkbox" aria-label={`Selecionar ${displayNodeName(item.name)}`} checked={selectedIds.includes(item.nodeId)} onChange={event => toggleAssignment(item.nodeId, event.target.checked)}/>
-              <div><strong>{displayNodeName(item.name)}</strong><small>{item.path.map(displayNodeName).join(" / ")}</small></div>
-              <select aria-label={`Dia de estudo para ${displayNodeName(item.name)}`} value={item.day} onChange={event => moveAssignment(item.nodeId, Number(event.target.value))}>{WEEKDAYS.filter(option => config.days.includes(option.id)).map(option => <option key={option.id} value={option.id}>{option.short}</option>)}</select>
-            </div>) : <p className="empty-day">Sem tópicos.</p>}
-          </section>)}</div>
-        </>}
       <div className="wizard-navigation"><button className="secondary-button" type="button" onClick={() => onSave({ ...plan, stage: "selection" })}><ArrowLeft size={16}/>Voltar à seleção</button>
-        <button className="primary-button" type="button" disabled={!assignments.length || assignments.length !== leaves.length || new Set(assignments.map(item => item.nodeId)).size !== leaves.length || !config.days.length || assignments.some(item => !config.days.includes(item.day))} onClick={finish}>Salvar meu plano <Check size={16}/></button></div>
+        <button className="primary-button" type="button" disabled={!config.days.length || !leaves.length || !assignments.some(item => item.day > 0 && config.days.includes(item.day))} onClick={finish}>Salvar meu cronograma <Check size={16}/></button></div>
+      {scheduleFeedback && <p className="inline-feedback" role="status">{scheduleFeedback}</p>}
+      {unassigned.length > 0 && <p className="field-hint">{unassigned.length} conteúdo(s) ainda estão sem dia. Você pode salvar o cronograma e organizá-los depois, sem perder sua seleção.</p>}
     </section>
   </div>;
-}
-
-function CalendarDaysIcon() {
-  return <CalendarDays size={28}/>;
 }
 
 export function PlanWizardRoute() {
