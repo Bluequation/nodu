@@ -21,3 +21,6 @@ A proporção 40/60 substitui o desenho anterior de sete dias lado a lado. Cores
 
 ## Consistência de Meus planos
 Peças em ordem alfabética pelo título apresentado dentro de cada grupo, com ordenação pt-BR; a ordem original do edital não muda. Navegação pelas etapas já disponíveis, aguardando salvamento antes de sair. A aparência das telas Edital, Seleção, Novo plano, galeria e Ver plano usa a mesma paleta e superfícies compactas; cobertura por área e títulos curtos não alteram dados oficiais.
+
+## Edital e Seleção
+Duas regiões compactas no Edital (documento e importação) e na Seleção (navegação direta das áreas oficiais e edição/revisão). Cards por área, observações recolhíveis e títulos compactos apenas no resumo. Barra de etapas ativa azul sólido, texto branco, opacidade 1. Cronograma aprovado permanece intacto.

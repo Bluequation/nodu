@@ -75,7 +75,7 @@ function Stepper({stage,hasTree,hasSelection,busy,onChange}: {stage:PlanStage;ha
   const stages=[{id:"source",label:"Edital",allowed:true},{id:"selection",label:"Seleção",allowed:hasTree},{id:"schedule",label:"Cronograma",allowed:hasSelection}] as const;
   const current=stages.findIndex(item=>item.id===stage);
   return <nav className="wizard-stepper" aria-label="Etapas do plano">
-    {stages.map((step,index)=><button type="button" key={step.id} className={"wizard-step "+(index===current?"is-current":index<current?"is-complete":"")} aria-current={index===current?"step":undefined} disabled={busy||!step.allowed||index===current} onClick={()=>onChange(step.id)}><span>{index<current?<Check size={14}/>:index+1}</span>{step.label}</button>)}
+    {stages.map((step,index)=><button type="button" key={step.id} className={"wizard-step "+(index===current?"is-current":index<current?"is-complete":"")} aria-current={index===current?"step":undefined} aria-label={step.label} disabled={busy||!step.allowed} onClick={()=>onChange(step.id)}><span aria-hidden="true">{index<current?<Check size={14}/>:index+1}</span>{step.label}</button>)}
   </nav>;
 }
 
@@ -236,57 +236,28 @@ function SourceStep({ plan, onSave, registerBeforeLeave }: { plan: StudyPlan; on
     }
   }
 
-  return <div className="wizard-content">
-    <section className="panel wizard-panel">
-      <div className="panel-title-row"><div><span className="step-kicker">ETAPA 1 · EDITAL</span><h2>Prepare o conteúdo do concurso</h2><p>O Ritmo organiza o material, mas você confere e decide o que entra no plano.</p></div><span className="soft-tag">Seu recorte</span></div>
-      <div className="plan-context-grid">
-        <div><small>Concurso</small><strong>{plan.title}</strong></div>
-        <div><small>Instituição</small><strong>{plan.institution || "Não informada"}</strong></div>
-        <div><small>Cargo</small><strong>{plan.position}</strong></div>
-        <div><small>Área de estudo</small><strong>{plan.area || "Não definida"}</strong></div>
-      </div>
-      <div className="field-block">
-        <label htmlFor="source-file">Arquivo do edital (PDF, TXT ou MD)</label>
-        <div className="file-picker"><Upload size={18}/><span>{sourceFile || "Escolha um arquivo do seu dispositivo"}</span><label className="secondary-button" htmlFor="source-file">Procurar</label><input id="source-file" type="file" accept=".pdf,.txt,.md,application/pdf,text/plain,text/markdown" onChange={handleFile}/></div>
-        <small>PDF textual: o Ritmo extrai o texto no navegador. PDF escaneado pode exigir OCR. O arquivo não é enviado a um servidor.</small>
-      </div>
-      <div className="field-block">
-        <label htmlFor="source-text">Conteúdo programático do cargo/área</label>
-        <textarea id="source-text" rows={9} maxLength={180000} value={sourceText} onChange={event => { setSourceText(event.target.value); setSavedSource(false); setMessage("Alterações não salvas."); }} placeholder="Cole aqui somente o conteúdo programático pertinente ao cargo e à área escolhidos."/>
-        <small>Evite inserir dados pessoais. Se o edital tiver várias áreas, mantenha aqui apenas o recorte que pertence a este plano.</small>
-      </div>
-      <div className="button-row">
-        <button className={`secondary-button source-save-button ${savingSource ? "is-saving" : savedSource ? "is-saved" : ""}`} type="button" onClick={saveSource} disabled={savingSource || busy}>
-          {savingSource ? <><LoaderCircle size={15} className="save-spinner"/> Salvando dados...</> : savedSource ? <><CheckCircle2 size={15} className="save-success-icon"/> Dados salvos</> : <><Check size={15}/> Salvar dados do edital</>}
-        </button>
-      </div>
+  const ready=Boolean(sourceText.trim());
+  const dirty=sourceText!==plan.sourceText||sourceFile!==plan.sourceFile;
+  return <div className="rp-source-workspace">
+    <section className="rp-flow-card">
+      <header className="rp-flow-heading"><span><FolderOpen size={20}/></span><div><h2>Documento do concurso</h2><p>Adicione o arquivo ou cole o conteúdo programático.</p></div></header>
+      <div className="rp-flow-meta">{[plan.position,plan.area,plan.organizer].filter(Boolean).map((value,i)=><span key={i}>{value}</span>)}</div>
+      <div className="field-block"><label htmlFor="source-file">Arquivo do edital</label><div className="file-picker"><Upload size={18}/><span>{busy?"Lendo arquivo…":sourceFile||"PDF, TXT ou Markdown"}</span><label className="secondary-button" htmlFor="source-file">{sourceFile?"Trocar":"Procurar"}</label><input id="source-file" type="file" accept=".pdf,.txt,.md,application/pdf,text/plain,text/markdown" onChange={handleFile} disabled={busy||savingSource}/></div><small>PDF textual. O arquivo permanece neste navegador.</small></div>
+      <div className="field-block"><label htmlFor="source-text">Texto do edital</label><textarea id="source-text" rows={7} maxLength={180000} value={sourceText} onChange={event=>{setSourceText(event.target.value);setSavedSource(false);setMessage("Alterações não salvas.");}} placeholder="Cole o conteúdo correspondente ao cargo e à área."/></div>
+      <div className="rp-flow-actions"><small>{dirty?"Alterações não salvas":ready?"Texto salvo neste navegador":"Aguardando documento"}</small><button className={`secondary-button source-save-button ${savingSource?"is-saving":savedSource?"is-saved":""}`} type="button" onClick={saveSource} disabled={savingSource||busy}>{savingSource?<><LoaderCircle size={15} className="save-spinner"/> Salvando…</>:savedSource?<><CheckCircle2 size={15}/> Salvo</>:<><Check size={15}/> Salvar edital</>}</button></div>
     </section>
-
-    {sourceText.trim().length > 0 && <section className="panel wizard-panel">
-      <div className="panel-title-row"><div><span className="step-kicker">ASSISTÊNCIA OPCIONAL</span><h2><Sparkles size={20}/> Verticalize com IA</h2><p>Use o ChatGPT ou outra IA de sua preferência. O Ritmo não precisa de chave de API para este fluxo.</p></div><span className="soft-tag">Sem API conectada</span></div>
-      <div className="ai-instructions">
-        <div className="ai-instruction-heading"><Info size={17}/> Como funciona</div>
-        <ol>
-          <li>Salve os dados do edital.</li>
-          <li>Copie a solicitação preparada com o cargo e a área selecionados.</li>
-          <li>Envie a solicitação junto com o conteúdo para a IA.</li>
-          <li>Copie a resposta em Markdown e cole no campo abaixo.</li>
-        </ol>
-        <button className="primary-button" type="button" onClick={copyPrompt}><Clipboard size={16}/> Copiar solicitação para IA</button>
+    <section className="rp-flow-card rp-import-card">
+      <header className="rp-flow-heading"><span className="purple"><Sparkles size={20}/></span><div><h2>Organize os assuntos</h2><p>Use a IA de sua preferência, sem conexão por API.</p></div></header>
+      {plan.tree.length>0&&<div className="rp-import-ready"><CheckCircle2 size={18}/><div><b>Estrutura importada</b><small>{getSelectedLeaves(plan.tree).length} assuntos selecionados. Você pode continuar pela aba Seleção.</small></div></div>}
+      <div className="rp-import-flow">
+        <div><i>1</i><span><b>Copiar solicitação</b><small>Inclui o recorte e o texto disponível.</small></span><button type="button" className="secondary-button compact" disabled={!ready||busy} onClick={copyPrompt}><Clipboard size={15}/> Copiar</button></div>
+        <div><i>2</i><span><b>Consultar a IA</b><small>Cole o pedido na IA e copie a resposta em Markdown.</small></span></div>
+        <div><i>3</i><span><b>Importar a estrutura</b><small>Cole a resposta abaixo, sem acrescentar assuntos ao edital.</small></span></div>
       </div>
-      <div className="field-block">
-        <label htmlFor="structure-text">Estrutura verticalizada recebida da IA</label>
-        <textarea id="structure-text" rows={10} value={structureText} onChange={event => setStructureText(event.target.value)} placeholder={"# [EDITAL] Conhecimentos específicos\n## [EDITAL] Física\n### [EDITAL] Mecânica\n> Referência: p. 14, item 1\n> Trecho literal: Mecânica"}/>
-        <small>O formato é Markdown legível, não JSON. A IA deve retornar somente o que estiver expresso no edital, sem criar subassuntos ou conteúdos extras.</small>
-      </div>
-      <div className="button-row">
-        <button className="primary-button" type="button" disabled={!structureText.trim()} onClick={importStructure}>Importar estrutura e selecionar <ArrowRight size={16}/></button>
-        <button className="secondary-button" type="button" onClick={() => setStructureText("# [EDITAL] Conhecimentos gerais\n## [EDITAL] Disciplina\n### [EDITAL] Assunto") }>Usar modelo manual</button>
-        <button className="text-button" type="button" onClick={() => saveBlob("modelo-verticalizacao-ritmo.md", "# [EDITAL] Disciplina\n## [EDITAL] Área ou eixo\n### [EDITAL] Assunto literal\n> Referência: página ou item, se disponível\n> Trecho literal: transcrição fiel, quando necessária\n") }>Baixar modelo</button>
-      </div>
-      <div className="note-strip">A IA organiza apenas o edital. Conteúdos extras só entram por escolha manual.</div>
-    </section>}
-    {message && <p className={`inline-feedback source-save-feedback ${savedSource ? "is-saved" : ""}`} role="status">{busy ? "Lendo arquivo…" : message}</p>}
+      <div className="field-block"><label htmlFor="structure-text">Estrutura verticalizada</label><textarea id="structure-text" rows={7} value={structureText} onChange={event=>setStructureText(event.target.value)} placeholder="Cole a resposta em Markdown aqui."/></div>
+      <div className="rp-flow-actions"><button className="text-button" type="button" onClick={()=>setStructureText("# [EDITAL] Conhecimentos gerais\n## [EDITAL] Disciplina\n### [EDITAL] Assunto")}>Modelo manual</button><button className="text-button" type="button" onClick={()=>saveBlob("modelo-verticalizacao-ritmo.md","# [EDITAL] Disciplina\n## [EDITAL] Área ou eixo\n### [EDITAL] Assunto literal\n> Referência: página ou item, se disponível\n> Trecho literal: transcrição fiel, quando necessária\n")}>Baixar modelo</button><button className="primary-button" type="button" disabled={!structureText.trim()||busy||savingSource} onClick={importStructure}>Importar e selecionar <ArrowRight size={15}/></button></div>
+    </section>
+    {message&&<p className="rp-flow-feedback" role="status">{busy?"Lendo arquivo…":message}</p>}
   </div>;
 }
 
@@ -301,7 +272,6 @@ function SelectionStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: Study
   const officialCount = leaves.filter(leaf => leaf.origin === "edital").length;
   const manualCount = leaves.filter(leaf => leaf.origin === "manual").length;
   const suggestedCount = leaves.filter(leaf => leaf.origin === "suggested").length;
-  const progress = review ? 100 : Math.round(((index + 1) / Math.max(1, sections.length)) * 100);
 
   async function updateTree(tree: PlanNode[]) {
     await onSave({ ...plan, tree, updatedAt: Date.now() });
@@ -314,65 +284,32 @@ function SelectionStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: Study
     await onSave({ ...plan, stage: "schedule", scheduleConfig: schedule, updatedAt: Date.now() });
   }
 
-  return <div className="wizard-content">
-    <section className="panel selection-progress">
-      <div className="panel-title-row"><div><span className="step-kicker">ETAPA 2 · SELEÇÃO DO CONTEÚDO</span><h2>{review ? "Revise suas escolhas" : "Vamos por partes"}</h2><p>Avance no seu ritmo. Suas escolhas ficam salvas automaticamente neste navegador.</p></div><span className="soft-tag">{review ? "Revisão final" : `Seção ${index + 1} de ${sections.length}`}</span></div>
-      <div className="progress-track"><span style={{ width: `${progress}%` }}/></div>
-      <div className="progress-caption"><span><Check size={14}/> Salvamento automático</span><strong>{leaves.length} conteúdo(s) selecionado(s)</strong></div>
+  const sectionInfo=sections.map((section,i)=>{
+    const original=displayNodeName(section.node.name);
+    const specific=/conhecimentos espec[ií]ficos/i.test([...section.path,section.node.name].map(displayNodeName).join(" "));
+    const label=/^educação brasileira: temas educacionais/i.test(original)?"Educação brasileira":areaDisplayName(original);
+    return {section,i,original,label,specific,tone:areaTone(specific?"specific":"general",original),selected:getSelectedLeaves([section.node])};
+  });
+  return <div className="rp-selection-workspace">
+    <aside className="rp-selection-nav">
+      <header><h2>Áreas do edital</h2><small>{leaves.length} selecionados</small></header>
+      {[false,true].map(specific=>{const groups=sectionInfo.filter(item=>item.specific===specific);return groups.length>0&&<div className="rp-selection-category" key={String(specific)}><h3>{specific?"Conhecimentos específicos":"Conhecimentos gerais"}</h3>{groups.map(item=><button type="button" key={item.section.node.id} className={"rp-select-area "+(index===item.i?"active":"")} data-tone={item.tone} aria-pressed={index===item.i} title={item.original} onClick={()=>{setShowManual(false);void moveTo(item.i);}}><i/><span>{item.label}</span><b>{item.selected.length}</b><ChevronRight size={14}/></button>)}</div>})}
+      <button className={"rp-review-link "+(review?"active":"")} type="button" aria-pressed={review} onClick={()=>moveTo(sections.length)}><ListChecks size={17}/><span>Revisão da seleção</span><ChevronRight size={14}/></button>
+      <small className="rp-selection-saved"><CheckCircle2 size={13}/> Salvamento automático</small>
+    </aside>
+    <section className="rp-selection-main selection-progress">
+      {!review&&current?<div className="rp-selection-editor" data-tone={sectionInfo[index].tone}>
+        <header className="rp-selection-banner"><div><small>{sectionInfo[index].specific?"Conhecimentos específicos":"Conhecimentos gerais"}</small><h2 title={sectionInfo[index].original}>{sectionInfo[index].label}</h2><p>{sectionInfo[index].selected.length} assuntos selecionados</p></div><div className="rp-selection-tools"><button className="secondary-button compact" type="button" onClick={()=>updateTree(toggleNodeInTree(plan.tree,current.node.id,true,false))}>Selecionar todos</button><button className="text-button" type="button" onClick={()=>updateTree(toggleNodeInTree(plan.tree,current.node.id,false,true))}>Limpar</button><button className="text-button" type="button" onClick={()=>setShowManual(value=>!value)}><Plus size={14}/> Adicionar</button></div></header>
+        {showManual&&<form className="manual-add-row" onSubmit={event=>{event.preventDefault();if(!manualName.trim())return;void updateTree(addManualChildToTree(plan.tree,current.node.id,manualName));setManualName("");setShowManual(false);}}><input aria-label="Novo conteúdo manual" value={manualName} onChange={event=>setManualName(event.target.value)} placeholder="Assunto ou subassunto"/><button className="secondary-button compact" type="submit" disabled={!manualName.trim()}>Adicionar</button></form>}
+        <div className="rp-selection-tree"><SelectionNode key={current.node.id} node={current.node} depth={0} onToggle={(id,checked)=>updateTree(toggleNodeInTree(plan.tree,id,checked))} onRename={(id,name)=>updateTree(renameNodeInTree(plan.tree,id,name))}/></div>
+      </div>:<div className="rp-selection-review">
+        <header className="rp-review-heading"><div><h2>Sua seleção</h2><p>Confira as áreas antes de montar a semana.</p></div><div className="rp-review-total"><strong>{leaves.length}</strong><small>assuntos</small></div></header>
+        <div className="rp-flow-meta"><span>{officialCount} do edital</span>{manualCount>0&&<span>{manualCount} manuais</span>}{suggestedCount>0&&<span>{suggestedCount} complementos antigos</span>}</div>
+        <div className="rp-review-grid">{sectionInfo.map(item=><article className="rp-review-card" data-tone={item.tone} key={item.section.node.id}><header><i/><b title={item.original}>{item.label}</b><strong>{item.selected.length}</strong><button type="button" aria-label={`Editar seleção de ${item.label}`} onClick={()=>moveTo(item.i)}><Pencil size={14}/></button></header>{item.selected.length>0?<details className="rp-review-topics"><summary>Ver assuntos <ChevronDown size={13}/></summary><div>{item.selected.map(leaf=><span key={leaf.id} title={displayNodeName(leaf.name)}>{pieceTitle(leaf.name)}{leaf.origin!=="edital"?" · "+(leaf.origin==="manual"?"Manual":"Complementar"):""}</span>)}</div></details>:<small>Nenhum assunto selecionado</small>}</article>)}</div>
+        {plan.warnings.length>0&&<details className="rp-review-warnings"><summary><Info size={15}/> Observações da análise ({plan.warnings.length})</summary>{plan.warnings.map((warning,i)=><p key={i}>{warning}</p>)}</details>}
+      </div>}
     </section>
-
-    {!review && current && <section className="panel selection-panel">
-      <div className="selection-heading">
-        <span className="step-kicker">SEÇÃO {index + 1}</span>
-        {current.path.length > 0 && <p className="selection-breadcrumb">{current.path.map(displayNodeName).join(" / ")}</p>}
-        <h2>{displayNodeName(current.node.name)}</h2>
-        <p>Abra os grupos para visualizar os subitens. Marcar um grupo seleciona seus conteúdos; você também pode escolher itens individualmente.</p>
-      </div>
-      <div className="selection-toolbar">
-        <span>{getSelectedLeaves([current.node]).length} selecionado(s) nesta seção</span>
-        <div className="button-row">
-          <button className="secondary-button compact" type="button" onClick={() => updateTree(toggleNodeInTree(plan.tree, current.node.id, true, false))}>Selecionar itens da seção</button>
-          <button className="secondary-button compact" type="button" onClick={() => updateTree(toggleNodeInTree(plan.tree, current.node.id, false, true))}>Limpar seção</button>
-          <button className="text-button" type="button" onClick={() => setShowManual(value => !value)}><Pencil size={13}/>Adicionar conteúdo</button>
-        </div>
-      </div>
-      {showManual && <form className="manual-add-row" onSubmit={event => { event.preventDefault(); if (!manualName.trim()) return; updateTree(addManualChildToTree(plan.tree, current.node.id, manualName)); setManualName(""); setShowManual(false); }}><input aria-label="Novo conteúdo manual" value={manualName} onChange={event => setManualName(event.target.value)} placeholder="Digite o assunto ou subassunto"/><button className="secondary-button compact" type="submit" disabled={!manualName.trim()}><Plus size={14}/>Adicionar</button></form>}
-      <div className="selection-content">
-        <div className="selection-list-heading"><strong>Conteúdos identificados no edital</strong><small>Abra os grupos para consultar os subitens sem alongar a lista inteira.</small></div>
-        <SelectionNode node={current.node} depth={0} onToggle={(id, checked) => updateTree(toggleNodeInTree(plan.tree, id, checked))} onRename={(id, name) => updateTree(renameNodeInTree(plan.tree, id, name))}/>
-      </div>
-      <div className="selection-scope-note"><Info size={16}/><span>O Ritmo não acrescenta assuntos automaticamente. O plano mantém os itens do edital; conteúdos extras só entram se você os adicionar manualmente.</span></div>
-      <div className="wizard-navigation">
-        <button className="secondary-button" type="button" onClick={() => index === 0 ? onSave({ ...plan, stage: "source" }) : moveTo(index - 1)}><ArrowLeft size={16}/>{index === 0 ? "Voltar ao edital" : "Seção anterior"}</button>
-        <button className="primary-button" type="button" onClick={() => moveTo(index + 1)}>{index === sections.length - 1 ? "Salvar e revisar seleção" : "Salvar e avançar"}<ArrowRight size={16}/></button>
-      </div>
-    </section>}
-
-    {review && <section className="panel selection-panel">
-      <div className="selection-heading"><span className="step-kicker">ÚLTIMA ETAPA DA SELEÇÃO</span><h2>Confira o que vai entrar no seu plano</h2><p>O cronograma será montado com os itens selecionados. Conteúdos adicionados manualmente ficam identificados à parte.</p></div>
-      <div className="selection-summary-grid">
-        <div><strong>{officialCount}</strong><span>Itens do edital</span></div>
-        {manualCount > 0 && <div><strong>{manualCount}</strong><span>Adicionados por você</span></div>}
-        {suggestedCount > 0 && <div><strong>{suggestedCount}</strong><span>Complementos antigos</span></div>}
-        <div><strong>{leaves.length}</strong><span>Total selecionado</span></div>
-      </div>
-      <div className="review-sections">
-        {sections.map(section => {
-          const selected = getSelectedLeaves([section.node]);
-          if (!selected.length) return null;
-          return <details className="review-section" key={section.node.id}>
-            <summary><span>{displayNodeName(section.node.name)}</span><strong>{selected.length} item(ns)</strong></summary>
-            <ul>{selected.map(leaf => <li key={leaf.id}><span className={`origin-pill ${leaf.origin}`}>{leaf.origin === "suggested" ? "Sugerido" : leaf.origin === "manual" ? "Manual" : "Edital"}</span>{displayNodeName(leaf.name)}</li>)}</ul>
-          </details>;
-        })}
-      </div>
-      {plan.warnings.length > 0 && <div className="note-strip warning-strip"><strong>Observações da análise</strong>{plan.warnings.map((warning, index) => <p key={index}>{warning}</p>)}</div>}
-      <div className="wizard-navigation">
-        <button className="secondary-button" type="button" onClick={() => moveTo(Math.max(0, sections.length - 1))}><ArrowLeft size={16}/>Voltar à última seção</button>
-        <button className="primary-button" type="button" disabled={!leaves.length} onClick={finishSelection}>Concluir seleção e montar cronograma<ArrowRight size={16}/></button>
-      </div>
-      {!leaves.length && <p className="inline-feedback">Selecione pelo menos um conteúdo para continuar.</p>}
-    </section>}
+    <footer className="rp-selection-footer"><button className="secondary-button" type="button" onClick={()=>index===0?onSave({...plan,stage:"source"}):moveTo(index-1)}><ArrowLeft size={15}/>{index===0?"Edital":"Anterior"}</button><span>{leaves.length} assuntos · {review?"Revisão":`Área ${index+1} de ${sections.length}`}</span>{review?<button className="primary-button" type="button" disabled={!leaves.length} onClick={finishSelection}>Montar cronograma <ArrowRight size={15}/></button>:<button className="primary-button" type="button" onClick={()=>moveTo(index+1)}>{index===sections.length-1?"Revisar seleção":"Próxima área"} <ArrowRight size={15}/></button>}</footer>
   </div>;
 }
 

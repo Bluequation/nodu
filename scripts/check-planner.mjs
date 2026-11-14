@@ -65,7 +65,15 @@ try{
  await saved(page);
  await page.reload();await topic(day(page,1),"LDB").waitFor();
  await page.getByRole("button",{name:"Edital",exact:true}).click();await page.locator("#source-text").waitFor();
+ assert.equal(await page.locator(".wizard-step.is-current").evaluate(el=>getComputedStyle(el).opacity),"1");
+ assert.equal(await page.locator(".wizard-step.is-current").evaluate(el=>getComputedStyle(el).backgroundColor),"rgb(48, 94, 137)");
+ assert.equal(await page.locator(".rp-flow-card").count(),2);
+ await page.screenshot({path:"planner-screenshots/06-edital.png",fullPage:true});
  await page.getByRole("button",{name:"Seleção",exact:true}).click();await page.locator(".selection-progress").waitFor();
+ await page.locator(".rp-selection-tree").waitFor();
+ await page.screenshot({path:"planner-screenshots/07-selecao.png",fullPage:true});
+ await page.getByRole("button",{name:"Revisão da seleção"}).click();await page.locator(".rp-review-grid").waitFor();
+ await page.screenshot({path:"planner-screenshots/08-revisao.png",fullPage:true});
  await page.getByRole("button",{name:"Cronograma",exact:true}).click();await topic(day(page,1),"LDB").waitFor();
  await drag(page,topic(day(page,1),"LDB"),day(page,4));
  await topic(day(page,4),"LDB").waitFor();await saved(page);
