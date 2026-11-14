@@ -208,3 +208,38 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .grade-panel>small{display:block;margin-top:12px;color:#968a7e;font-size:9px}
 @media(max-width:900px){.family-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.flashcard-toolbar{align-items:stretch;flex-direction:column}.search-input{width:100%}.family-grid{grid-template-columns:1fr}.family-card{min-height:0}.review-card-face{min-height:260px;padding:28px 16px}.grade-buttons{grid-template-columns:repeat(2,minmax(0,1fr))}.review-card-meta{padding:12px;gap:6px}.variant-editor{padding:12px}}
+
+
+/* Ritmo 8 · prática: caderno de erros e blocos de questões */
+.practice-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:16px}
+.error-form,.question-form{margin:0 0 18px;padding:19px;border:1px solid #e5ddd1;border-radius:12px;background:#fcfaf6}
+.error-form .panel-title-row{margin-bottom:16px}
+.error-extra{padding:11px 12px;border:1px solid var(--line);border-radius:9px;background:#fffefc}
+.error-extra summary{cursor:pointer;color:#5f7487;font-size:10px;font-weight:750}
+.error-extra .field-block:first-of-type{margin-top:12px}
+.error-list,.question-block-list{display:grid;gap:11px}
+.error-card,.question-block-card{padding:16px;border:1px solid var(--line);border-radius:12px;background:#fffefc}
+.error-card-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.error-card-top>div{display:flex;align-items:center;gap:6px}
+.status-pill.due{background:#f8eee8;color:#9a604a}
+.error-card h3,.question-block-card h3{margin:12px 0 3px;color:#40362e;font:700 17px Georgia}
+.error-breadcrumb{margin:0;color:#95887b;font-size:10px}
+.error-content-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.error-content-grid>div{padding:12px;border-radius:9px;background:#f7f4ee}
+.error-content-grid small{color:#8c7f72;font-size:8px;font-weight:850;letter-spacing:.9px}
+.error-content-grid p{margin:7px 0 0;color:#554b42;font-size:10px;line-height:1.65;white-space:pre-wrap}
+.error-card-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;padding-top:11px;border-top:1px solid #eee8df;color:#948779;font-size:9px}
+.error-card-footer>div{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.error-card-footer .text-button{min-height:29px;font-size:9px}
+.apply-error-panel{display:grid;gap:8px;margin-top:12px;padding:13px;border:1px solid #dce6ef;border-radius:9px;background:#f2f6f9}
+.apply-error-panel>strong{color:#3e5f7d;font-size:11px}
+.apply-error-panel>p{margin:0;color:#7e8b96;font-size:10px}
+.apply-error-panel>a{display:flex;align-items:center;gap:5px;color:#376b9f;font-size:10px;text-decoration:none}
+.error-history{margin-top:11px;color:#84786d;font-size:10px}
+.error-history summary{cursor:pointer;font-weight:700}
+.error-history p{margin:7px 0 0}
+.question-block-card{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.question-block-card h3{margin:8px 0 4px}
+.question-block-card p{margin:0;color:#887c70;font-size:10px}
+.question-block-card small{display:block;margin-top:6px;color:#9b8f82;font-size:9px}
+@media(max-width:600px){.practice-toolbar{align-items:flex-start;flex-direction:column}.error-form,.question-form{padding:13px}.error-card,.question-block-card{padding:12px}.error-content-grid{grid-template-columns:1fr}.error-card-top{align-items:flex-start;flex-direction:column}.error-card-footer{align-items:flex-start;flex-direction:column}.error-card-footer>div{width:100%;justify-content:flex-start}.question-block-card{align-items:flex-start}}
