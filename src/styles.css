@@ -316,3 +316,14 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .curation-variant>small{color:#968a7e;font-size:9px;line-height:1.5}
 .curation-variant .button-row{padding-top:5px}
 @media(max-width:700px){.curation-card-head{flex-direction:column}.curation-actions{justify-content:flex-start}.curation-actions .primary-button,.curation-actions .secondary-button{min-height:34px;padding-inline:9px;font-size:9px}.curation-variant-head{align-items:flex-start;flex-direction:column}.import-preview-row{align-items:flex-start}}
+
+.backup-export-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px;border:1px solid var(--line);border-radius:10px;background:#fcfaf6;margin-bottom:18px}
+.backup-export-row>div{display:grid;gap:5px}
+.backup-export-row strong{color:#4a4038;font-size:11px}
+.backup-export-row small{color:#95897d;font-size:9px;line-height:1.5}
+.backup-preview{display:grid;gap:12px;padding:14px;border:1px solid #dce6ef;border-radius:10px;background:#f2f6f9}
+.backup-preview>strong{color:#376b9f;font-size:11px}
+.backup-counts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+.backup-counts span{display:grid;gap:4px;padding:9px;border-radius:8px;background:white;color:#8b7e72;font-size:9px}
+.backup-counts b{color:#3e5f7d;font:700 18px Georgia}
+@media(max-width:600px){.backup-export-row{align-items:stretch;flex-direction:column}.backup-counts{grid-template-columns:repeat(2,minmax(0,1fr))}}
