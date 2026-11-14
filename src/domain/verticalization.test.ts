@@ -58,8 +58,13 @@ describe("verticalização em Markdown", () => {
     const section = getPlanSections(parsed.tree)[0].node;
     const cleared = clearWholeSection(section);
     expect(getSelectedLeaves([cleared])).toHaveLength(0);
-    const parent = parsed.tree[0];
-    const partial: PlanNode = { ...parent, children: [parent.children[0], { ...parent.children[0], id: "other", selected: false }] };
+    const partial: PlanNode = {
+      id: "parent", name: "Parent", origin: "edital", sourceRef: "", sourceText: "", selected: true,
+      children: [
+        { id: "one", name: "One", origin: "edital", sourceRef: "", sourceText: "", selected: true, children: [] },
+        { id: "two", name: "Two", origin: "edital", sourceRef: "", sourceText: "", selected: false, children: [] },
+      ],
+    };
     expect(getNodeSelectionState(partial).some).toBe(true);
     expect(getNodeSelectionState(partial).all).toBe(false);
   });
