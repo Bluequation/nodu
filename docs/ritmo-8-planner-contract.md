@@ -12,3 +12,6 @@ Comparar visualmente com o protótipo aprovado (não apenas build). Verificar pl
 
 ## Referência visual
 O arquivo [planner-reference.svg](planner-reference.svg) é uma reprodução esquemática da composição aprovada (dados fictícios, sem substituir a imagem original). Compare os artefatos de screenshots do workflow Validate Ritmo 8 com essa composição. O script scripts/check-planner.mjs usa uma base IndexedDB descartável criada no navegador de teste, sem acessar dados pessoais. Para executar localmente após build: `npm install --no-save --package-lock=false playwright@1.56.1`, `npx playwright install chromium`, `node scripts/check-planner.mjs`.
+
+## Refinamento aprovado
+Peças da biblioteca compactas, de largura conforme o título, agrupadas por categoria. Categorias permanecem mesmo quando todos os seus assuntos estão no planner. Rótulos conhecidos usam abreviações semânticas; os demais preservam o texto sem truncamento arbitrário. O número de assuntos e a rolagem do cartão indicam seu conteúdo. Recomeçar semana é uma ação explícita com confirmação, devolve todos os itens à biblioteca e zera horários e simulados sem alterar edital, datas do plano ou registros de conclusão. Planos novos sempre começam vazios; nenhuma migração apaga planos existentes.

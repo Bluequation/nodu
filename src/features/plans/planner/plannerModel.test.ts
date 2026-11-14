@@ -1,5 +1,5 @@
 import {describe,it,expect} from "vitest";
-import {availableTopics,changePlacement,defaultSchedule,makeLibrary,reconcileAssignments,pieceTitle} from "./plannerModel";
+import {availableTopics,changePlacement,defaultSchedule,makeLibrary,reconcileAssignments,pieceTitle,topicPlacement,restartWeek} from "./plannerModel";
 import type {StudyPlan} from "../../../domain/models";
 import type {SelectedPlanLeaf} from "../../../domain/verticalization";
 const leaf=(id:string,name:string,path:string[]):SelectedPlanLeaf=>({id,name,path:[...path,name],origin:"edital",sourceRef:"item 1"});
@@ -11,4 +11,29 @@ describe("planner contract",()=>{
  it("preserves saved dates and leaves new topics unassigned",()=>{const c={...defaultSchedule(plan),days:[1]};const old=reconcileAssignments(leaves,[],c.days)[0];const a=reconcileAssignments(leaves,[{...old,day:1,completedDates:["2026-11-14"]}],c.days);expect(a[0].day).toBe(1);expect(a[0].completedDates).toEqual(["2026-11-14"]);expect(a[1].day).toBe(-1);});
  it("keeps both columns with general-only data",()=>{const cols=makeLibrary(leaves.slice(0,2),"Geral");expect(cols.map(x=>x.key)).toEqual(["general","specific"]);expect(cols[0].groups.map(g=>g.label)).toEqual(["Legislação","Pedagogia"]);expect(cols[1].groups).toEqual([]);});
  it("keeps specific hierarchy and original IDs",()=>{const cols=makeLibrary(leaves,"Física");expect(cols[1].groups[0].label).toBe("Física");expect(cols[1].groups[0].groups[0].label).toBe("Cinemática");expect(cols[1].groups[0].groups[0].topics[0]).toBe(leaves[2]);expect(pieceTitle(leaves[0].name)).toBe("LDB");});
+ it("keeps the curriculum under Pedagogy rather than assuming every BNCC descendant is legislation",()=>{
+   const curriculum=leaf("cur","5.3 Organização curricular",["P1 — Conhecimentos Básicos","Educação Brasileira: Temas Educacionais e Pedagógicos","Base Nacional Comum Curricular (BNCC)"]);
+   const law=leaf("law","1.1 Lei federal nº 9.394/96",["P1 — Conhecimentos Básicos","Educação Brasileira: Temas Educacionais e Pedagógicos"]);
+   expect(topicPlacement(curriculum,"Geral").groups).toEqual(["Pedagogia"]);
+   expect(topicPlacement(law,"Geral").groups).toEqual(["Legislação"]);
+ });
+ it("retains empty categories without duplicating assigned topics",()=>{
+   const cols=makeLibrary(leaves,"Física",new Set(["muv"]));
+   expect(cols[0].groups.map(g=>g.label)).toEqual(["Legislação","Pedagogia"]);
+   expect(cols[0].groups.every(g=>g.topics.length===0)).toBe(true);
+   expect(cols[1].groups[0].groups[0].topics.map(x=>x.id)).toEqual(["muv"]);
+ });
+ it("uses semantic abbreviations without discarding unknown topic details",()=>{
+   expect(pieceTitle("8.1 Sistema Permanente de Avaliação da Educação Básica (Spaece).")).toBe("SPAECE");
+   expect(pieceTitle("5.3 Currículo e Educação Integral.")).toBe("Currículo e educação integral");
+   expect(pieceTitle("Diversidade cultural e inclusão na formação e na prática pedagógica dos professores")).toBe("Diversidade cultural e inclusão na formação e na prática pedagógica dos professores");
+ });
+ it("explicit restart empties all seven days and preserves completion records",()=>{
+   const c={...defaultSchedule(plan),days:[0,1],daySchedules:{0:{startTime:"09:00",endTime:"11:00",simulation:true,completedDates:["2026-11-08"]},1:{startTime:"18:00",endTime:"20:00",simulation:false}}};
+   const a=reconcileAssignments(leaves,[],c.days).map((x,i)=>({...x,day:i===0?1:0,completedDates:["2026-11-09"]}));
+   const next=restartWeek(c,a);
+   expect(next.config.days).toEqual([]); expect(next.config.daySchedules[0]).toEqual({startTime:"",endTime:"",simulation:false,completedDates:["2026-11-08"]});
+   expect(next.assignments.every(x=>x.day===-1&&x.completedDates?.length===1)).toBe(true);
+   expect(availableTopics(leaves,next.assignments,next.config.days)).toEqual(leaves);
+ });
 });

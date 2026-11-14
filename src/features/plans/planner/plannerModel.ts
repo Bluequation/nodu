@@ -95,19 +95,44 @@ export function plannerShortTitle(value:string) {
 }
 
 export const normalizePlannerText=(value:string)=>value.normalize("NFD").replace(/\p{Diacritic}/gu,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+// Presentation aliases never change the authoritative edital text or ID.
 export function pieceTitle(value:string){
-  const name=plannerShortTitle(value);
-  if(/^LDB\b/.test(name))return "LDB";
-  if(/^Lei 10\.639/.test(name))return "Lei 10.639/2003";
-  if(/^Lei 11\.645/.test(name))return "Lei 11.645/2008";
-  if(/^Planos Nacionais de Educa[cç][aã]o/i.test(name))return "PNE";
-  return name;
+  const original=displayNodeName(value).replace(/^\d+(?:\.\d+)*\.?\s*/,"").trim();
+  const key=normalizePlannerText(original);
+  const aliases: Array<[RegExp,string]>=[
+    [/^(?:lei federal |lei )?n? ?9 394 96\b|^ldb\b/,"LDB"],
+    [/^(?:lei federal |lei )?n? ?10 639 2003\b/,"Lei 10.639/2003"],
+    [/^(?:lei federal |lei )?n? ?11 645 2008\b/,"Lei 11.645/2008"],
+    [/^planos nacionais de educacao\b/,"PNE"],
+    [/^fundamentos e principios que orientam a bncc\b/,"Fundamentos da BNCC"],
+    [/^base nacional comum curricular(?: bncc)?$/,"BNCC"],
+    [/^sistema permanente de avaliacao da educacao basica(?: spaece)?$/,"SPAECE"],
+    [/^sistema nacional de avaliacao da educacao basica(?: saeb)?$/,"SAEB"],
+    [/^exame nacional do ensino medio(?: enem)?$/,"ENEM"],
+    [/^programa internacional de avaliacao de estudantes(?: pisa)?$/,"PISA"],
+    [/^curriculo e educacao integral$/,"Currículo e educação integral"],
+    [/^estatuto dos servidores(?: publicos)? do estado do ceara\b/,"Estatuto dos servidores (CE)"],
+    [/^compreensao e interpretacao de textos?$/,"Compreensão e interpretação textual"],
+    [/^as bases empiricas metodologicas e epistemologicas das diversas teorias de aprendizagem$/,"Bases das teorias de aprendizagem"],
+    [/^a pesquisa na pratica docente$/,"Pesquisa na prática docente"],
+    [/^a dimensao etica da profissao$/,"Ética profissional"],
+    [/^a sala de aula como espaco de aprendizagem$/,"Sala de aula e aprendizagem"],
+    [/^organizacao curricular$/,"Organização curricular"],
+    [/^o ensino medio no contexto da educacao basica$/,"Ensino médio na educação básica"],
+    [/^movimento uniformemente variado(?: mruv)?$/,"MRUV"],
+    [/^movimento retilineo uniforme(?: mru)?$/,"MRU"],
+    [/^movimento uniforme(?: mu)?$/,"Movimento uniforme"],
+    [/^relacoes sintaticas na organizacao da oracao e do periodo$/,"Sintaxe da oração e do período"],
+  ];
+  for(const [pattern,label] of aliases)if(pattern.test(key))return label;
+  // Generic fallback retains the original wording rather than guessing its scope.
+  return original.replace(/^(?:noções gerais de|noções de|aspectos gerais de)\s+/i,"").replace(/\.$/,"")||original;
 }
 export type LibraryGroup={key:string;label:string;groups:LibraryGroup[];topics:SelectedPlanLeaf[]};
 export type LibraryColumn={key:"general"|"specific";label:string;groups:LibraryGroup[]};
 const basic=/\bconhecimentos (?:basicos|gerais)\b/;
 const specific=/\bconhecimentos especificos\b/;
-const legal=/\b(?:lei|leis federais|ldb|bncc|pne|planos nacionais de educacao|documento curricular referencial|estatuto|legislacao|constituicao|decreto)\b/;
+const legal=/^(?:(?:lei|leis|decreto|estatuto|constituicao|legislacao|ldb|pne|planos nacionais de educacao|documento curricular referencial|base legal|marcos legais)\b|base nacional comum curricular(?: bncc)?$|bncc$|fundamentos e principios que orientam a bncc$)/;
 const clean=(name:string)=>displayNodeName(name).replace(/^\d+(?:\.\d+)*\.?\s*/,"").trim();
 export function topicPlacement(leaf:SelectedPlanLeaf,area=""){
   const path=leaf.path.slice(0,-1).map(clean).filter(Boolean), keys=path.map(normalizePlannerText), areaKey=normalizePlannerText(area);
@@ -118,11 +143,11 @@ export function topicPlacement(leaf:SelectedPlanLeaf,area=""){
     return {column:"specific" as const,groups:groups.length?groups:["Outros assuntos"]};
   }
   if(keys.some(k=>/^educacao brasileira.*(?:educacionais|pedagogicos)|^pedagogia$|^legislacao educacional$/.test(k))){
-    return {column:"general" as const,groups:[legal.test(normalizePlannerText(leaf.name))||keys.some(k=>/^legislacao|^base nacional comum curricular/.test(k))?"Legislação":"Pedagogia"]};
+    return {column:"general" as const,groups:[legal.test(normalizePlannerText(clean(leaf.name)))||keys.some(k=>/^legislacao\b/.test(k))?"Legislação":"Pedagogia"]};
   }
   return {column:"general" as const,groups:groups.length?groups:["Outros assuntos"]};
 }
-export function makeLibrary(leaves:SelectedPlanLeaf[],area=""):LibraryColumn[]{
+export function makeLibrary(leaves:SelectedPlanLeaf[],area="",visibleIds?:ReadonlySet<string>):LibraryColumn[]{
   const columns:LibraryColumn[]=[{key:"general",label:"Conhecimentos gerais",groups:[]},{key:"specific",label:"Conhecimentos específicos",groups:[]}];
   for(const leaf of leaves){
     const place=topicPlacement(leaf,area);let current=columns.find(c=>c.key===place.column)!.groups,key:string=place.column,last:LibraryGroup|undefined;
@@ -131,7 +156,7 @@ export function makeLibrary(leaves:SelectedPlanLeaf[],area=""):LibraryColumn[]{
       if(!group){group={key,label,groups:[],topics:[]};current.push(group);}
       last=group;current=group.groups;
     }
-    last?.topics.push(leaf);
+    if(!visibleIds||visibleIds.has(leaf.id))last?.topics.push(leaf);
   }
   const ranks=["Legislação","Pedagogia","Português"];
   columns[0].groups.sort((a,b)=>(ranks.includes(a.label)?ranks.indexOf(a.label):99)-(ranks.includes(b.label)?ranks.indexOf(b.label):99));
@@ -146,4 +171,14 @@ export function changePlacement(config:ScheduleConfig,assignments:PlanAssignment
   if(!item||item.day===day||(day!==-1&&!WEEKDAYS.some(d=>d.id===day)))return {config,assignments};
   const next=day>=0&&!config.days.includes(day)?{...config,days:WEEKDAYS.filter(d=>d.id===day||config.days.includes(d.id)).map(d=>d.id),daySchedules:{...(config.daySchedules||{}),[day]:config.daySchedules?.[day]||emptyDaySchedule()}}:config;
   return {config:next,assignments:assignments.map(a=>a.nodeId===id?{...a,day}:a)};
+}
+
+/** Explicit restart only: preserve exam dates, node identity and dated completion history. */
+export function restartWeek(config:ScheduleConfig,assignments:PlanAssignment[]){
+  const daySchedules:Record<number,DaySchedule>={};
+  for(const day of WEEKDAYS){
+    const dates=config.daySchedules?.[day.id]?.completedDates;
+    if(dates?.length)daySchedules[day.id]={...emptyDaySchedule(),completedDates:[...dates]};
+  }
+  return {config:{...config,days:[],minutes:0,dayMinutes:{},sameMinutes:false,daySchedules},assignments:assignments.map(item=>({...item,day:-1}))};
 }

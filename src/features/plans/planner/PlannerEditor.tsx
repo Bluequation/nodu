@@ -2,7 +2,7 @@ import {useEffect,useMemo,useRef,useState,type ReactNode,type PointerEvent as Re
 import {ArrowLeft,CalendarDays,Check,ChevronRight,GripVertical,LoaderCircle,Target} from "lucide-react";
 import type {DaySchedule,PlanAssignment,ScheduleConfig,StudyPlan} from "../../../domain/models";
 import {getSelectedLeaves,type SelectedPlanLeaf} from "../../../domain/verticalization";
-import {WEEKDAYS,defaultSchedule,reconcileAssignments,displayNodeName,emptyDaySchedule,minutesForDay,normalizePlannerText,pieceTitle,topicPlacement,makeLibrary,changePlacement,availableTopics,type LibraryGroup} from "./plannerModel";
+import {WEEKDAYS,defaultSchedule,reconcileAssignments,displayNodeName,emptyDaySchedule,minutesForDay,normalizePlannerText,pieceTitle,topicPlacement,makeLibrary,changePlacement,availableTopics,restartWeek,type LibraryGroup} from "./plannerModel";
 import "./planner.css";
 export function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyPlan) => Promise<void> }) {
   const leaves = useMemo(() => getSelectedLeaves(plan.tree), [plan.tree]);
@@ -15,6 +15,7 @@ export function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next:
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
   const [dragged, setDragged] = useState<string | null>(null);
+  const [landed, setLanded] = useState<string | null>(null);
   const [over, setOver] = useState<number | null>(null);
   const [point, setPoint] = useState({x:0,y:0});
   const [saveState, setSaveState] = useState<"idle"|"saving"|"saved"|"error">("idle");
@@ -53,7 +54,7 @@ export function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next:
     const next=changePlacement(current.config,current.assignments,id,day);
     if(next.assignments===current.assignments){setSelected(null);return;}
     void commit(next.config,next.assignments);
-    setSelected(null);
+    setLanded(id); setSelected(null);
     setFeedback(day===-1?"Assunto devolvido à biblioteca.": "Assunto movido para "+WEEKDAYS.find(entry=>entry.id===day)?.label+".");
   }
 
@@ -122,7 +123,7 @@ export function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next:
   }
   function piece(leaf:SelectedPlanLeaf,day:number) {
     const specific=topicPlacement(leaf,plan.area).column==="specific";
-    return <div key={leaf.id} className={`rp-tile ${specific?"specific":""} ${selected===leaf.id?"picked":""} ${dragged===leaf.id?"moving":""}`}>
+    return <div key={leaf.id} className={`rp-tile ${specific?"specific":""} ${selected===leaf.id?"picked":""} ${dragged===leaf.id?"moving":""} ${landed===leaf.id?"placed":""}`} onAnimationEnd={()=>setLanded(current=>current===leaf.id?null:current)}>
       <button type="button" className="rp-tile-grip" title={displayNodeName(leaf.name)} aria-label={displayNodeName(leaf.name)} aria-pressed={selected===leaf.id}
         onPointerDown={event=>pointerDown(event,leaf.id)} onPointerMove={pointerMove} onPointerUp={event=>pointerEnd(event)} onPointerCancel={event=>pointerEnd(event,true)} onLostPointerCapture={event=>pointerEnd(event,true)}
         onClick={()=>selectPiece(leaf.id)}><GripVertical size={13}/><span>{pieceTitle(leaf.name)}</span></button>
@@ -132,11 +133,11 @@ export function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next:
   const leafById=new Map(leaves.map(leaf=>[leaf.id,leaf]));
   const available=availableTopics(leaves,assignments,config.days);
   const matching=available.filter(leaf=>!search.trim()||normalizePlannerText(leaf.path.join(" ")+" "+pieceTitle(leaf.name)).includes(normalizePlannerText(search)));
-  const columns=makeLibrary(matching,plan.area);
+  const columns=makeLibrary(search.trim()?matching:leaves,plan.area,new Set(matching.map(leaf=>leaf.id)));
   const [expanded,setExpanded]=useState<Record<string,boolean>>({});
   function renderGroup(group:LibraryGroup,initialOpen:boolean):ReactNode{
     const open=Boolean(search.trim())||(expanded[group.key]??initialOpen);
-    return <div key={group.key} className="rp-branch"><button type="button" className="rp-branch-title" aria-expanded={open} title={group.label} onClick={()=>setExpanded(previous=>({...previous,[group.key]:!open}))}><ChevronRight size={13}/><span>{group.label}</span></button>{open&&<div className="rp-branch-body">{group.topics.map(leaf=>piece(leaf,-1))}{group.groups.map((child,i)=>renderGroup(child,i===0))}</div>}</div>;
+    return <div key={group.key} className="rp-branch"><button type="button" className="rp-branch-title" aria-expanded={open} title={group.label} onClick={()=>setExpanded(previous=>({...previous,[group.key]:!open}))}><ChevronRight size={13}/><span>{group.label}</span></button>{open&&<div className="rp-branch-body">{group.topics.length>0&&<div className="rp-piece-cloud">{group.topics.map(leaf=>piece(leaf,-1))}</div>}{group.groups.map((child,i)=>renderGroup(child,i===0))}{!group.topics.length&&!group.groups.length&&<small className="rp-empty-group">Todos no planner</small>}</div>}</div>;
   }
   const organized=leaves.length-available.length;
   const weeklyMinutes=config.days.reduce((sum,day)=>sum+minutesForDay(config,day),0);
@@ -158,17 +159,18 @@ export function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next:
     catch{setSaveState("error");}
   }
   function clearDistribution() {
-    if(!organized||finishing)return;
-    if(!window.confirm("Devolver todos os conteúdos à biblioteca? Seus horários e registros de estudo serão mantidos."))return;
+    if(finishing)return;
+    if(!window.confirm("Recomeçar a semana? Todos os assuntos voltam à biblioteca e os horários e simulados são zerados. O edital e os registros de conclusão serão mantidos."))return;
     const current=latest.current;
-    void commit(current.config,current.assignments.map(item=>({...item,day:-1})));
-    setSelected(null);setFeedback("Conteúdos devolvidos à biblioteca.");
+    const next=restartWeek(current.config,current.assignments);
+    void commit(next.config,next.assignments);
+    setSelected(null);setLanded(null);setSearch("");setExpanded({});setFeedback("Semana vazia. Todos os assuntos estão na biblioteca.");
   }
 
   return <div ref={workspace} className="ritmo-planner">
     <section className="rp-planner" aria-label="Planner semanal">
       <header className="rp-section-head"><div><h2>Minha semana</h2></div><small className="rp-week-total">{weeklyMinutes?duration(weeklyMinutes)+" de estudo":""}</small><div className="rp-head-actions">
-        {organized>0&&<button type="button" className="rp-text-action" onClick={clearDistribution}>Limpar distribuição</button>}
+        {(organized>0||config.days.length>0)&&<button type="button" className="rp-text-action" onClick={clearDistribution}>Recomeçar semana</button>}
         <details className="rp-dates"><summary><CalendarDays size={14}/> Datas</summary><div className="rp-date-fields"><label>Início<input type="date" aria-label="Início do plano" value={config.startDate} onChange={event=>changeDates({startDate:event.target.value})}/></label><label>Prova (opcional)<input type="date" aria-label="Data da prova" value={config.examDate} onChange={event=>changeDates({examDate:event.target.value})}/></label></div></details>
       </div></header>
       <div className="rp-week-scroll"><div className="rp-week">
@@ -177,11 +179,11 @@ export function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next:
           const slot=config.daySchedules?.[day.id]||emptyDaySchedule();
           const items=assignments.filter(item=>item.day===day.id&&enabled).map(item=>leafById.get(item.nodeId)).filter((leaf):leaf is SelectedPlanLeaf=>Boolean(leaf));
           return <article key={day.id} data-rp-destination={day.id} className={`rp-day ${enabled?"enabled":""} ${enabled&&slot.simulation?"mock":""} ${over===day.id?"landing":""} ${selected?"select-destination":""}`}>
-            <button type="button" className="rp-day-title" aria-label={`Mover assunto para ${day.label}`} onClick={()=>{if(selected)move(selected,day.id);}}><b>{day.short}</b></button>
-            <details className="rp-day-settings"><summary title={`Configurar ${day.label}`}><span>{enabled&&slot.startTime&&slot.endTime?`${slot.startTime}–${slot.endTime}`:enabled?"Definir horário":"Livre"}</span></summary>
+            <button type="button" className="rp-day-title" aria-label={`Mover assunto para ${day.label}`} onClick={()=>{if(selected)move(selected,day.id);}}><b>{day.short}</b>{items.length>0&&<small className="rp-day-count" aria-label={`${items.length} assuntos`} title={`${items.length} assuntos`}>{items.length}</small>}</button>
+            <details className="rp-day-settings"><summary title={`Configurar ${day.label}`}><span>{enabled&&slot.startTime&&slot.endTime?`${slot.startTime}–${slot.endTime}`:"Definir horário"}</span></summary>
               <div className="rp-day-fields"><label className="rp-toggle"><input type="checkbox" checked={enabled} onChange={event=>toggleDay(day.id,event.target.checked)}/> Estudar</label>{enabled&&<><label>Das<input type="time" aria-label={`Início de ${day.label}`} value={slot.startTime} onChange={event=>setDay(day.id,{startTime:event.target.value})}/></label><label>Às<input type="time" aria-label={`Fim de ${day.label}`} value={slot.endTime} onChange={event=>setDay(day.id,{endTime:event.target.value})}/></label><label className="rp-toggle"><input type="checkbox" checked={slot.simulation} onChange={event=>setDay(day.id,{simulation:event.target.checked})}/> Simulado</label></>}</div>
             </details>
-            <div className="rp-day-body" onClick={event=>{if(selected&&event.target===event.currentTarget)move(selected,day.id);}}>
+            <div className="rp-day-body" tabIndex={items.length>3?0:undefined} aria-label={`Assuntos de ${day.label}: ${items.length}`} onClick={event=>{if(selected&&event.target===event.currentTarget)move(selected,day.id);}}>
               {enabled&&slot.simulation&&<div className="rp-mock"><Target size={13}/> Simulado</div>}
               {items.map(leaf=>piece(leaf,day.id))}
             </div>

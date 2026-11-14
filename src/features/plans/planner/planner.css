@@ -18,7 +18,7 @@
 .ritmo-planner .rp-week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;min-width:520px;align-items:stretch}
 .ritmo-planner .rp-day{display:flex;flex-direction:column;min-width:0;height:166px;background:white;border:1px solid #ded8ce;border-radius:7px;overflow:hidden;transition:background .15s,border-color .15s}
 .ritmo-planner .rp-day.landing{background:#e4eff9;border-color:#4c86b6;box-shadow:inset 0 0 0 1px #4c86b6}
-.ritmo-planner .rp-day-title{width:100%;min-height:27px;display:grid;place-items:center;background:none;border:0;color:inherit;font-size:12px;padding:4px}
+.ritmo-planner .rp-day-title{position:relative;width:100%;min-height:27px;display:grid;place-items:center;background:none;border:0;color:inherit;font-size:12px;padding:4px}
 .ritmo-planner .rp-day-title b{font-weight:600}
 .ritmo-planner .rp-day-settings{flex:none;margin:0 5px;border-bottom:1px solid #eae5dd}
 .ritmo-planner .rp-day-settings>summary{display:block;text-align:center;color:var(--rp-muted);font-size:10px;list-style:none;cursor:pointer;padding:3px 0 8px;white-space:nowrap}
@@ -29,8 +29,8 @@
 .ritmo-planner .rp-day-fields .rp-toggle{justify-content:flex-start}
 .ritmo-planner .rp-toggle input{accent-color:#376b9f;margin:0;width:12px;height:12px}
 .ritmo-planner .rp-day:has(.rp-day-settings[open]){height:auto;min-height:166px}
-.ritmo-planner .rp-day-body{display:flex;flex-direction:column;flex:1;gap:4px;min-height:42px;padding:6px 5px;overflow:auto;scrollbar-width:none;overscroll-behavior:contain}
-.ritmo-planner .rp-day-body::-webkit-scrollbar{display:none}
+.ritmo-planner .rp-day-body{display:flex;flex-direction:column;flex:1;gap:4px;min-height:42px;padding:6px 5px;overflow:auto;scrollbar-width:thin;scrollbar-color:#bfcedc transparent;overscroll-behavior:contain}
+.ritmo-planner .rp-day-body::-webkit-scrollbar{width:4px}.ritmo-planner .rp-day-body::-webkit-scrollbar-thumb{background:#bfcedc;border-radius:5px}
 .ritmo-planner .rp-day:has(.rp-day-settings[open]) .rp-day-body{max-height:125px}
 .ritmo-planner .rp-mock{display:flex;align-items:center;gap:4px;color:#8e6d38;background:#f2e8d3;padding:4px 5px;border-radius:4px;font-size:10px}
 .ritmo-planner .rp-tile{display:flex;align-items:center;flex:none;min-width:0;background:var(--rp-blue);color:#345e85;border-radius:4px;transition:opacity .15s}
@@ -39,8 +39,8 @@
 .ritmo-planner .rp-tile.moving{opacity:.4}
 .ritmo-planner .rp-tile-grip{display:flex;align-items:center;gap:5px;flex:1;min-width:0;background:none;border:0;color:inherit;padding:7px 6px;text-align:left;font-size:11px;line-height:1.25;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
 .ritmo-planner .rp-tile-grip>svg{flex:none;opacity:.55}
-.ritmo-planner .rp-tile-grip>span{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;min-width:0}
-.ritmo-planner .rp-day-body .rp-tile-grip{font-size:10px;padding:4px;min-height:22px;gap:2px}
+.ritmo-planner .rp-tile-grip>span{white-space:normal;overflow-wrap:anywhere;min-width:0}
+.ritmo-planner .rp-day-body .rp-tile-grip{font-size:10px;padding:4px 5px;min-height:22px;gap:2px;line-height:1.25}
 .ritmo-planner .rp-day-body .rp-tile-grip>svg{display:none}
 .ritmo-planner .rp-tile-remove{flex:none;border:0;background:none;color:inherit;font-size:13px;opacity:.55;padding:0 4px 0 0;line-height:1}
 .ritmo-planner .rp-library{background:#f8f6f1}
@@ -65,4 +65,13 @@
 .ritmo-planner button:focus-visible,.ritmo-planner summary:focus-visible,.ritmo-planner input:focus-visible{outline:2px solid #6596bd;outline-offset:2px}
 @media(max-width:700px){.ritmo-planner .rp-week{min-width:595px}.ritmo-planner .rp-library-scroll{max-height:280px}.ritmo-planner .rp-week-total{display:none}.ritmo-planner .rp-library-tree{gap:10px}}
 @media(max-width:400px){.ritmo-planner .rp-library-tree{grid-template-columns:1fr}.ritmo-planner .rp-footer button{font-size:10px;padding:0 7px}}
-@media(prefers-reduced-motion:reduce){.ritmo-planner *{transition:none!important}}
+/* The library contains movable pieces, not full-width rows. */
+.ritmo-planner .rp-piece-cloud{display:flex;flex-wrap:wrap;align-items:flex-start;gap:5px}
+.ritmo-planner .rp-piece-cloud .rp-tile{flex:0 1 auto;max-width:100%}
+.ritmo-planner .rp-piece-cloud .rp-tile-grip{padding:6px 8px;min-height:25px}
+.ritmo-planner .rp-empty-group{color:var(--rp-muted);font-size:10px;padding:2px 4px}
+.ritmo-planner .rp-day-count{position:absolute;right:6px;top:50%;transform:translateY(-50%);color:#76899b;font-size:9px;font-weight:500}
+.ritmo-planner .rp-day.landing{box-shadow:inset 0 0 0 2px #7ca8cb,0 3px 8px #345e8518}
+.ritmo-planner .rp-tile.placed{animation:rp-piece-fit .22s ease-out}
+@keyframes rp-piece-fit{0%{opacity:.5;transform:translateY(-3px) scale(.94)}70%{opacity:1;transform:translateY(0) scale(1.025)}100%{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.ritmo-planner *{transition:none!important;animation:none!important}}

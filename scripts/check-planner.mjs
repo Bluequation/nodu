@@ -67,8 +67,14 @@ try{
  const busyAssignments=more.map(n=>({nodeId:n.id,name:n.name,path:["Conhecimentos Básicos","Administração Pública",n.name],origin:"edital",sourceRef:n.sourceRef,day:1}));
  await seed(page,fixture("populated",busyTree,busyAssignments,{startDate:"2026-11-14",examDate:"",days:[1],minutes:0,mode:"alternate",daySchedules:{1:{startTime:"18:00",endTime:"20:00",simulation:false}}}));
  assert.equal(await day(page,1).locator(".rp-tile").count(),11);
+ assert.equal(await day(page,1).locator(".rp-day-count").textContent(),"11");
  assert.ok((await day(page,1).boundingBox()).height<=175,"populated day remains compact");
  await page.screenshot({path:"planner-screenshots/03-populated.png",fullPage:true});
+ page.once("dialog",dialog=>dialog.accept());
+ await page.getByRole("button",{name:"Recomeçar semana"}).click();
+ await saved(page);assert.equal(await page.locator(".rp-day .rp-tile,.rp-day .rp-mock").count(),0);
+ await page.reload();await page.locator(".ritmo-planner").waitFor();assert.equal(await page.locator(".rp-day .rp-tile,.rp-day .rp-mock").count(),0);
+ await page.screenshot({path:"planner-screenshots/03b-restarted.png",fullPage:true});
  await seed(page,fixture("general-only",[general]));
  assert.equal(await page.locator(".rp-column").count(),2);
  assert.equal(await page.locator(".rp-column.specific .rp-tile").count(),0);
