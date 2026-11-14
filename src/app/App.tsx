@@ -10,6 +10,7 @@ import type { NewStudyPlan, StudyPlan } from "../domain/models";
 import { getSelectedLeaves } from "../domain/verticalization";
 import { PlanDetailRoute, PlanWizardRoute } from "../features/plans/PlanWizard";
 import { FlashcardEditorPage, FlashcardsPage, ReviewPageRoute } from "../features/study/Flashcards";
+import { ErrorsPage, QuestionsPage } from "../features/practice/Practice";
 
 const groups = [
   ["VISÃO GERAL", [["Painel", "/", LayoutDashboard]]],
@@ -46,7 +47,9 @@ function Shell() {
         <Route path="/flashcards/new" element={<FlashcardEditorPage/>}/>
         <Route path="/flashcards/:id/edit" element={<FlashcardEditorPage/>}/>
         <Route path="/reviews" element={<ReviewPageRoute/>}/>
-        {["learn","questions","errors","import","curation","settings"].map(name => <Route key={name} path={`/${name}`} element={<Feature name={name}/>}/>)}
+        <Route path="/questions" element={<QuestionsPage/>}/>
+        <Route path="/errors" element={<ErrorsPage/>}/>
+        {["learn","import","curation","settings"].map(name => <Route key={name} path={`/${name}`} element={<Feature name={name}/>}/>)}
       </Routes>
       <footer className="app-footer">Ritmo 8.0 · Seu espaço de estudos</footer>
     </main>
