@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
-  ArrowLeft, ArrowRight, AlertCircle, BookOpen, CalendarDays, Check, CheckCircle2,
+  ArrowLeft, ArrowRight, AlertCircle, BookOpen, CalendarDays, Check, CheckCircle2, Clipboard,
   ChevronDown, ChevronRight, Clock3, Flame, FolderOpen, Info, Lightbulb, ListChecks,
-  NotebookPen, Pencil, Target, TrendingUp, Upload,
+  NotebookPen, Pencil, Plus, Sparkles, Target, TrendingUp, Upload,
 } from "lucide-react";
 import { getPlan, savePlan } from "../../data/plans";
 import { listConcepts, listErrors, listQuestionBlocks } from "../../data/study";
