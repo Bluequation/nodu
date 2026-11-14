@@ -2,8 +2,8 @@ import { openDB, type DBSchema } from "idb";
 import type { StudyPlan } from "../domain/models";
 import type { Concept, ErrorRecord, LearningSession, QuestionBlock, ReviewLog } from "../domain/study";
 import {
-  migrateLegacyBlock, migrateLegacyConcept, migrateLegacyError, migrateLegacyPlan,
-  migrateLegacyReview, migrateLegacySession, readLegacy, type LegacyDb,
+  migrateLegacyPlan, normalizeLegacyBlock, normalizeLegacyConcept, normalizeLegacyError,
+  normalizeLegacyReview, normalizeLegacySession, readLegacy, type LegacyDb,
 } from "./migration";
 
 interface AppStateEntry { key: string; value: unknown }
