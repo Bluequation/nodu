@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { HashRouter, Link, NavLink, Route, Routes, useNavigate } from "react-router-dom";
 import { createPlan, listPlans } from "../data/plans";
+import { getStudySettings, listConcepts, listErrors, listQuestionBlocks } from "../data/study";
 import type { NewStudyPlan, StudyPlan } from "../domain/models";
 import { getSelectedLeaves } from "../domain/verticalization";
 import { PlanDetailRoute, PlanWizardRoute } from "../features/plans/PlanWizard";
@@ -63,7 +64,19 @@ function Shell() {
 
 function Dashboard() {
   const [plans, setPlans] = useState<StudyPlan[]>([]);
-  useEffect(() => { listPlans().then(setPlans); }, []);
+  const [metrics, setMetrics] = useState({ dueCards: 0, dueErrors: 0, questions: 0, correct: 0 });
+  useEffect(() => {
+    Promise.all([listPlans(), listConcepts(), listErrors(), listQuestionBlocks(), getStudySettings()])
+      .then(([nextPlans, concepts, errors, blocks, settings]) => {
+        setPlans(nextPlans);
+        setMetrics({
+          dueCards: concepts.filter(concept => concept.status === "published" && !concept.suspended && concept.fsrs.due <= Date.now()).length,
+          dueErrors: errors.filter(error => error.status !== "dominado" && error.nextReview <= Date.now()).length,
+          questions: blocks.reduce((sum, block) => sum + block.total, 0),
+          correct: blocks.reduce((sum, block) => sum + block.correct, 0),
+        });
+      });
+  }, []);
   const active = plans.filter(plan => plan.status === "active").length;
   const drafts = plans.filter(plan => plan.status === "draft").length;
   const topics = plans.reduce((sum, plan) => sum + getSelectedLeaves(plan.tree).length, 0);
@@ -71,10 +84,13 @@ function Dashboard() {
   return <div className="stack">
     <Heading eyebrow="SEU ESPAÇO DE ESTUDOS" title="Vamos no seu ritmo." desc="Organize o que estudar, acompanhe seu progresso e aprenda com consistência." action={<Link className="primary-button" to="/plans/new">Novo plano <ArrowRight size={16}/></Link>}/>
     <section className="hero"><small>✦ RITMO 8 · NOVA ESTRUTURA</small><h2>Do edital à aprendizagem, em um só lugar.</h2><p>Transforme o conteúdo do concurso em um percurso de estudos que respeita suas escolhas e sua disponibilidade.</p><Link className="primary-button" to="/plans">Organizar meus estudos <ArrowRight size={16}/></Link></section>
-    <div className="stats">
+    <div className="stats expanded-stats">
       <Panel><small>PLANOS ATIVOS</small><b>{active}</b><span>Planejamentos em andamento</span></Panel>
       <Panel><small>RASCUNHOS</small><b>{drafts}</b><span>Planos que você ainda está montando</span></Panel>
       <Panel><small>CONTEÚDOS SELECIONADOS</small><b>{topics}</b><span>Itens escolhidos nos seus planos</span></Panel>
+      <Panel><small>FLASHCARDS VENCIDOS</small><b>{metrics.dueCards}</b><span>Famílias para revisar no FSRS</span><Link to="/reviews" className="text-link">Revisar agora <ArrowRight size={13}/></Link></Panel>
+      <Panel><small>ERROS PARA RETOMAR</small><b>{metrics.dueErrors}</b><span>Novas questões para aplicar</span><Link to="/errors" className="text-link">Abrir caderno <ArrowRight size={13}/></Link></Panel>
+      <Panel><small>QUESTÕES RESOLVIDAS</small><b>{metrics.questions}</b><span>{metrics.questions ? Math.round(metrics.correct / metrics.questions * 100) : 0}% de acertos registrados</span><Link to="/questions" className="text-link">Ver desempenho <ArrowRight size={13}/></Link></Panel>
     </div>
     <Panel><div className="panel-head"><h2>Retomar planejamento</h2><Link className="text-link" to="/plans">Ver todos <ArrowRight size={15}/></Link></div>
       {recent.length ? recent.map(plan => <Link className="plan-row" key={plan.id} to={`/plans/${plan.id}/verticalize`}><b>{plan.title}</b><span>{[plan.position, plan.area].filter(Boolean).join(" · ")} · {plan.status === "active" ? "Ativo" : "Rascunho"}</span><ArrowRight size={16}/></Link>) : <div className="empty"><BookOpen size={28}/><h2>Seu primeiro plano começa aqui</h2><p>Cadastre o concurso, escolha o cargo e delimite a área de estudo. Depois, o Ritmo guia a verticalização e a seleção do conteúdo.</p><Link className="primary-button" to="/plans/new">Criar primeiro plano</Link></div>}
