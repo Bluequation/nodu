@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState, type ChangeEvent, useRef, type ReactNode, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft, ArrowRight, AlertCircle, BookOpen, CalendarDays, Check, CheckCircle2, Clipboard,
   ChevronDown, ChevronRight, Clock3, Flame, FolderOpen, Info, Lightbulb, ListChecks,
-  NotebookPen, Pencil, Plus, Sparkles, Target, TrendingUp, Upload, GripVertical, LoaderCircle,
+  NotebookPen, Pencil, Plus, Sparkles, Target, TrendingUp, Upload, LoaderCircle,
 } from "lucide-react";
 import { getPlan, savePlan } from "../../data/plans";
 import { listConcepts, listErrors, listQuestionBlocks } from "../../data/study";
@@ -14,6 +14,9 @@ import {
   getPlanSections, getSelectedLeaves, parseVerticalMarkdown, renameNodeInTree, type SelectedPlanLeaf,
   toggleNodeInTree,
 } from "../../domain/verticalization";
+
+import {ScheduleStep} from "./planner/PlannerEditor";
+import {WEEKDAYS,today,displayNodeName,durationFromTimes,minutesForDay,formatDuration,emptyDaySchedule,defaultSchedule,reconcileAssignments} from "./planner/plannerModel";
 
 declare global {
   interface Window {
@@ -30,81 +33,6 @@ declare global {
     };
   }
 }
-
-const WEEKDAYS = [
-  { id: 1, label: "Segunda", short: "Seg" },
-  { id: 2, label: "Terça", short: "Ter" },
-  { id: 3, label: "Quarta", short: "Qua" },
-  { id: 4, label: "Quinta", short: "Qui" },
-  { id: 5, label: "Sexta", short: "Sex" },
-  { id: 6, label: "Sábado", short: "Sáb" },
-  { id: 0, label: "Domingo", short: "Dom" },
-];
-const MINUTES = [30, 45, 60, 90, 120, 150, 180, 240];
-const today = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-};
-function displayNodeName(name: string) {
-  return name.replace(/^\s*\[EDITAL\]\s*/i, "").trim();
-}
-function durationFromTimes(startTime?: string, endTime?: string) {
-  if (!startTime || !endTime) return 0;
-  const [startHour, startMinute] = startTime.split(":").map(Number);
-  const [endHour, endMinute] = endTime.split(":").map(Number);
-  if (![startHour, startMinute, endHour, endMinute].every(Number.isFinite)) return 0;
-  const start = startHour * 60 + startMinute;
-  let end = endHour * 60 + endMinute;
-  if (end < start) end += 24 * 60;
-  return end - start;
-}
-function minutesForDay(config: ScheduleConfig, dayId: number) {
-  const slot = config.daySchedules?.[dayId];
-  if (slot) return durationFromTimes(slot.startTime, slot.endTime);
-  if (config.daySchedules) return 0;
-  return config.sameMinutes === false ? (config.dayMinutes?.[dayId] ?? config.minutes) : config.minutes;
-}
-function formatDuration(minutes: number) {
-  if (!minutes) return "Horário ainda não definido";
-  const hours = Math.floor(minutes / 60);
-  const remainder = minutes % 60;
-  if (hours && remainder) return `${hours}h ${remainder}min disponíveis`;
-  if (hours) return `${hours}h disponíveis`;
-  return `${remainder}min disponíveis`;
-}
-function emptyDaySchedule(): DaySchedule {
-  return { startTime: "", endTime: "", simulation: false };
-}
-function assignmentFromLeaf(leaf: SelectedPlanLeaf, day = -1): PlanAssignment {
-  return {
-    nodeId: leaf.id,
-    name: displayNodeName(leaf.name),
-    path: leaf.path.map(displayNodeName),
-    origin: leaf.origin,
-    sourceRef: leaf.sourceRef,
-    day,
-  };
-}
-function reconcileAssignments(leaves: SelectedPlanLeaf[], existing: PlanAssignment[], days: number[]) {
-  const byId = new Map(existing.map(item => [item.nodeId, item]));
-  return leaves.map(leaf => {
-    const current = byId.get(leaf.id);
-    if (!current) return assignmentFromLeaf(leaf, -1);
-    return { ...assignmentFromLeaf(leaf, current.day), ...current,
-      day: current.day >= 0 && days.includes(current.day) ? current.day : -1 };
-  });
-}
-const defaultSchedule = (plan: StudyPlan): ScheduleConfig => ({
-  startDate: today(),
-  examDate: plan.examDate || "",
-  days: [],
-  minutes: 0,
-  sameMinutes: false,
-  dayMinutes: {},
-  daySchedules: {},
-  priorityOrder: [],
-  mode: "alternate",
-});
 
 async function readPdf(file: File): Promise<string> {
   if (!window.pdfjsLib) {
@@ -439,235 +367,6 @@ function SelectionStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: Study
 }
 
 // Compact display labels only; the original titles remain in the plan.
-function plannerShortTitle(value:string) {
-  let name=displayNodeName(value).replace(/^\d+(?:\.\d+)*\.?\s*/,"").replace(/\s+/g," ").trim();
-  const rules: Array<[RegExp,string]> = [
-    [/lei\s+federal\s+n[º°o.]?\s*9[.\s]?394\s*\/\s*96/i,"LDB — Lei 9.394/96"],
-    [/lei\s+federal\s+n[º°o.]?\s*10[.\s]?639\s*\/\s*2003/i,"Lei 10.639/2003 — Cultura afro-brasileira e africana"],
-    [/lei\s+federal\s+n[º°o.]?\s*11[.\s]?645\s*\/\s*2008/i,"Lei 11.645/2008 — Cultura afro-brasileira e indígena"],
-    [/^as bases empíricas, metodológicas e epistemológicas das diversas teorias de aprendizagem/i,"Fundamentos das teorias de aprendizagem"],
-    [/^a didática como fundamento epistemológico do fazer docente/i,"Didática e prática docente"],
-    [/^fundamentos e princípios que orientam a BNCC/i,"Fundamentos e princípios da BNCC"],
-  ];
-  for(const [pattern,label] of rules) if(pattern.test(name))return label;
-  name=name.replace(/^(?:noções gerais de|noções de|aspectos gerais de)\s+/i,"").replace(/\.$/,"");
-  if(name.length<=68)return name||displayNodeName(value);
-  const clause=name.split(/[:;] /)[0];
-  if(clause.length>=20&&clause.length<=62)return clause+"…";
-  const limit=name.lastIndexOf(" ",65);
-  return name.slice(0,limit>35?limit:65).trimEnd()+"…";
-}
-function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyPlan) => Promise<void> }) {
-  const leaves = useMemo(() => getSelectedLeaves(plan.tree), [plan.tree]);
-  const [config, setConfig] = useState<ScheduleConfig>(() => plan.scheduleConfig || defaultSchedule(plan));
-  const [assignments, setAssignments] = useState<PlanAssignment[]>(() => reconcileAssignments(leaves, plan.assignments, (plan.scheduleConfig || defaultSchedule(plan)).days));
-  const latest = useRef({config, assignments});
-  const planRef = useRef(plan);
-  planRef.current = plan;
-  const queue = useRef<Promise<void>>(Promise.resolve());
-  const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<string | null>(null);
-  const [dragged, setDragged] = useState<string | null>(null);
-  const [over, setOver] = useState<number | null>(null);
-  const [point, setPoint] = useState({x:0,y:0});
-  const [saveState, setSaveState] = useState<"idle"|"saving"|"saved"|"error">("idle");
-  const [finishing, setFinishing] = useState(false);
-  const [feedback, setFeedback] = useState("");
-  const drag = useRef<{id:string; pointer:number; x:number; y:number; moving:boolean} | null>(null);
-  const suppressClick = useRef(false);
-  const workspace = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const nextConfig = plan.scheduleConfig || defaultSchedule(plan);
-    const nextAssignments = reconcileAssignments(getSelectedLeaves(plan.tree), plan.assignments, nextConfig.days);
-    latest.current = {config:nextConfig,assignments:nextAssignments};
-    setConfig(nextConfig); setAssignments(nextAssignments); setSearch(""); setSelected(null);
-    setSaveState("idle"); setFeedback("");
-  }, [plan.id]);
-
-  function commit(nextConfig:ScheduleConfig, nextAssignments:PlanAssignment[], finish=false) {
-    latest.current = {config:nextConfig,assignments:nextAssignments};
-    setConfig(nextConfig); setAssignments(nextAssignments); setSaveState("saving");
-    const id=plan.id;
-    const task=queue.current.catch(()=>{}).then(async()=>{
-      if(planRef.current.id!==id)return;
-      await onSave({...planRef.current,scheduleConfig:nextConfig,assignments:nextAssignments,
-        ...(finish ? {status:"active" as const,stage:"schedule" as const} : {}),updatedAt:Date.now()});
-      if(latest.current.config===nextConfig&&latest.current.assignments===nextAssignments)setSaveState("saved");
-    });
-    queue.current=task;
-    void task.catch(()=>setSaveState("error"));
-    return task;
-  }
-
-  function move(id:string, day:number) {
-    if(finishing || (day!==-1&&!WEEKDAYS.some(item=>item.id===day)))return;
-    const current=latest.current;
-    const item=current.assignments.find(entry=>entry.nodeId===id);
-    if(!item||item.day===day){setSelected(null);return;}
-    const nextConfig=day>=0&&!current.config.days.includes(day) ? {...current.config,
-      days:WEEKDAYS.filter(entry=>entry.id===day||current.config.days.includes(entry.id)).map(entry=>entry.id),
-      daySchedules:{...(current.config.daySchedules||{}),[day]:current.config.daySchedules?.[day]||emptyDaySchedule()}
-    } : current.config;
-    void commit(nextConfig,current.assignments.map(entry=>entry.nodeId===id?{...entry,day}:entry));
-    setSelected(null);
-    setFeedback(day===-1?"Assunto devolvido à biblioteca.": "Assunto movido para "+WEEKDAYS.find(entry=>entry.id===day)?.label+".");
-  }
-
-  function setDay(day:number,patch:Partial<DaySchedule>) {
-    if(finishing)return;
-    const current=latest.current;
-    const next={...current.config,
-      days:WEEKDAYS.filter(entry=>entry.id===day||current.config.days.includes(entry.id)).map(entry=>entry.id),
-      daySchedules:{...(current.config.daySchedules||{}),[day]:{...(current.config.daySchedules?.[day]||emptyDaySchedule()),...patch}}
-    };
-    void commit(next,current.assignments);
-  }
-  function toggleDay(day:number,enabled:boolean) {
-    if(finishing)return;
-    const current=latest.current;
-    if(enabled){setDay(day,{});return;}
-    void commit({...current.config,days:current.config.days.filter(id=>id!==day)},current.assignments.map(item=>item.day===day?{...item,day:-1}:item));
-    setSelected(null);
-  }
-  function changeDates(patch:Partial<ScheduleConfig>) {
-    if(finishing)return;
-    void commit({...latest.current.config,...patch},latest.current.assignments);
-  }
-
-  function targetAt(x:number,y:number) {
-    const element=document.elementFromPoint(x,y)?.closest<HTMLElement>("[data-piece-destination]");
-    if(!element||!workspace.current?.contains(element))return null;
-    const day=Number(element.dataset.pieceDestination);
-    return day===-1||WEEKDAYS.some(entry=>entry.id===day)?day:null;
-  }
-  function pointerDown(event:ReactPointerEvent<HTMLElement>,id:string) {
-    if(!event.isPrimary||event.button!==0||drag.current||finishing)return;
-    suppressClick.current=false;
-    drag.current={id,pointer:event.pointerId,x:event.clientX,y:event.clientY,moving:false};
-    event.currentTarget.setPointerCapture(event.pointerId);
-  }
-  function pointerMove(event:ReactPointerEvent<HTMLElement>) {
-    const current=drag.current;
-    if(!current||current.pointer!==event.pointerId)return;
-    if(!current.moving&&Math.hypot(event.clientX-current.x,event.clientY-current.y)<6)return;
-    current.moving=true;
-    setDragged(current.id);setPoint({x:event.clientX,y:event.clientY});setOver(targetAt(event.clientX,event.clientY));
-    const strip=workspace.current?.querySelector<HTMLElement>(".piece-week-scroll");
-    if(strip){
-      const bounds=strip.getBoundingClientRect();
-      if(event.clientY>=bounds.top&&event.clientY<=bounds.bottom){
-        if(event.clientX<bounds.left+25)strip.scrollLeft-=16;
-        else if(event.clientX>bounds.right-25)strip.scrollLeft+=16;
-      }
-    }
-  }
-  function pointerEnd(event:ReactPointerEvent<HTMLElement>,cancelled=false) {
-    const current=drag.current;
-    if(!current||current.pointer!==event.pointerId)return;
-    drag.current=null;
-    suppressClick.current=current.moving;
-    if(current.moving&&!cancelled){
-      const target=targetAt(event.clientX,event.clientY);
-      if(target!==null)move(current.id,target);
-    }
-    setDragged(null);setOver(null);
-  }
-  function selectPiece(id:string) {
-    if(suppressClick.current){suppressClick.current=false;return;}
-    setSelected(current=>current===id?null:id);
-  }
-  function piece(leaf:SelectedPlanLeaf,day:number) {
-    const group=leaf.path.map(displayNodeName).join(" ");
-    const specific=/especific|física|fisica/i.test(group)&&!/conhecimentos b[aá]sicos|conhecimentos gerais/i.test(leaf.path[0]||"");
-    return <div key={leaf.id} className={`study-piece ${specific?"specific":""} ${selected===leaf.id?"picked":""} ${dragged===leaf.id?"moving":""}`}>
-      <button type="button" className="study-piece-grip" title={displayNodeName(leaf.name)} aria-label={displayNodeName(leaf.name)} aria-pressed={selected===leaf.id}
-        onPointerDown={event=>pointerDown(event,leaf.id)} onPointerMove={pointerMove} onPointerUp={event=>pointerEnd(event)} onPointerCancel={event=>pointerEnd(event,true)} onLostPointerCapture={event=>pointerEnd(event,true)}
-        onClick={()=>selectPiece(leaf.id)}><GripVertical size={13}/><span>{plannerShortTitle(leaf.name)}</span></button>
-      {day>=0&&<button className="study-piece-remove" type="button" aria-label={`Devolver ${displayNodeName(leaf.name)} à biblioteca`} title="Devolver à biblioteca" onClick={()=>move(leaf.id,-1)}>×</button>}
-    </div>;
-  }
-  const leafById=new Map(leaves.map(leaf=>[leaf.id,leaf]));
-  const assignedById=new Map(assignments.map(item=>[item.nodeId,item]));
-  const available=leaves.filter(leaf=>!config.days.includes(assignedById.get(leaf.id)?.day??-1));
-  const matching=available.filter(leaf=>!search.trim()||normalizePlanTopic(leaf.path.join(" ")+" "+plannerShortTitle(leaf.name)).includes(normalizePlanTopic(search)));
-  const availableIds=new Set(matching.map(leaf=>leaf.id));
-  const countBranch=(node:PlanNode):number => (availableIds.has(node.id)?1:0)+node.children.reduce((sum,child)=>sum+countBranch(child),0);
-  function renderBranch(node:PlanNode,depth:number):ReactNode {
-    const count=countBranch(node);
-    if(!count)return null;
-    const leaf=availableIds.has(node.id)?leafById.get(node.id):undefined;
-    const children=node.children.filter(child=>countBranch(child)>0);
-    if(!children.length)return leaf?piece(leaf,-1):null;
-    return <details className="piece-branch" key={node.id} open={depth===0||Boolean(search.trim())||undefined}>
-      <summary title={displayNodeName(node.name)}><ChevronRight size={14}/><span>{plannerShortTitle(node.name)}</span><small>{count}</small></summary>
-      <div className="piece-branch-body">{leaf&&piece(leaf,-1)}{children.map(child=>renderBranch(child,depth+1))}</div>
-    </details>;
-  }
-  const roots=plan.tree.filter(node=>countBranch(node)>0);
-  const organized=leaves.length-available.length;
-  const weeklyMinutes=config.days.reduce((sum,day)=>sum+minutesForDay(config,day),0);
-  const duration=(minutes:number)=>minutes?(`${Math.floor(minutes/60)?Math.floor(minutes/60)+"h ":""}${minutes%60?minutes%60+"min":""}`).trim():"";
-  const dragging=dragged?leafById.get(dragged):undefined;
-  const hasSession=config.days.some(day=>config.daySchedules?.[day]?.simulation)||organized>0;
-  async function finish() {
-    if(finishing||!hasSession)return;
-    setFinishing(true);
-    try {
-      const current=latest.current;
-      await commit(current.config,current.assignments,true);
-      setFeedback("Cronograma salvo.");
-    }catch{setFeedback("Não foi possível salvar. Tente novamente.");}
-    finally{setFinishing(false);}
-  }
-  async function goBack() {
-    try{await queue.current;await onSave({...planRef.current, assignments:latest.current.assignments, scheduleConfig:latest.current.config,stage:"selection"});}
-    catch{setSaveState("error");}
-  }
-  function clearDistribution() {
-    if(!organized||finishing)return;
-    if(!window.confirm("Devolver todos os conteúdos à biblioteca? Seus horários e registros de estudo serão mantidos."))return;
-    const current=latest.current;
-    void commit(current.config,current.assignments.map(item=>({...item,day:-1})));
-    setSelected(null);setFeedback("Conteúdos devolvidos à biblioteca.");
-  }
-
-  return <div ref={workspace} className="piece-workspace">
-    <section className="piece-planner" aria-label="Planner semanal">
-      <header className="piece-section-head"><div><h2>Minha semana</h2><small>{organized}/{leaves.length} organizados{weeklyMinutes?` · ${duration(weeklyMinutes)} semanais`:""}</small></div><div className="piece-head-actions">
-        {organized>0&&<button type="button" className="piece-text-action" onClick={clearDistribution}>Limpar distribuição</button>}
-        <details className="hybrid-dates"><summary><CalendarDays size={14}/> Datas</summary><div className="hybrid-date-fields"><label>Início<input type="date" aria-label="Início do plano" value={config.startDate} onChange={event=>changeDates({startDate:event.target.value})}/></label><label>Prova (opcional)<input type="date" aria-label="Data da prova" value={config.examDate} onChange={event=>changeDates({examDate:event.target.value})}/></label></div></details>
-      </div></header>
-      <div className="piece-week-scroll"><div className="piece-week">
-        {WEEKDAYS.map(day=>{
-          const enabled=config.days.includes(day.id);
-          const slot=config.daySchedules?.[day.id]||emptyDaySchedule();
-          const items=assignments.filter(item=>item.day===day.id&&enabled).map(item=>leafById.get(item.nodeId)).filter((leaf):leaf is SelectedPlanLeaf=>Boolean(leaf));
-          return <article key={day.id} data-piece-destination={day.id} className={`piece-day ${enabled?"enabled":""} ${enabled&&slot.simulation?"mock":""} ${over===day.id?"landing":""} ${selected?"select-destination":""}`}>
-            <button type="button" className="piece-day-title" aria-label={`Mover assunto para ${day.label}`} onClick={()=>{if(selected)move(selected,day.id);}}><b>{day.short}</b>{items.length>0&&<small>{items.length}</small>}</button>
-            <details className="piece-day-settings"><summary title={`Configurar ${day.label}`}><Clock3 size={12}/><span>{enabled&&slot.startTime&&slot.endTime?`${slot.startTime}–${slot.endTime}`:enabled?"Definir horário":"Livre"}</span></summary>
-              <div className="piece-day-fields"><label className="piece-toggle"><input type="checkbox" checked={enabled} onChange={event=>toggleDay(day.id,event.target.checked)}/> Estudar</label>{enabled&&<><label>Das<input type="time" aria-label={`Início de ${day.label}`} value={slot.startTime} onChange={event=>setDay(day.id,{startTime:event.target.value})}/></label><label>Às<input type="time" aria-label={`Fim de ${day.label}`} value={slot.endTime} onChange={event=>setDay(day.id,{endTime:event.target.value})}/></label><label className="piece-toggle"><input type="checkbox" checked={slot.simulation} onChange={event=>setDay(day.id,{simulation:event.target.checked})}/> Simulado</label></>}</div>
-            </details>
-            <div className="piece-day-body" onClick={event=>{if(selected&&event.target===event.currentTarget)move(selected,day.id);}}>
-              {enabled&&slot.simulation&&<div className="piece-mock"><Target size={13}/> Simulado</div>}
-              {items.map(leaf=>piece(leaf,day.id))}
-            </div>
-          </article>;
-        })}
-      </div></div>
-    </section>
-    <section className={`piece-library ${over===-1?"landing":""}`} data-piece-destination={-1} aria-label="Biblioteca do plano">
-      <header className="piece-section-head"><div><h2>Biblioteca</h2><small>{available.length} assuntos disponíveis</small></div><input type="search" aria-label="Buscar assunto na biblioteca" placeholder="Buscar assunto…" value={search} onChange={event=>setSearch(event.target.value)}/></header>
-      <div className="piece-library-scroll"><div className="piece-library-tree">
-        {roots.map(node=><div className="piece-root" key={node.id}>{renderBranch(node,0)}</div>)}
-        {!roots.length&&<p className="piece-library-empty">{available.length?"Nenhum assunto encontrado.":"Todos os assuntos estão no planner."}</p>}
-      </div></div>
-    </section>
-    <footer className="piece-footer"><button type="button" className="secondary-button" disabled={finishing} onClick={goBack}><ArrowLeft size={15}/> Voltar</button><span role="status">{saveState==="error"?"Falha ao salvar. Tente salvar novamente.":saveState==="saving"?"Salvando…":selected?"Toque em um dia para mover.":saveState==="saved"?"Salvo neste navegador":feedback}</span><button type="button" className="primary-button" disabled={!hasSession||finishing} onClick={finish}>{finishing?<LoaderCircle className="save-spinner" size={15}/>:<Check size={15}/>} {finishing?"Salvando…":"Salvar cronograma"}</button></footer>
-    {dragging&&<div className="planner-drag-ghost" style={{left:point.x+10,top:point.y+10}}><GripVertical size={15}/><span>{plannerShortTitle(dragging.name)}</span></div>}
-  </div>;
-}
-
 export function PlanWizardRoute() {
   const { id = "" } = useParams();
   const [plan, setPlan] = useState<StudyPlan | null>(null);
@@ -695,7 +394,7 @@ export function PlanWizardRoute() {
       ? <SourceStep plan={plan} onSave={persist}/>
       : plan.stage === "selection"
         ? <SelectionStep plan={plan} onSave={persist}/>
-        : <ScheduleStep plan={plan} onSave={persist}/>}
+        : <ScheduleStep key={plan.id} plan={plan} onSave={persist}/>}
     <div className="wizard-footnote">Seus dados permanecem neste navegador. A estrutura original do edital e as sugestões ficam identificadas separadamente.</div>
   </div>;
 }
