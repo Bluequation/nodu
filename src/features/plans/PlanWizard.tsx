@@ -89,7 +89,7 @@ function reconcileAssignments(leaves: SelectedPlanLeaf[], existing: PlanAssignme
   const byId = new Map(existing.map(item => [item.nodeId, item]));
   return leaves.map(leaf => {
     const current = byId.get(leaf.id);
-    if (!current) return assignmentFromLeaf(leaf, 0);
+    if (!current) return assignmentFromLeaf(leaf, -1);
     return { ...assignmentFromLeaf(leaf, current.day), ...current,
       day: current.day >= 0 && days.includes(current.day) ? current.day : -1 };
   });
