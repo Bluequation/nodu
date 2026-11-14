@@ -8,3 +8,5 @@ Derived from the approved Meus planos, weekly planner, Agenda and Aprender layou
 - Verify at 1440 and 390px: panel alignment, relative editor width, writing field dimensions, overflow and screenshots. Compare with approved designs. A build is not visual validation. Report incomplete checks; no production promotion without approval.
 
 - Material destinations use progressive selection: plan → area → discipline → existing subject/topic/subtopic levels, never a single flat list of all subjects. Compact short labels; preserve original text in the selected path and ID. Show only choices in the current branch, ordered in pt-BR. Do not invent hierarchy/content or persist partial choices as a topic.
+
+- Revisões: the hierarchical selector occupies a single full-width independent row. Daily tasks and session modes use compact cards/rows; do not stretch select heights to match neighboring content. Keep review queue, next dates and error reapplication separate. Rating buttons display the real FSRS-computed intervals; never imply that self-rating resolves a notebook error.

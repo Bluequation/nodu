@@ -1,0 +1,2 @@
+# Revisões
+Fila de famílias publicadas com vencimento atual, limites globais e filtros por plano/assunto. Separação entre novas famílias e revisões de memorização; modos do dia, esquecimentos e lei seca preservados. As quatro notas mostram o intervalo calculado pelo FSRS atual; não alteram o algoritmo. Caderno de erros tem agenda própria e acesso aos erros vencidos, com novas aplicações e sem alterar FSRS. Interface conforme design system, seleção hierárquica em linha independente e layout responsivo. Contagens representam registros existentes, não domínio estimado.

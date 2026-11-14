@@ -203,6 +203,19 @@ try{
  await page.goto(url+"/#/errors?plan=bound-learning&topic=ldb");await page.locator(".error-card").filter({hasText:"Erro de teste"}).waitFor();
  assert.match(await page.locator(".error-card").first().innerText(),/0 acerto/,"self assessment must not count as a new question");
  await page.screenshot({path:"planner-screenshots/16-erros.png",fullPage:true});
+ await page.goto(url+"/#/reviews?plan=bound-learning&topic=ldb");
+ await page.getByRole("button",{name:/Começar revisão/}).waitFor();await page.waitForFunction(()=>!document.querySelector(".rr-start button")?.disabled);
+ const reviewGeometry=await page.locator(".rr-scope").evaluate(el=>({width:el.clientWidth,scroll:el.scrollWidth,heights:[...el.querySelectorAll("select")].map(s=>s.getBoundingClientRect().height)}));
+ assert.ok(reviewGeometry.scroll<=reviewGeometry.width+1);assert.ok(reviewGeometry.heights.every(h=>h>=39&&h<=55),"review selectors use normal height");
+ await page.screenshot({path:"planner-screenshots/20-revisoes-desktop.png",fullPage:true});
+ await page.setViewportSize({width:390,height:844});assert.ok(await page.locator(".ritmo-reviews").evaluate(el=>el.scrollWidth<=el.clientWidth+1),"review mobile layout");
+ await page.screenshot({path:"planner-screenshots/21-revisoes-mobile.png",fullPage:true});await page.setViewportSize({width:1440,height:1050});
+ await page.getByRole("button",{name:/Começar revisão/}).click();await page.getByRole("button",{name:"Revelar resposta"}).click();
+ await page.screenshot({path:"planner-screenshots/22-revisao-cartao.png",fullPage:true});
+ await page.getByRole("button",{name:/Lembrei.*dia/}).first().click();await page.getByRole("heading",{name:"Sessão concluída"}).waitFor();
+ await page.getByRole("button",{name:"Voltar ao início"}).click();assert.ok(await page.getByRole("button",{name:/Começar revisão/}).isDisabled());
+ await page.locator(".rr-error-link").click();await page.locator(".error-card").filter({hasText:"Erro de teste"}).waitFor();assert.match(page.url(),/due=1/);
+
  await page.goto(url+"/#/learn?plan=bound-learning&topic=ldb&date="+studyDate);await page.locator(".rl-mode").first().waitFor();
  await page.setViewportSize({width:390,height:844});await page.screenshot({path:"planner-screenshots/13-aprender-mobile.png",fullPage:true});
  console.log("Planner: layout, mouse, touch, return and persistence verified.");

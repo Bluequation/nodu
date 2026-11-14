@@ -44,7 +44,8 @@ export function ErrorsPage() {
   useEffect(() => { reload(); }, []);
   const selectedPlan=plans.find(p=>p.id===params.get("plan"));
   const scoped=errors.filter(error=>context.requested?context.valid&&linkedTo(error,context.ref):params.get("plan")?!!selectedPlan&&linkedToPlan(error,selectedPlan):true);
-  const visible=scoped.filter(error=>phase==="all"||errorStage(error)===phase);
+  const dueOnly=params.get("due")==="1";
+  const visible=scoped.filter(error=>(!dueOnly||isDue(error))&&(phase==="all"||errorStage(error)===phase));
   const due = visible.filter(isDue).length;
   function set<K extends keyof typeof EMPTY_ERROR>(key: K, value: typeof EMPTY_ERROR[K]) {
     setForm(current => ({ ...current, [key]: value }));
@@ -117,8 +118,9 @@ export function ErrorsPage() {
   return <div className="stack ritmo-materials rm-errors">
     <header className="heading"><div><small>RITMO / PRÁTICA</small><h1>Caderno de erros</h1></div><button className="primary-button" onClick={newError}><Plus size={16}/>Registrar erro</button></header>
     {context.requested&&<p className="inline-feedback">{context.valid?context.plan?.title+" · "+context.title:"Assunto indisponível ou carregando."} · <Link to={context.returnTo}>Voltar a Aprender</Link></p>}
+    {dueOnly&&<p className="inline-feedback">Mostrando erros com revisão prevista até agora. <Link to={"/reviews?"+new URLSearchParams([...params].filter(([key])=>key!=="due")).toString()}>Voltar a Revisões</Link></p>}
     <div className="rm-stats">{[["pendente","Pendentes"],["recuperacao","Em recuperação"],["superado","Superados"]].map(([id,label])=><button key={id} className={"rm-error-stat "+(phase===id?"active":"")} data-phase={id} aria-pressed={phase===id} onClick={()=>setPhase(phase===id?"all":id)}><strong>{scoped.filter(e=>errorStage(e)===id).length}</strong><small>{label}</small></button>)}</div>
-    <div className="rm-toolbar"><MaterialScopePicker plans={plans} disabled={showForm} onChange={()=>setPhase("all")}/><button className="text-button" onClick={()=>setPhase("all")}>Todos os erros</button><span>{due} para retomar</span></div>
+    <div className="rm-toolbar"><MaterialScopePicker plans={plans} disabled={showForm} onChange={()=>setPhase("all")}/><Link className="text-button" to={"/errors?"+new URLSearchParams([...params].filter(([key])=>key!=="due")).toString()} onClick={()=>setPhase("all")}>Todos os erros</Link><span>{due} para retomar</span></div>
     <section className="panel">
       {showForm && <form className="error-form" onSubmit={submit}>
         <div className="panel-title-row"><div><span className="step-kicker">{editingId ? "EDITAR REGISTRO" : "NOVO REGISTRO"}</span><h2>{editingId ? "Atualize o erro" : "O que aconteceu?"}</h2><p>O objetivo é registrar a dificuldade real e a correção que permitirá resolvê-la depois.</p></div><button className="icon-button" type="button" onClick={() => setShowForm(false)}>×</button></div>

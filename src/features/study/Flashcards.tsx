@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, BookOpen, Check, Clock3, Layers3, Plus, RotateCcw, Sparkles, Upload, ShieldCheck } from "lucide-react";
-import type { Concept, FlashcardVariant, ReviewLog, StudySettings, StudySubject } from "../../domain/study";
+import { ArrowLeft, ArrowRight, BookOpen, Check, Clock3, Layers3, Plus, RotateCcw, Sparkles, Upload, ShieldCheck, NotebookPen, CalendarClock, Target } from "lucide-react";
+import type { Concept, ErrorRecord, FlashcardVariant, ReviewLog, StudySettings, StudySubject } from "../../domain/study";
 import {useStudyContext} from "./useStudyContext";
 import {MaterialScopePicker,useMaterialPlans,materialLabel,materialRoute} from "./MaterialScopePicker";
 import "./materials.css";
 import {addTopicLink,linkedTo,linkedToPlan,topicUrl} from "../../domain/topicContext";
 import { emptyFsrsState, rateFsrs, type FsrsGrade } from "../../domain/fsrs";
 import {
-  createConcept, getConcept, getStudySettings, listConcepts, listReviews,
+  createConcept, getConcept, getStudySettings, listConcepts, listReviews, listErrors,
   recordConceptReview, saveConcept,
 } from "../../data/study";
 
@@ -173,111 +173,126 @@ function chooseVariant(concept: Concept, mode: ReviewMode): FlashcardVariant | u
   const pool = alternatives.length ? alternatives : eligible;
   return [...pool].sort((a, b) => a.uses - b.uses || (a.passes / (a.uses || 1)) - (b.passes / (b.uses || 1)))[0];
 }
-function pickReview(concepts: Concept[], reviews: ReviewLog[], settings: StudySettings, mode: ReviewMode, subject: "all" | StudySubject): ReviewCard | null {
+function reviewQueue(concepts: Concept[], reviews: ReviewLog[], settings: StudySettings, mode: ReviewMode): ReviewCard[] {
   const todayKey = new Date().toDateString();
   const seenNew = new Set(reviews.filter(review => new Date(review.at).toDateString() === todayKey && !review.preview && review.wasNew).map(review => review.conceptId));
   const reviewed = reviews.filter(review => new Date(review.at).toDateString() === todayKey && !review.preview && !review.wasNew).length;
-  let candidates = concepts.filter(concept => isPublished(concept) && (subject === "all" || concept.subject === subject));
+  let candidates = concepts.filter(isPublished);
   if (mode === "difficult") candidates = candidates.filter(concept => concept.fsrs.lapses >= settings.leech || concept.variants.some(variant => variant.failures >= settings.leech));
-  if (mode === "law") candidates = candidates.filter(concept => concept.variants.some(variant => /lei seca|armadilha|competência|condição|exceção/i.test(variant.kind)));
+  if (mode === "law") candidates = candidates.filter(concept => concept.variants.some(variant => variant.status==="approved" && /lei seca|armadilha|competência|condição|exceção/i.test(variant.kind)));
   candidates = candidates.filter(concept => concept.fsrs.due <= Date.now());
   candidates.sort((a, b) => Number(a.fsrs.reps === 0) - Number(b.fsrs.reps === 0) || a.fsrs.due - b.fsrs.due);
+  let newRemaining=Math.max(0,settings.newLimit-seenNew.size),reviewRemaining=Math.max(0,settings.reviewLimit-reviewed);
+  const queue: ReviewCard[]=[];
   for (const concept of candidates) {
     const wasNew = concept.fsrs.reps === 0;
-    if (wasNew ? seenNew.size >= settings.newLimit : reviewed >= settings.reviewLimit) continue;
+    if (wasNew ? newRemaining<=0 : reviewRemaining<=0) continue;
     const variant = chooseVariant(concept, mode);
-    if (variant) return { concept, variant, wasNew };
+    if (variant){queue.push({concept,variant,wasNew});if(wasNew)newRemaining--;else reviewRemaining--;}
   }
-  return null;
+  return queue;
+}
+
+const REVIEW_MODES: {id:ReviewMode;label:string;description:string;icon:typeof Clock3}[]=[
+ {id:"normal",label:"Revisões do dia",description:"Prioridade da memória",icon:CalendarClock},
+ {id:"difficult",label:"Esquecimentos recorrentes",description:"Famílias com lapsos frequentes",icon:Target},
+ {id:"law",label:"Lei seca e exceções",description:"Prazos, condições e armadilhas",icon:BookOpen}
+];
+const GRADES:{id:FsrsGrade;label:string;hint:string}[]=[
+ {id:"again",label:"Errei",hint:"Não lembrei"},
+ {id:"hard",label:"Difícil",hint:"Lembrei com esforço"},
+ {id:"good",label:"Lembrei",hint:"Recuperei corretamente"},
+ {id:"easy",label:"Fácil",hint:"Sem esforço"}
+];
+function intervalLabel(delay:number){
+ if(delay<3_600_000)return Math.max(1,Math.round(delay/60_000))+" min";
+ const days=Math.round(delay/86_400_000);
+ return days+" "+(days===1?"dia":"dias");
 }
 
 function ReviewPage() {
-  const context=useStudyContext(),plans=useMaterialPlans(),[params]=useSearchParams();
-  const plan=plans.find(p=>p.id===params.get("plan"));
-  const scoped=(items:Concept[])=>context.requested?items.filter(item=>context.valid&&linkedTo(item,context.ref)):params.get("plan")?items.filter(item=>!!plan&&linkedToPlan(item,plan)):items;
-  const selectedSubject=params.get("plan")?"all":undefined;
-  const [concepts, setConcepts] = useState<Concept[]>([]);
-  const [reviews, setReviews] = useState<ReviewLog[]>([]);
-  const [settings, setSettings] = useState<StudySettings>({ retention: 0.9, newLimit: 10, reviewLimit: 70, leech: 4 });
-  const [mode, setMode] = useState<ReviewMode>("normal");
-  const [subject, setSubject] = useState<"all" | StudySubject>("all");
-  const [current, setCurrent] = useState<ReviewCard | null>(null);
-  const [revealed, setRevealed] = useState(false);
-  const [typed, setTyped] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [completed, setCompleted] = useState(false);
-
-  async function reload() {
-    const [nextConcepts, nextReviews, nextSettings] = await Promise.all([listConcepts(), listReviews(), getStudySettings()]);
-    setConcepts(nextConcepts); setReviews(nextReviews); setSettings(nextSettings);
-    return { concepts: nextConcepts, reviews: nextReviews, settings: nextSettings };
-  }
-  useEffect(() => { reload().finally(() => setLoading(false)); }, []);
-  function startSession() {
-    const next = pickReview(scoped(concepts), reviews, settings, mode, selectedSubject||subject);
-    setCurrent(next); setRevealed(false); setTyped(""); setCompleted(!next);
-  }
-  async function grade(gradeValue: FsrsGrade) {
-    if (!current || !revealed || saving) return;
-    setSaving(true);
-    try {
-      const concept = { ...current.concept, fsrs: rateFsrs(current.concept.fsrs, gradeValue, Date.now(), settings.retention), variants: current.concept.variants.map(variant => variant.id === current.variant.id ? {
-        ...variant,
-        uses: variant.uses + 1,
-        passes: variant.passes + (gradeValue === "again" ? 0 : 1),
-        failures: variant.failures + (gradeValue === "again" ? 1 : 0),
-      } : variant), lastVariant: current.variant.id };
-      const review: ReviewLog = {
-        id: uid(), conceptId: concept.id, subject: concept.subject, topic: concept.topic,
-        variantId: current.variant.id, kind: current.variant.kind, format: current.variant.format,
-        grade: gradeValue, at: Date.now(), wasNew: current.wasNew, preview: false, typed,
-        s: concept.fsrs.s, d: concept.fsrs.d, due: concept.fsrs.due,
-        ...(context.valid?{planTopic:context.ref,sessionDate:context.date}:{}),
-      };
-      await recordConceptReview(concept, review);
-      const data = await reload();
-      const next = pickReview(scoped(data.concepts), data.reviews, data.settings, mode, selectedSubject||subject);
-      setCurrent(next); setRevealed(false); setTyped(""); setCompleted(!next);
-    } catch {
-      // Keep the current card visible so the student can retry without losing the response.
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  if (loading) return <div className="loading-panel">Preparando revisões…</div>;
-  const dueCount = scoped(concepts).filter(concept => isPublished(concept) && concept.fsrs.due <= Date.now() && (params.get("plan")||subject === "all" || concept.subject === subject)).length;
-  return <div className="stack">
-    <header className="heading"><div><small>RITMO / APRENDIZAGEM</small><h1>Revisões</h1><p>O FSRS agenda cada família de conhecimentos; a cobrança varia entre as versões cadastradas.</p></div><Link className="secondary-button" to={context.valid?topicUrl("/flashcards",context.ref,context.date):"/flashcards"}><Layers3 size={15}/>Flashcards</Link></header>
-    {context.requested&&<p className="inline-feedback">{context.valid?context.plan?.title+" · "+context.title:"Assunto indisponível ou carregando."} · <Link to={context.returnTo}>Voltar a Aprender</Link></p>}
-    {!current && !completed && <section className="panel review-start">
-      <div className="panel-title-row"><div><span className="step-kicker">SESSÃO DE ESTUDO</span><h2>O que vamos revisar?</h2><p>{dueCount} família(s) vencida(s) no filtro atual.</p></div><span className="soft-tag">FSRS-6</span></div>
-      <div className="form-grid">
-        <div className="field-block"><label>Tipo de sessão</label><select value={mode} onChange={event => setMode(event.target.value as ReviewMode)}><option value="normal">Revisões do dia</option><option value="difficult">Esquecimentos recorrentes</option><option value="law">Lei seca e exceções</option></select></div>
-        <div className="field-block"><MaterialScopePicker plans={plans}/></div>
-      </div>
-      <button className="primary-button" disabled={(context.requested&&!context.valid)|| (!!params.get("plan")&&!plan)} onClick={startSession}><BookOpen size={16}/>Começar revisão <ArrowRight size={16}/></button>
-      <p className="field-hint">Limites diários: {settings.newLimit} novas famílias e {settings.reviewLimit} revisões antigas. As versões não multiplicam a carga de revisão.</p>
-    </section>}
-    {current && <section className="panel review-card-panel">
-      <div className="review-card-meta"><span className={`subject-pill ${current.concept.subject}`}>{context.valid?context.title:current.concept.planTopics?.map(ref=>materialLabel(plans,ref)?.title).filter(Boolean).join(" · ")||"Estudo livre"}</span><span>{current.concept.topic}</span><span className="origin-pill">{current.variant.kind}</span><span className="soft-tag">{current.wasNew ? "Primeiro contato" : dueLabel(current.concept.fsrs.due)}</span></div>
-      <div className="review-card-face">
-        <small>{current.variant.format === "cloze" ? "COMPLETE A LACUNA" : "RECUPERE A RESPOSTA"}</small>
-        {current.variant.format === "image" && current.variant.image && <img className="review-image" src={current.variant.image} alt="Imagem do cartão"/>}
-        <div className="review-prompt">{current.variant.format === "cloze" ? formatCloze(current.variant.q, revealed) : current.variant.q}</div>
-        {current.variant.format === "typed" && <textarea className="typed-answer" rows={3} value={typed} onChange={event => setTyped(event.target.value)} placeholder="Tente responder antes de revelar…"/>}
-        {!revealed ? <button className="primary-button" onClick={() => setRevealed(true)}>Revelar resposta</button> : <div className="review-answer"><strong>Resposta esperada</strong><p>{current.variant.a}</p>{current.variant.reason && <p className="review-reason">{current.variant.reason}</p>}</div>}
-      </div>
-      {revealed && <div className="grade-panel"><p>Como foi sua recuperação?</p><div className="grade-buttons">
-        <button className="grade-again" disabled={saving} onClick={() => grade("again")}>Errei</button>
-        <button className="grade-hard" disabled={saving} onClick={() => grade("hard")}>Difícil</button>
-        <button className="grade-good" disabled={saving} onClick={() => grade("good")}>Lembrei</button>
-        <button className="grade-easy" disabled={saving} onClick={() => grade("easy")}>Fácil</button>
-      </div><small>O intervalo é calculado pelo FSRS com sua meta de retenção atual ({Math.round(settings.retention * 100)}%).</small></div>}
-    </section>}
-    {completed && <section className="panel empty-state"><Check size={30}/><strong>Sessão concluída</strong><span>Não há mais cartões disponíveis nesta sessão dentro dos limites diários. Você pode voltar depois ou cadastrar novos conhecimentos.</span><button className="primary-button" onClick={() => { setCompleted(false); setCurrent(null); }}>Voltar ao início</button><Link className="text-link" to={context.valid?topicUrl("/flashcards",context.ref,context.date):"/flashcards"}>Gerenciar flashcards</Link></section>}
-  </div>;
+ const context=useStudyContext(),plans=useMaterialPlans(),[params]=useSearchParams();
+ const plan=plans.find(p=>p.id===params.get("plan"));
+ const scoped=<T extends {planTopics?:Concept["planTopics"],subject:StudySubject}>(items:T[])=>context.requested?items.filter(item=>context.valid&&linkedTo(item,context.ref)):params.get("plan")?items.filter(item=>!!plan&&linkedToPlan(item,plan)):items;
+ const [concepts,setConcepts]=useState<Concept[]>([]),[reviews,setReviews]=useState<ReviewLog[]>([]),[errors,setErrors]=useState<ErrorRecord[]>([]);
+ const [settings,setSettings]=useState<StudySettings>({retention:.9,newLimit:10,reviewLimit:70,leech:4});
+ const [mode,setMode]=useState<ReviewMode>("normal"),[current,setCurrent]=useState<ReviewCard|null>(null);
+ const [revealed,setRevealed]=useState(false),[typed,setTyped]=useState(""),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[completed,setCompleted]=useState(false);
+ const [feedback,setFeedback]=useState(""),[sessionCount,setSessionCount]=useState(0);
+ const invalid=!!params.get("plan")&&(!plan||(context.requested&&!context.valid));
+ const route=(path:string)=>materialRoute(path,params);
+ async function reload(){
+  const [nextConcepts,nextReviews,nextSettings,nextErrors]=await Promise.all([listConcepts(),listReviews(),getStudySettings(),listErrors()]);
+  setConcepts(nextConcepts);setReviews(nextReviews);setSettings(nextSettings);setErrors(nextErrors);
+  return {concepts:nextConcepts,reviews:nextReviews,settings:nextSettings};
+ }
+ useEffect(()=>{reload().catch(()=>setFeedback("Não foi possível carregar as revisões. Recarregue a página.")).finally(()=>setLoading(false));},[]);
+ const available=scoped(concepts).filter(isPublished);
+ const allQueue=reviewQueue(available,reviews,settings,"normal");
+ const queue=mode==="normal"?allQueue:reviewQueue(available,reviews,settings,mode);
+ const oldCount=allQueue.filter(c=>!c.wasNew).length,newCount=allQueue.filter(c=>c.wasNew).length;
+ const dueErrors=scoped(errors).filter(e=>e.status!=="dominado"&&e.nextReview<=Date.now());
+ const upcoming=available.filter(c=>c.fsrs.reps>0&&c.fsrs.due>Date.now()).sort((a,b)=>a.fsrs.due-b.fsrs.due).slice(0,4);
+ const dueTotal=available.filter(c=>c.fsrs.due<=Date.now()).length;
+ const todayCount=scoped(reviews.map(r=>({...r,planTopics:concepts.find(c=>c.id===r.conceptId)?.planTopics}))).filter(r=>!r.preview&&new Date(r.at).toDateString()===new Date().toDateString()).length;
+ const errorLink=route("/errors")+(route("/errors").includes("?")?"&":"?")+"due=1";
+ function startSession(){if(invalid||!queue.length)return;setSessionCount(0);setFeedback("");setCurrent(queue[0]);setRevealed(false);setTyped("");setCompleted(false);}
+ function reset(){setCurrent(null);setCompleted(false);setRevealed(false);setTyped("");setSessionCount(0);setFeedback("");}
+ async function grade(gradeValue:FsrsGrade){
+  if(!current||!revealed||saving)return;
+  setSaving(true);setFeedback("");
+  let recorded=false;
+  try{
+   const at=Date.now();
+   const concept={...current.concept,fsrs:rateFsrs(current.concept.fsrs,gradeValue,at,settings.retention),variants:current.concept.variants.map(variant=>variant.id===current.variant.id?{...variant,uses:variant.uses+1,passes:variant.passes+(gradeValue==="again"?0:1),failures:variant.failures+(gradeValue==="again"?1:0)}:variant),lastVariant:current.variant.id};
+   const review:ReviewLog={id:uid(),conceptId:concept.id,subject:concept.subject,topic:concept.topic,variantId:current.variant.id,kind:current.variant.kind,format:current.variant.format,grade:gradeValue,at,wasNew:current.wasNew,preview:false,typed,s:concept.fsrs.s,d:concept.fsrs.d,due:concept.fsrs.due,...(context.valid?{planTopic:context.ref,sessionDate:context.date}:{})};
+   await recordConceptReview(concept,review);recorded=true;setSessionCount(n=>n+1);
+   const data=await reload();
+   const next=reviewQueue(scoped(data.concepts),data.reviews,data.settings,mode)[0]||null;
+   setCurrent(next);setRevealed(false);setTyped("");setCompleted(!next);
+  }catch{
+   if(recorded){setCurrent(null);setCompleted(true);setFeedback("Resposta salva, mas não foi possível atualizar a fila. Recarregue antes de continuar.");}
+   else setFeedback("Não foi possível salvar a resposta. Tente novamente.");
+  }finally{setSaving(false);}
+ }
+ if(loading)return <div className="loading-panel">Preparando revisões…</div>;
+ return <div className="stack ritmo-materials ritmo-reviews">
+  <header className="heading"><div><small>RITMO / APRENDIZAGEM</small><h1>Revisões</h1></div><div className="rm-actions">{context.requested&&<Link className="secondary-button compact" to={context.returnTo}><ArrowLeft size={15}/>Aprender</Link>}<Link className="secondary-button" to={route("/flashcards")}><Layers3 size={15}/>Flashcards</Link></div></header>
+  {feedback&&<p className="inline-feedback" role="alert">{feedback}</p>}
+  {!current&&!completed&&<>
+   <section className="panel rr-scope"><header className="rr-section-head"><h2>O que vamos revisar?</h2><small>Filtre se quiser focar em um assunto.</small></header><MaterialScopePicker plans={plans}/></section>
+   {invalid&&<p className="inline-feedback">Carregando plano ou assunto indisponível. Confira a seleção.</p>}
+   <div className="rm-stats rr-stats">
+    <div data-tone="law"><Clock3 size={19}/><strong>{oldCount}</strong><small>Famílias para revisar agora</small></div>
+    <div data-tone="pedagogy"><Layers3 size={19}/><strong>{newCount}</strong><small>Novas famílias disponíveis</small></div>
+    <Link data-tone="simulation" to={errorLink}><NotebookPen size={19}/><strong>{dueErrors.length}</strong><small>Erros para retomar <ArrowRight size={12}/></small></Link>
+   </div>
+   <div className="rr-dashboard">
+    <section className="panel rr-session"><header className="rr-section-head"><h2>Escolha a sessão</h2><small>FSRS-6</small></header>
+     <div className="rr-modes">{REVIEW_MODES.map(m=>{const Icon=m.icon;return <button type="button" key={m.id} className="rr-mode" aria-pressed={mode===m.id} onClick={()=>setMode(m.id)}><Icon size={19}/><span><b>{m.label}</b><small>{m.description}</small></span><strong>{reviewQueue(available,reviews,settings,m.id).length}</strong></button>})}</div>
+     <div className="rr-start"><div><b>{queue.length} {queue.length===1?"família disponível":"famílias disponíveis"}</b><small>{!available.length?"Publique flashcards na Curadoria para começar.":!queue.length?dueTotal?"O filtro ou os limites diários não permitem mais cartões.":"Nenhuma família está programada para agora.":"Uma versão por vez, com intervalo ajustado após cada resposta."}</small></div><button className="primary-button" disabled={invalid||!queue.length} onClick={startSession}><BookOpen size={16}/>Começar revisão <ArrowRight size={15}/></button></div>
+     {!available.length&&<Link className="rr-inline-link" to={route("/import")}>Importar flashcards <ArrowRight size={13}/></Link>}
+    </section>
+    <section className="panel rr-upcoming"><header className="rr-section-head"><h2>Próximas revisões</h2><Link to="/agenda">Agenda <ArrowRight size={13}/></Link></header>
+     {upcoming.length?upcoming.map(concept=><div className="rr-upcoming-row" key={concept.id}><CalendarClock size={15}/><span><b>{concept.topic}</b><small>{new Date(concept.fsrs.due).toLocaleDateString("pt-BR",{day:"2-digit",month:"short"})} · {new Date(concept.fsrs.due).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</small></span></div>):<div className="rr-empty"><CalendarClock size={24}/><span>As próximas datas aparecem após suas primeiras revisões.</span></div>}
+     <div className="rr-today"><Check size={15}/><b>{todayCount}</b> respostas registradas hoje</div>
+     <Link className="rr-error-link" to={errorLink}><NotebookPen size={17}/><span><b>Caderno de erros</b><small>Retome as dificuldades em novas aplicações.</small></span><ArrowRight size={14}/></Link>
+    </section>
+   </div>
+   <details className="rr-settings"><summary>Como o Ritmo agenda as revisões?</summary><p>O FSRS recalcula a próxima data de cada família depois de sua autoavaliação. Limites diários: {settings.newLimit} novas famílias e {settings.reviewLimit} revisões anteriores. Meta de retenção: {Math.round(settings.retention*100)}%. A meta não garante domínio. Os erros seguem um calendário próprio no Caderno de erros.</p></details>
+  </>}
+  {current&&<>
+   <div className="rr-session-bar"><span><b>{sessionCount}</b> respostas nesta sessão · {queue.length} disponíveis agora</span><button className="secondary-button compact" disabled={saving} onClick={reset}><ArrowLeft size={14}/>Encerrar sessão</button></div>
+   <section className="panel review-card-panel rr-card">
+    <div className="review-card-meta"><span className="subject-pill">{context.valid?context.title:current.concept.planTopics?.map(ref=>materialLabel(plans,ref)?.title).filter(Boolean).join(" · ")||"Estudo livre"}</span><span>{current.concept.topic}</span><span className="origin-pill">{current.variant.kind}</span><span className="soft-tag">{current.wasNew?"Primeiro contato":"Revisão"}</span></div>
+    <div className="review-card-face"><small>{current.variant.format==="cloze"?"COMPLETE A LACUNA":"RECUPERE A RESPOSTA"}</small>{current.variant.format==="image"&&current.variant.image&&<img className="review-image" src={current.variant.image} alt="Imagem do cartão"/>}<div className="review-prompt">{current.variant.format==="cloze"?formatCloze(current.variant.q,revealed):current.variant.q}</div>
+    {current.variant.format==="typed"&&<textarea className="typed-answer" aria-label="Sua resposta" rows={3} value={typed} readOnly={revealed} onChange={e=>setTyped(e.target.value)} placeholder="Tente responder antes de revelar…"/>}
+    {!revealed?<button className="primary-button" onClick={()=>setRevealed(true)}>Revelar resposta</button>:<div className="review-answer"><strong>Resposta esperada</strong><p>{current.variant.a}</p>{current.variant.reason&&<p className="review-reason">{current.variant.reason}</p>}{(current.variant.source||current.concept.source)&&<p className="rr-source">Fonte: {current.variant.source||current.concept.source}</p>}</div>}</div>
+    {revealed&&<div className="grade-panel"><p>Como foi sua recuperação?</p><div className="grade-buttons">{GRADES.map(g=><button key={g.id} className={"grade-"+g.id} disabled={saving} onClick={()=>grade(g.id)}><b>{g.label}</b><span>{intervalLabel(rateFsrs(current.concept.fsrs,g.id,Date.now(),settings.retention).delay)}</span><small>{g.hint}</small></button>)}</div><small>Intervalos calculados pelo FSRS para esta família.</small></div>}
+   </section>
+  </>}
+  {completed&&<section className="panel rr-completed"><Check size={30}/><h2>Sessão concluída</h2><p>{sessionCount} {sessionCount===1?"resposta registrada":"respostas registradas"}. As próximas datas foram atualizadas.</p><div className="button-row"><button className="primary-button" onClick={reset}>Voltar ao início</button><Link className="secondary-button" to={errorLink}>Caderno de erros</Link></div></section>}
+ </div>;
 }
 
 export function FlashcardsPage() { return <FamilyList/>; }

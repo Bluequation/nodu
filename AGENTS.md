@@ -1,5 +1,5 @@
 # Ritmo 8: development protocol
-- Scope: user authorized Aprender, Flashcards/import/curation and Caderno de erros. Preserve Meus planos and Agenda.
+- Scope: user authorized Aprender, Flashcards/import/curation, Caderno de erros and Revisões. Preserve Meus planos and Agenda.
 - Treat an approved visual prototype as a specification, not inspiration. Read docs/ritmo-8-planner-contract.md before modifying the planner.
 - Keep the planner in src/features/plans/planner, using feature-local styles under .ritmo-planner. Do not append duplicate planner CSS to src/styles.css. Retain unrelated screen styles.
 - Keep original edital nodes, text, source references, IDs and progress intact. Presentation labels and library groups must not change the source or invent topics. A new plan starts unassigned; preserve a saved plan unless the user explicitly resets its distribution.
