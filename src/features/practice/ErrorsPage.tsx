@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { Fragment, useEffect, useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Check, ExternalLink, NotebookPen, Paperclip, Plus, Search, Trash2 } from "lucide-react";
 import type { Concept, ErrorAttachment, ErrorRecord, StudySubject } from "../../domain/study";
@@ -420,7 +420,7 @@ export function ErrorsPage() {
             const questionLink = safeHttpUrl(error.questionUrl);
             const attachments = error.attachments || [];
             const stage = errorStage(error);
-            return <>
+            return <Fragment key={error.id}>
               <tr key={error.id}>
                 <td className="rm-nowrap">{shortDateLabel(error.at)}</td>
                 <td><span className="rm-error-type">{error.type}</span></td>
@@ -466,7 +466,7 @@ export function ErrorsPage() {
                   {error.history.map((entry, index) => <span key={index}>{dateLabel(entry.at)} · {entry.grade === "right" ? "Acerto em questão inédita" : "Erro novamente"}</span>)}
                 </details>
               </td></tr>}
-            </>;
+            </Fragment>;
           })}</tbody>
         </table>
       </div> : <div className="rm-error-empty">
