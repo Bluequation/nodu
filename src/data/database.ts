@@ -1,7 +1,10 @@
 import { openDB, type DBSchema } from "idb";
 import type { StudyPlan } from "../domain/models";
 import type { Concept, ErrorRecord, LearningSession, QuestionBlock, ReviewLog } from "../domain/study";
-import { migrateLegacyPlan, readLegacy, type LegacyDb } from "./migration";
+import {
+  migrateLegacyBlock, migrateLegacyConcept, migrateLegacyError, migrateLegacyPlan,
+  migrateLegacyReview, migrateLegacySession, readLegacy, type LegacyDb,
+} from "./migration";
 
 interface AppStateEntry { key: string; value: unknown }
 interface RitmoDB extends DBSchema {
@@ -28,11 +31,6 @@ export function database() {
       if (!db.objectStoreNames.contains("learningSessions")) db.createObjectStore("learningSessions", { keyPath: "id" });
     },
   });
-}
-
-function withStableId<T extends Record<string, unknown>>(value: unknown, fallback: string): T {
-  const row = value && typeof value === "object" ? value as Record<string, unknown> : {};
-  return { ...row, id: String(row.id ?? fallback) } as unknown as T;
 }
 
 async function preserveLegacySnapshot(db: Awaited<ReturnType<typeof database>>) {
@@ -67,19 +65,19 @@ async function importLegacyCollections(db: Awaited<ReturnType<typeof database>>)
   const plans = Array.isArray(legacy.plans) ? legacy.plans : [];
 
   for (let index = 0; index < concepts.length; index += 1) {
-    await tx.objectStore("concepts").put(withStableId<Concept & Record<string, unknown>>(concepts[index], `legacy-concept-${index}`) as Concept);
+    await tx.objectStore("concepts").put(normalizeLegacyConcept(concepts[index], index));
   }
   for (let index = 0; index < reviews.length; index += 1) {
-    await tx.objectStore("reviews").put(withStableId<ReviewLog & Record<string, unknown>>(reviews[index], `legacy-review-${index}`) as ReviewLog);
+    await tx.objectStore("reviews").put(normalizeLegacyReview(reviews[index], index));
   }
   for (let index = 0; index < errors.length; index += 1) {
-    await tx.objectStore("errors").put(withStableId<ErrorRecord & Record<string, unknown>>(errors[index], `legacy-error-${index}`) as ErrorRecord);
+    await tx.objectStore("errors").put(normalizeLegacyError(errors[index], index));
   }
   for (let index = 0; index < blocks.length; index += 1) {
-    await tx.objectStore("blocks").put(withStableId<QuestionBlock & Record<string, unknown>>(blocks[index], `legacy-block-${index}`) as QuestionBlock);
+    await tx.objectStore("blocks").put(normalizeLegacyBlock(blocks[index], index));
   }
   for (let index = 0; index < sessions.length; index += 1) {
-    await tx.objectStore("learningSessions").put(withStableId<LearningSession & Record<string, unknown>>(sessions[index], `legacy-session-${index}`) as LearningSession);
+    await tx.objectStore("learningSessions").put(normalizeLegacySession(sessions[index], index));
   }
   for (let index = 0; index < plans.length; index += 1) {
     const plan = migrateLegacyPlan(plans[index], index);
