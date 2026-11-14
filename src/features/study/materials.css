@@ -68,3 +68,96 @@
 .ritmo-reviews .typed-answer{width:min(100%,720px);min-height:90px;resize:vertical;padding:10px;border:1px solid var(--line);border-radius:8px;font:inherit}
 .ritmo-reviews .grade-panel{padding:14px 16px}.ritmo-reviews .grade-panel>p,.ritmo-reviews .grade-panel>small{color:var(--muted);font-size:12px}.ritmo-reviews .grade-buttons{max-width:760px}.ritmo-reviews .grade-buttons button{display:grid;gap:3px;justify-items:center;padding:9px 5px;min-height:65px}.ritmo-reviews .grade-buttons b{font-size:13px}.ritmo-reviews .grade-buttons span{font-size:12px}.ritmo-reviews .grade-buttons small{font-size:10px;font-weight:400}.ritmo-reviews .rr-completed{display:grid;justify-items:center;gap:9px;text-align:center;padding:22px}.ritmo-reviews .rr-completed h2,.ritmo-reviews .rr-completed p{margin:0}.ritmo-reviews .rr-completed svg{color:var(--blue)}
 @media(max-width:800px){.ritmo-reviews .rr-dashboard{grid-template-columns:minmax(0,1fr)}}@media(max-width:600px){.ritmo-reviews .rr-stats>*{display:grid;grid-template-columns:1fr;padding:9px;gap:4px}.ritmo-reviews .rr-stats>* svg{grid-row:auto}.ritmo-reviews .rr-stats small{grid-column:auto;font-size:10px;display:block}.ritmo-reviews .rr-stats strong{font-size:22px}.ritmo-reviews .rr-dashboard>.panel,.ritmo-reviews .rr-scope{padding:12px}.ritmo-reviews .rr-start .primary-button{width:100%}.ritmo-reviews .review-card-face{padding:20px 12px}.ritmo-reviews .grade-buttons{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+
+/* Error notebook: discipline tabs and a compact database-style table. */
+.ritmo-materials.rm-errors .rm-error-toolbar{align-items:center;gap:10px}
+.ritmo-materials.rm-errors .rm-error-toolbar>.rm-hierarchy{flex:1 1 440px;max-width:100%}
+.ritmo-materials.rm-errors .rm-error-search{display:flex;align-items:center;gap:8px;flex:0 1 330px;min-width:min(100%,250px);height:40px;padding:0 11px;border:1px solid var(--line);border-radius:9px;background:var(--surface-soft);color:var(--muted)}
+.ritmo-materials.rm-errors .rm-error-search input{width:100%;max-width:none;min-width:0;height:36px;margin:0;padding:0;border:0;outline:0;background:transparent;color:var(--dark);font:inherit;font-size:12px}
+.ritmo-materials.rm-errors .rm-error-due-count{flex:none;color:var(--muted);font-size:12px;white-space:nowrap}
+.ritmo-materials.rm-errors .rm-error-database{padding:0;overflow:hidden;border-radius:13px}
+.ritmo-materials.rm-errors .rm-error-tabs{display:flex;align-items:center;gap:4px;overflow-x:auto;padding:10px 12px;border-bottom:1px solid var(--line);background:var(--surface);scrollbar-width:thin}
+.ritmo-materials.rm-errors .rm-error-tabs button{display:inline-flex;align-items:center;gap:7px;flex:none;min-height:35px;padding:7px 10px;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--text-secondary);font:inherit;font-size:12px;cursor:pointer;white-space:nowrap}
+.ritmo-materials.rm-errors .rm-error-tabs button[aria-selected=true]{border-color:#cbdced;background:var(--blue-soft);color:var(--blue);font-weight:700}
+.ritmo-materials.rm-errors .rm-error-tabs button small{display:grid;place-items:center;min-width:19px;height:19px;padding:0 5px;border-radius:99px;background:var(--surface-recessed);color:var(--muted);font-size:10px;font-weight:650}
+.ritmo-materials.rm-errors .rm-error-tabs button[aria-selected=true] small{background:#d3e2f1;color:var(--blue)}
+.ritmo-materials.rm-errors .rm-error-filters{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:10px 13px;border-bottom:1px solid var(--line);background:var(--surface-soft)}
+.ritmo-materials.rm-errors .rm-error-filters>span{color:var(--muted);font-size:11px;white-space:nowrap}
+.ritmo-materials.rm-errors .rm-error-phase-tabs{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.ritmo-materials.rm-errors .rm-error-phase-tabs button{display:inline-flex;align-items:center;gap:6px;min-height:29px;padding:5px 8px;border:1px solid transparent;border-radius:7px;background:transparent;color:var(--text-secondary);font:inherit;font-size:11px;cursor:pointer}
+.ritmo-materials.rm-errors .rm-error-phase-tabs button[aria-pressed=true]{border-color:var(--line);background:var(--surface);color:var(--blue);font-weight:700}
+.ritmo-materials.rm-errors .rm-error-phase-tabs button small{color:var(--muted);font-size:10px}
+.ritmo-materials.rm-errors .rm-error-table-scroll{width:100%;max-width:100%;overflow:auto;overscroll-behavior-x:contain}
+.ritmo-materials.rm-errors .rm-error-table{width:100%;min-width:1650px;border-collapse:separate;border-spacing:0;table-layout:fixed;background:var(--surface)}
+.ritmo-materials.rm-errors .rm-error-table th{position:sticky;top:0;z-index:1;padding:10px 11px;border-bottom:1px solid var(--line);border-right:1px solid var(--line);background:var(--surface-soft);color:var(--muted);font-size:11px;font-weight:650;text-align:left;white-space:nowrap}
+.ritmo-materials.rm-errors .rm-error-table td{padding:11px;border-bottom:1px solid var(--line);border-right:1px solid var(--line);color:var(--text-secondary);font-size:12px;line-height:1.5;vertical-align:top;overflow-wrap:anywhere}
+.ritmo-materials.rm-errors .rm-error-table th:last-child,.ritmo-materials.rm-errors .rm-error-table td:last-child{border-right:0}
+.ritmo-materials.rm-errors .rm-error-table tbody tr:hover>td{background:var(--surface-soft)}
+.ritmo-materials.rm-errors .rm-error-table th:nth-child(1){width:92px}
+.ritmo-materials.rm-errors .rm-error-table th:nth-child(2){width:112px}
+.ritmo-materials.rm-errors .rm-error-table th:nth-child(3){width:150px}
+.ritmo-materials.rm-errors .rm-error-table th:nth-child(4){width:135px}
+.ritmo-materials.rm-errors .rm-error-table th:nth-child(5){width:175px}
+.ritmo-materials.rm-errors .rm-error-table th:nth-child(6){width:245px}
+.ritmo-materials.rm-errors .rm-error-table th:nth-child(7){width:285px}
+.ritmo-materials.rm-errors .rm-error-table th:nth-child(8){width:80px}
+.ritmo-materials.rm-errors .rm-error-table th:nth-child(9){width:135px}
+.ritmo-materials.rm-errors .rm-error-table th:nth-child(10){width:130px}
+.ritmo-materials.rm-errors .rm-error-table th:nth-child(11){width:125px}
+.ritmo-materials.rm-errors .rm-error-table th:nth-child(12){width:145px}
+.ritmo-materials.rm-errors .rm-error-table .rm-nowrap{white-space:nowrap}
+.ritmo-materials.rm-errors .rm-error-table td strong{color:var(--dark);font-weight:650}
+.ritmo-materials.rm-errors .rm-error-type{display:inline-flex;align-items:center;padding:3px 7px;border-radius:5px;background:#e9edf2;color:#526579;font-size:11px;white-space:nowrap}
+.ritmo-materials.rm-errors .rm-error-discipline{display:block}
+.ritmo-materials.rm-errors .rm-error-subject{display:block;margin-top:4px;color:var(--muted);font-size:10px}
+.ritmo-materials.rm-errors .rm-error-cell-text{white-space:pre-wrap;overflow-wrap:anywhere;min-width:0}
+.ritmo-materials.rm-errors .rm-review-state{display:inline-flex;padding:4px 7px;border-radius:5px;background:#edf2f7;color:#53677c;font-size:10px;font-weight:650;white-space:nowrap}
+.ritmo-materials.rm-errors .rm-review-state.due{background:#f8eae7;color:#a15349}
+.ritmo-materials.rm-errors .rm-review-state.done{background:#e7f2eb;color:#48745f}
+.ritmo-materials.rm-errors .rm-question-link{display:inline-flex;align-items:center;gap:4px;color:var(--blue);font-size:11px}
+.ritmo-materials.rm-errors .rm-table-details{margin-top:5px;font-size:10px}
+.ritmo-materials.rm-errors .rm-table-details summary{display:inline-flex;align-items:center;gap:4px;color:var(--blue);cursor:pointer}
+.ritmo-materials.rm-errors .rm-table-details p{margin:6px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;max-height:230px;overflow:auto}
+.ritmo-materials.rm-errors .rm-table-attachments{display:grid;gap:5px;margin-top:6px}
+.ritmo-materials.rm-errors .rm-table-attachments a{color:var(--blue);font-size:10px;overflow-wrap:anywhere}
+.ritmo-materials.rm-errors .rm-error-row-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.ritmo-materials.rm-errors .rm-error-row-actions .text-button{padding:3px 0;font-size:10px;white-space:nowrap}
+.ritmo-materials.rm-errors .rm-error-row-actions .icon-button{width:27px;height:27px;min-width:27px}
+.ritmo-materials.rm-errors .rm-error-expanded-row>td,.ritmo-materials.rm-errors .rm-error-history-row>td{padding:9px 12px;background:var(--surface-soft)}
+.ritmo-materials.rm-errors .rm-apply-panel{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.ritmo-materials.rm-errors .rm-apply-panel>div:first-child{display:grid;gap:3px}
+.ritmo-materials.rm-errors .rm-apply-panel strong{color:var(--dark);font-size:12px}
+.ritmo-materials.rm-errors .rm-apply-panel p{margin:0;color:var(--muted);font-size:11px}
+.ritmo-materials.rm-errors .rm-apply-panel>a{display:inline-flex;align-items:center;gap:4px;color:var(--blue);font-size:11px}
+.ritmo-materials.rm-errors .rm-error-history-row details{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:10px;color:var(--muted)}
+.ritmo-materials.rm-errors .rm-error-history-row summary{color:var(--blue);cursor:pointer}
+.ritmo-materials.rm-errors .rm-error-history-row details span{padding:3px 6px;border-radius:5px;background:var(--surface)}
+.ritmo-materials.rm-errors .rm-error-empty{display:grid;justify-items:center;gap:8px;padding:44px 18px;text-align:center;color:var(--muted)}
+.ritmo-materials.rm-errors .rm-error-empty svg{color:#7891a9}
+.ritmo-materials.rm-errors .rm-error-empty strong{color:var(--dark);font-size:14px}
+.ritmo-materials.rm-errors .rm-error-empty span{max-width:470px;font-size:12px;line-height:1.55}
+.ritmo-materials.rm-errors .rm-error-form{margin:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-soft)}
+.ritmo-materials.rm-errors .rm-error-form .form-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px}
+.ritmo-materials.rm-errors .rm-error-form .field-block{min-width:0;margin:0 0 8px}
+.ritmo-materials.rm-errors .rm-error-form .field-block>label{font-size:12px}
+.ritmo-materials.rm-errors .rm-error-form .field-block :is(input,select){min-height:38px;font-size:12px}
+.ritmo-materials.rm-errors .rm-error-form textarea{min-height:78px;font-size:12px}
+.ritmo-materials.rm-errors .rm-attachment-picker{display:flex;align-items:center;gap:9px;min-height:42px;padding:6px 9px;border:1px dashed var(--line);border-radius:8px;background:var(--surface);color:var(--muted);font-size:11px}
+.ritmo-materials.rm-errors .rm-attachment-picker>span{flex:1}
+.ritmo-materials.rm-errors .rm-attachment-picker>label{margin:0;cursor:pointer}
+.ritmo-materials.rm-errors .rm-attachment-picker input{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+.ritmo-materials.rm-errors .rm-attachment-list{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
+.ritmo-materials.rm-errors .rm-attachment-chip{display:inline-flex;align-items:center;gap:7px;max-width:100%;padding:5px 7px;border:1px solid var(--line);border-radius:6px;background:var(--surface);font-size:10px}
+.ritmo-materials.rm-errors .rm-attachment-chip a{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--blue)}
+.ritmo-materials.rm-errors .rm-attachment-chip button{border:0;background:transparent;color:var(--muted);cursor:pointer}
+@media(max-width:700px){
+ .ritmo-materials.rm-errors .rm-error-toolbar{align-items:stretch}
+ .ritmo-materials.rm-errors .rm-error-toolbar>.rm-hierarchy,.ritmo-materials.rm-errors .rm-error-search{flex-basis:100%;width:100%;max-width:100%}
+ .ritmo-materials.rm-errors .rm-error-filters{align-items:flex-start}
+ .ritmo-materials.rm-errors .rm-error-phase-tabs{width:100%;overflow-x:auto;flex-wrap:nowrap}
+ .ritmo-materials.rm-errors .rm-error-phase-tabs button{flex:none;white-space:nowrap}
+ .ritmo-materials.rm-errors .rm-error-form .form-grid{grid-template-columns:minmax(0,1fr)}
+ .ritmo-materials.rm-errors .rm-error-form{margin:8px;padding:10px}
+ .ritmo-materials.rm-errors .rm-apply-panel{align-items:flex-start}
+}
