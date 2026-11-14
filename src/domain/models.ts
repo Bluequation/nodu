@@ -14,7 +14,10 @@ export interface ScheduleConfig {
   examDate: string;
   days: number[];
   minutes: number;
-  mode: "alternate" | "sequence";
+  mode: "alternate" | "sequence" | "priority";
+  sameMinutes?: boolean;
+  dayMinutes?: Record<number, number>;
+  priorityOrder?: string[];
 }
 export interface PlanAssignment {
   nodeId: string;
