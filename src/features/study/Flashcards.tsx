@@ -36,7 +36,8 @@ function FamilyList() {
   const [filter, setFilter] = useState<"all" | StudySubject>("all");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
-  useEffect(() => { listConcepts().then(setConcepts).finally(() => setLoading(false)); }, []);
+  const [leechLimit, setLeechLimit] = useState(4);
+  useEffect(() => { Promise.all([listConcepts(), getStudySettings()]).then(([items, settings]) => { setConcepts(items); setLeechLimit(settings.leech); }).finally(() => setLoading(false)); }, []);
   const visible = useMemo(() => concepts.filter(concept =>
     (filter === "all" || concept.subject === filter) &&
     concept.topic.toLocaleLowerCase().includes(search.toLocaleLowerCase())
@@ -55,6 +56,7 @@ function FamilyList() {
           const approved = concept.variants.filter(variant => variant.status === "approved").length;
           return <article className="family-card" key={concept.id}>
             <div className="family-card-top"><span className={`subject-pill ${concept.subject}`}>{concept.subject === "tae" ? "TAE" : "Física"}</span><span className={`status-pill ${concept.status === "published" && !concept.suspended ? "active" : "draft"}`}>{concept.suspended ? "Suspenso" : concept.status === "published" ? "Publicado" : "Rascunho"}</span></div>
+            {concept.fsrs.lapses >= leechLimit && <span className="leech-note">Esquecimentos recorrentes · revisar qualidade</span>}
             <h2>{concept.topic}</h2>
             <p>{concept.source || "Sem fonte cadastrada"}</p>
             <div className="family-metrics"><span><Layers3 size={14}/>{approved} de {concept.variants.length} versões ativas</span><span><Clock3 size={14}/>{concept.status === "published" ? dueLabel(concept.fsrs.due) : "Ainda não revisado"}</span></div>
@@ -110,7 +112,7 @@ function FlashcardEditor() {
     if (variants.some(variant => variant.format === "image" && !variant.image.trim())) { setError("Adicione a imagem para cada versão do tipo imagem."); return; }
     setSaving(true);
     try {
-      const clean = variants.map(variant => ({ ...variant, status: variant.status === "rejected" ? "rejected" : "approved" }));
+      const clean = variants.map(variant => ({ ...variant }));
       if (existing) {
         await saveConcept({ ...existing, subject, topic: topic.trim(), source: source.trim(), variants: clean });
       } else {
