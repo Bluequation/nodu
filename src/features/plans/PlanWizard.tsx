@@ -663,7 +663,7 @@ function planDateIsActive(date: Date, config: ScheduleConfig) {
 }
 function findNextPlanStudyDate(plan: StudyPlan, from = new Date()) {
   const config = plan.scheduleConfig;
-  if (!config || !plan.assignments.length) return null;
+  if (!config || !plan.assignments.length || plan.status === "completed") return null;
   const today = new Date(from.getFullYear(), from.getMonth(), from.getDate());
   const configuredStart = config.startDate ? planDateFromKey(config.startDate) : today;
   const start = configuredStart > today ? configuredStart : today;
@@ -733,6 +733,7 @@ export function PlanDetailRoute() {
   const weeklyPlanned = weekEntries.filter(day => day.active).reduce((sum, day) => sum + day.items.length, 0);
   const weeklyCompleted = weekEntries.filter(day => day.active).reduce((sum, day) => sum + day.completed, 0);
   const weeklyPercent = weeklyPlanned ? Math.round(weeklyCompleted / weeklyPlanned * 100) : 0;
+  const firstUpcomingDayKey = weekEntries.find(day => day.active && day.items.length > 0 && day.key >= todayKey)?.key || "";
 
   const topicKeys = useMemo(() => new Set((plan?.assignments || []).map(item => normalizePlanTopic(displayNodeName(item.name)))), [plan]);
   const subjectFilter = plan ? planSubjectFilter(plan) : null;
@@ -807,8 +808,6 @@ export function PlanDetailRoute() {
   const statusLabel = plan.status === "active" ? "Preparação em andamento" : plan.status === "completed" ? "Plano concluído" : "Plano em construção";
   const subjectMeta = [plan.institution, plan.position, plan.area, plan.organizer].filter(Boolean).join(" · ");
   const canStudy = Boolean(config && plan.assignments.length);
-  const todayTasks = todayEntry?.items || [];
-  const todayCompleted = todayEntry?.completed || 0;
 
   return <div className="stack plan-detail-stack">
     <header className="heading plan-detail-header">
@@ -890,7 +889,7 @@ export function PlanDetailRoute() {
             <Link className="text-link" to="/agenda">Calendário <ArrowRight size={13}/></Link>
           </div>
           <div className="plan-week-list">
-            {weekEntries.map(day => <details className={"plan-week-day " + (day.isToday ? "is-today" : "")} key={day.id} open={Boolean(nextStudyDate && day.id === nextStudyDate.getDay())}>
+            {weekEntries.map(day => <details className={"plan-week-day " + (day.isToday ? "is-today" : "")} key={day.id} open={day.key === (firstUpcomingDayKey || todayKey)}>
               <summary><span className="plan-week-day-name">{day.label}{day.isToday && <em>Hoje</em>}</span><span className="plan-week-day-count">{day.completed}/{day.items.length} estudados</span><ChevronDown size={15}/></summary>
               {day.items.length ? <div className="plan-week-topic-list">
                 {day.items.map(item => {
@@ -958,6 +957,7 @@ export function PlanDetailRoute() {
       <Link to="/questions"><NotebookPen size={17}/><span><b>Questões</b><small>Medir seu aproveitamento</small></span><ArrowRight size={15}/></Link>
       <Link to="/errors"><Flame size={17}/><span><b>Caderno de erros</b><small>Trabalhar suas dificuldades</small></span><ArrowRight size={15}/></Link>
     </section>
+    {loadError && <p className="plan-detail-error" role="alert">{loadError}</p>}
     <p className="plan-detail-note">O Ritmo acompanha o que você registra. Ele não prevê aprovação nem transforma tempo de estudo em domínio automático.</p>
   </div>;
 }
