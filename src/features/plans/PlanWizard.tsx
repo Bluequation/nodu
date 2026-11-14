@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft, ArrowRight, BookOpen, Check, ChevronDown, ChevronRight,
-  Clipboard, FileText, FolderOpen, Info, Pencil, Plus, Sparkles, Upload,
+  Clipboard, FolderOpen, Info, Pencil, Sparkles, Upload,
 } from "lucide-react";
 import { getPlan, savePlan } from "../../data/plans";
 import type { PlanNode, PlanStage, ScheduleConfig, StudyPlan } from "../../domain/models";
 import {
-  buildVerticalPrompt, clearWholeSection, countTreeNodes, getNodeSelectionState,
-  getPlanSections, getSelectedLeaves, parseVerticalMarkdown, selectWholeSection,
+  addManualChildToTree, buildVerticalPrompt, getNodeSelectionState,
+  getPlanSections, getSelectedLeaves, parseVerticalMarkdown, renameNodeInTree,
   toggleNodeInTree,
 } from "../../domain/verticalization";
 
@@ -122,15 +122,16 @@ function SelectionNode({
           <span className={`origin-pill ${node.origin}`}>{suggested ? "Sugestão" : node.origin === "manual" ? "Manual" : "Edital"}</span>
           {node.sourceRef && <span className="source-reference">{node.sourceRef}</span>}
         </div>
-        <strong>{node.name}</strong>
+        {editing ? <div className="inline-node-edit"><input aria-label="Editar nome do conteúdo" value={nameDraft} maxLength={240} onChange={event => setNameDraft(event.target.value)}/><button type="button" aria-label="Salvar nome" onClick={() => { if (nameDraft.trim()) onRename(node.id, nameDraft); setEditing(false); }}><Check size={14}/></button><button type="button" aria-label="Cancelar edição" onClick={() => { setNameDraft(node.name); setEditing(false); }}>×</button></div> : <strong>{node.name}</strong>}
         {node.sourceText && !suggested && <details className="source-excerpt">
           <summary>Consultar trecho original</summary>
           <p>{node.sourceText}</p>
         </details>}
       </div>
+      <button className="node-edit-button" type="button" title="Editar nome" aria-label={`Editar ${node.name}`} onClick={() => setEditing(true)}><Pencil size={13}/></button>
     </div>
     {officialChildren.length > 0 && <div className="selection-children">
-      {officialChildren.map(child => <SelectionNode key={child.id} node={child} depth={depth + 1} onToggle={onToggle}/>)}
+      {officialChildren.map(child => <SelectionNode key={child.id} node={child} depth={depth + 1} onToggle={onToggle} onRename={onRename}/>)}
     </div>}
     {suggestedChildren.length > 0 && <div className="suggestion-area">
       <button type="button" className="suggestion-toggle" onClick={() => setSuggestionsOpen(open => !open)} aria-expanded={suggestionsOpen}>
@@ -139,7 +140,7 @@ function SelectionNode({
         {suggestionsOpen ? <ChevronDown size={16}/> : <ChevronRight size={16}/>}
       </button>
       {suggestionsOpen && <div className="suggestion-list">
-        {suggestedChildren.map(child => <SelectionNode key={child.id} node={child} depth={depth + 1} onToggle={onToggle}/>)}
+        {suggestedChildren.map(child => <SelectionNode key={child.id} node={child} depth={depth + 1} onToggle={onToggle} onRename={onRename}/>)}
       </div>}
     </div>}
   </div>;
@@ -279,6 +280,8 @@ function SourceStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyPla
 }
 
 function SelectionStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyPlan) => Promise<void> }) {
+  const [manualName, setManualName] = useState("");
+  const [showManual, setShowManual] = useState(false);
   const sections = useMemo(() => getPlanSections(plan.tree), [plan.tree]);
   const index = Math.max(0, Math.min(plan.selectionIndex, sections.length));
   const review = index >= sections.length;
@@ -318,10 +321,12 @@ function SelectionStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: Study
         <div className="button-row">
           <button className="secondary-button compact" type="button" onClick={() => updateTree(toggleNodeInTree(plan.tree, current.node.id, true, false))}>Selecionar itens do edital</button>
           <button className="secondary-button compact" type="button" onClick={() => updateTree(toggleNodeInTree(plan.tree, current.node.id, false, true))}>Limpar seção</button>
+          <button className="text-button" type="button" onClick={() => setShowManual(value => !value)}><Pencil size={13}/>Adicionar conteúdo</button>
         </div>
       </div>
+      {showManual && <form className="manual-add-row" onSubmit={event => { event.preventDefault(); if (!manualName.trim()) return; updateTree(addManualChildToTree(plan.tree, current.node.id, manualName)); setManualName(""); setShowManual(false); }}><input aria-label="Novo conteúdo manual" value={manualName} onChange={event => setManualName(event.target.value)} placeholder="Digite o assunto ou subassunto"/><button className="secondary-button compact" type="submit" disabled={!manualName.trim()}><Plus size={14}/>Adicionar</button></form>}
       <div className="selection-content">
-        <SelectionNode node={current.node} depth={0} onToggle={(id, checked) => updateTree(toggleNodeInTree(plan.tree, id, checked))}/>
+        <SelectionNode node={current.node} depth={0} onToggle={(id, checked) => updateTree(toggleNodeInTree(plan.tree, id, checked))} onRename={(id, name) => updateTree(renameNodeInTree(plan.tree, id, name))}/>
       </div>
       <div className="selection-help"><Sparkles size={16}/><div><strong>Aprofundamentos sugeridos são opcionais</strong><p>Abra a área de sugestões se quiser consultar subdivisões didáticas. Elas não fazem parte literalmente do edital e só entram no plano se você as marcar.</p></div></div>
       <div className="wizard-navigation">
