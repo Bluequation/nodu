@@ -12,6 +12,7 @@ import { PlanDetailRoute, PlanWizardRoute } from "../features/plans/PlanWizard";
 import { FlashcardEditorPage, FlashcardsPage, ReviewPageRoute } from "../features/study/Flashcards";
 import { ErrorsPage, QuestionsPage } from "../features/practice/Practice";
 import { SettingsPage } from "../features/settings/Settings";
+import { LearningPage } from "../features/study/Learning";
 
 const groups = [
   ["VISÃO GERAL", [["Painel", "/", LayoutDashboard]]],
@@ -51,7 +52,8 @@ function Shell() {
         <Route path="/questions" element={<QuestionsPage/>}/>
         <Route path="/errors" element={<ErrorsPage/>}/>
         <Route path="/settings" element={<SettingsPage/>}/>
-        {["learn","import","curation"].map(name => <Route key={name} path={`/${name}`} element={<Feature name={name}/>}/>)}
+        <Route path="/learn" element={<LearningPage/>}/>
+        {["import","curation"].map(name => <Route key={name} path={`/${name}`} element={<Feature name={name}/>}/>)}
       </Routes>
       <footer className="app-footer">Ritmo 8.0 · Seu espaço de estudos</footer>
     </main>
