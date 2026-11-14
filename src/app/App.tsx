@@ -255,15 +255,16 @@ function Agenda() {
   const selectedTopics = topicsForDate(selected);
   const selectedSimulations = simulationsForDate(selected);
   const selectedReviews = reviewsForDate(selected);
-  const selectedScheduleSlots = active.filter(plan => plan.scheduleConfig?.days.includes(selected.getDay()) && (
-    plan.assignments.some(item => item.day === selected.getDay()) || plan.scheduleConfig.daySchedules?.[selected.getDay()]?.simulation
-  )).map(plan => {
-    const slot = plan.scheduleConfig?.daySchedules?.[selected.getDay()];
-    return {
+  const selectedScheduleSlots = active.flatMap(plan => {
+    const config = plan.scheduleConfig;
+    if (!config || !config.days.includes(selected.getDay())) return [];
+    const slot = config.daySchedules?.[selected.getDay()];
+    if (!plan.assignments.some(item => item.day === selected.getDay()) && !slot?.simulation) return [];
+    return [{
       title: plan.title,
       timeRange: slot?.startTime && slot?.endTime ? `${slot.startTime}–${slot.endTime}` : "",
       minutes: planMinutesForDay(plan, selected.getDay()),
-    };
+    }];
   });
   const minutes = selectedScheduleSlots.reduce((sum, item) => sum + item.minutes, 0);
   const monthLabel = month.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
