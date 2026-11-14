@@ -27,6 +27,7 @@ export interface PlanAssignment {
   sourceRef: string;
   day: number;
   done?: boolean;
+  completedDates?: string[];
 }
 export interface StudyPlan {
   id: string;
