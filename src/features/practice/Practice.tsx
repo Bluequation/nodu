@@ -17,6 +17,10 @@ function dateLabel(value: number) {
 }
 function isDue(error: ErrorRecord) { return error.status !== "dominado" && error.nextReview <= Date.now(); }
 function subjectLabel(subject: StudySubject) { return subject === "tae" ? "TAE" : "Física"; }
+function safeHttpUrl(value: string) {
+  try { const url = new URL(value); return ["http:", "https:"].includes(url.protocol) ? url.href : ""; }
+  catch { return ""; }
+}
 
 export function ErrorsPage() {
   const [errors, setErrors] = useState<ErrorRecord[]>([]);
@@ -129,13 +133,14 @@ export function ErrorsPage() {
       <div className="error-list">
         {visible.length ? visible.map(error => {
           const concept = concepts.find(item => item.id === error.conceptId);
+          const questionLink = safeHttpUrl(error.questionUrl);
           return <article className="error-card" key={error.id}>
             <div className="error-card-top"><div><span className="subject-pill">{subjectLabel(error.subject)}</span><span className="soft-tag">{error.type}</span></div><span className={error.status === "dominado" ? "status-pill active" : isDue(error) ? "status-pill due" : "status-pill"}>{error.status === "dominado" ? "Dominado" : isDue(error) ? "Retomar agora" : `Próxima: ${dateLabel(error.nextReview)}`}</span></div>
             <h3>{error.topic}</h3><p className="error-breadcrumb">{error.discipline} / {error.area}</p>
             <div className="error-content-grid"><div><small>ERRO / LACUNA</small><p>{error.mistake}</p></div><div><small>CORREÇÃO</small><p>{error.fix}</p></div></div>
             {error.questionText && <details className="source-excerpt"><summary>Ver enunciado original</summary><p>{error.questionText}{error.optionsText ? `\n\n${error.optionsText}` : ""}{error.correctAnswer ? `\nGabarito: ${error.correctAnswer}` : ""}</p></details>}
             <div className="error-card-footer"><span>{dateLabel(error.at)} · {error.successes} acerto(s) · {error.failures} novo(s) erro(s){concept ? ` · Flashcard: ${concept.topic}` : ""}</span><div><button className="text-button" onClick={() => edit(error)}>Editar</button><button className="text-button" onClick={() => setApplyId(applyId === error.id ? "" : error.id)}>Nova aplicação</button><button className="icon-button" aria-label="Excluir" onClick={() => remove(error.id)}><Trash2 size={14}/></button></div></div>
-            {applyId === error.id && <div className="apply-error-panel"><strong>Resolva uma questão inédita sobre este assunto.</strong><p>O resultado desta aplicação não altera o FSRS dos flashcards.</p>{error.questionUrl && <a href={error.questionUrl} target="_blank" rel="noreferrer">Consultar questão original <ExternalLink size={12}/></a>}<div className="button-row"><button className="secondary-button compact" onClick={() => gradeApplication(error.id, "wrong")}>Errei novamente</button><button className="primary-button compact" onClick={() => gradeApplication(error.id, "right")}>Acertei uma inédita <Check size={14}/></button></div></div>}
+            {applyId === error.id && <div className="apply-error-panel"><strong>Resolva uma questão inédita sobre este assunto.</strong><p>O resultado desta aplicação não altera o FSRS dos flashcards.</p>{questionLink && <a href={questionLink} target="_blank" rel="noreferrer">Consultar questão original <ExternalLink size={12}/></a>}<div className="button-row"><button className="secondary-button compact" onClick={() => gradeApplication(error.id, "wrong")}>Errei novamente</button><button className="primary-button compact" onClick={() => gradeApplication(error.id, "right")}>Acertei uma inédita <Check size={14}/></button></div></div>}
             {error.history.length > 0 && <details className="error-history"><summary>Histórico de aplicações ({error.history.length})</summary>{error.history.map((entry, index) => <p key={index}>{dateLabel(entry.at)} · {entry.grade === "right" ? "Acerto em questão inédita" : "Erro novamente"}</p>)}</details>}
           </article>;
         }) : <div className="empty-state"><NotebookPen size={28}/><strong>Nenhum erro registrado</strong><span>Quando errar uma questão ou identificar uma lacuna, registre o motivo e a correção. O Ritmo cobrará uma nova aplicação depois.</span><button className="primary-button" onClick={newError}>Registrar primeiro erro</button></div>}
