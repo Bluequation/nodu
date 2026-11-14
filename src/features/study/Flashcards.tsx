@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { ArrowLeft, ArrowRight, BookOpen, Check, Clock3, Layers3, Plus, RotateCcw, Sparkles } from "lucide-react";
 import type { Concept, FlashcardVariant, ReviewLog, StudySettings, StudySubject } from "../../domain/study";
 import {useStudyContext} from "./useStudyContext";
-import {addTopicLink} from "../../domain/topicContext";
+import {addTopicLink,linkedTo,topicUrl} from "../../domain/topicContext";
 import { emptyFsrsState, rateFsrs, type FsrsGrade } from "../../domain/fsrs";
 import {
   createConcept, getConcept, getStudySettings, listConcepts, listReviews,
@@ -34,6 +34,8 @@ function dueLabel(due: number) {
 
 function FamilyList() {
   const navigate = useNavigate();
+  const context=useStudyContext();
+  const route=(path:string)=>context.valid?topicUrl(path,context.ref,context.date):path;
   const [concepts, setConcepts] = useState<Concept[]>([]);
   const [filter, setFilter] = useState<"all" | StudySubject>("all");
   const [search, setSearch] = useState("");
@@ -41,11 +43,12 @@ function FamilyList() {
   const [leechLimit, setLeechLimit] = useState(4);
   useEffect(() => { Promise.all([listConcepts(), getStudySettings()]).then(([items, settings]) => { setConcepts(items); setLeechLimit(settings.leech); }).finally(() => setLoading(false)); }, []);
   const visible = useMemo(() => concepts.filter(concept =>
-    (filter === "all" || concept.subject === filter) &&
+    (context.requested?context.valid&&linkedTo(concept,context.ref):filter === "all" || concept.subject === filter) &&
     concept.topic.toLocaleLowerCase().includes(search.toLocaleLowerCase())
-  ), [concepts, filter, search]);
+  ), [concepts, filter, search,context.requested,context.valid,context.ref.planId,context.ref.nodeId]);
   return <div className="stack">
-    <header className="heading"><div><small>RITMO / APRENDIZAGEM</small><h1>Flashcards</h1><p>Uma família reúne até dez formas de cobrar o mesmo microconhecimento.</p></div><button className="primary-button" onClick={() => navigate("/flashcards/new")}><Plus size={16}/>Nova família</button></header>
+    <header className="heading"><div><small>RITMO / APRENDIZAGEM</small><h1>Flashcards</h1><p>Uma família reúne até dez formas de cobrar o mesmo microconhecimento.</p></div><button className="primary-button" onClick={() => navigate(route("/flashcards/new"))}><Plus size={16}/>Nova família</button></header>
+    {context.requested&&<p className="inline-feedback">{context.valid?context.plan?.title+" · "+context.title:"Assunto indisponível ou carregando."} · <Link to={context.returnTo}>Voltar a Aprender</Link></p>}
     <section className="panel">
       <div className="flashcard-toolbar">
         <div className="filter-pills">
@@ -62,10 +65,10 @@ function FamilyList() {
             <h2>{concept.topic}</h2>
             <p>{concept.source || "Sem fonte cadastrada"}</p>
             <div className="family-metrics"><span><Layers3 size={14}/>{approved} de {concept.variants.length} versões ativas</span><span><Clock3 size={14}/>{concept.status === "published" ? dueLabel(concept.fsrs.due) : "Ainda não revisado"}</span></div>
-            <div className="family-card-actions"><button className="secondary-button compact" onClick={() => navigate(`/flashcards/${concept.id}/edit`)}>Editar</button><button className="text-button" onClick={async () => { await saveConcept({ ...concept, suspended: !concept.suspended }); setConcepts(await listConcepts()); }}>{concept.suspended ? "Reativar" : "Suspender"}</button></div>
+            <div className="family-card-actions"><button className="secondary-button compact" onClick={() => navigate(route(`/flashcards/${concept.id}/edit`))}>Editar</button><button className="text-button" onClick={async () => { await saveConcept({ ...concept, suspended: !concept.suspended }); setConcepts(await listConcepts()); }}>{concept.suspended ? "Reativar" : "Suspender"}</button></div>
           </article>;
         })}
-      </div> : <div className="empty-state"><Layers3 size={28}/><strong>{concepts.length ? "Nenhuma família encontrada" : "Suas famílias de conhecimentos começam aqui"}</strong><span>Cadastre uma pergunta central e crie versões que explorem definição, comparação, diferenciação, competência, exceção e aplicação.</span><button className="primary-button" onClick={() => navigate("/flashcards/new")}>Criar primeira família <ArrowRight size={15}/></button></div>}
+      </div> : <div className="empty-state"><Layers3 size={28}/><strong>{concepts.length ? "Nenhuma família encontrada" : "Suas famílias de conhecimentos começam aqui"}</strong><span>Cadastre uma pergunta central e crie versões que explorem definição, comparação, diferenciação, competência, exceção e aplicação.</span><button className="primary-button" onClick={() => navigate(route("/flashcards/new"))}>Criar primeira família <ArrowRight size={15}/></button></div>}
     </section>
   </div>;
 }
@@ -75,7 +78,7 @@ function FlashcardEditor() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const context=useStudyContext();
-  const returnTo = context.requested?context.returnTo:searchParams.get("return") === "curation" ? "/curation" : "/flashcards";
+  const returnTo = context.requested?topicUrl("/flashcards",context.ref,context.date):searchParams.get("return") === "curation" ? "/curation" : "/flashcards";
   const editing = !!id;
   const [subject, setSubject] = useState<StudySubject>("tae");
   const [topic, setTopic] = useState("");
@@ -199,6 +202,9 @@ function pickReview(concepts: Concept[], reviews: ReviewLog[], settings: StudySe
 }
 
 function ReviewPage() {
+  const context=useStudyContext();
+  const scoped=(items:Concept[])=>context.requested?items.filter(item=>context.valid&&linkedTo(item,context.ref)):items;
+  const selectedSubject=context.requested?"all":undefined;
   const [concepts, setConcepts] = useState<Concept[]>([]);
   const [reviews, setReviews] = useState<ReviewLog[]>([]);
   const [settings, setSettings] = useState<StudySettings>({ retention: 0.9, newLimit: 10, reviewLimit: 70, leech: 4 });
@@ -218,7 +224,7 @@ function ReviewPage() {
   }
   useEffect(() => { reload().finally(() => setLoading(false)); }, []);
   function startSession() {
-    const next = pickReview(concepts, reviews, settings, mode, subject);
+    const next = pickReview(scoped(concepts), reviews, settings, mode, selectedSubject||subject);
     setCurrent(next); setRevealed(false); setTyped(""); setCompleted(!next);
   }
   async function grade(gradeValue: FsrsGrade) {
@@ -236,10 +242,11 @@ function ReviewPage() {
         variantId: current.variant.id, kind: current.variant.kind, format: current.variant.format,
         grade: gradeValue, at: Date.now(), wasNew: current.wasNew, preview: false, typed,
         s: concept.fsrs.s, d: concept.fsrs.d, due: concept.fsrs.due,
+        ...(context.valid?{planTopic:context.ref,sessionDate:context.date}:{}),
       };
       await recordConceptReview(concept, review);
       const data = await reload();
-      const next = pickReview(data.concepts, data.reviews, data.settings, mode, subject);
+      const next = pickReview(scoped(data.concepts), data.reviews, data.settings, mode, selectedSubject||subject);
       setCurrent(next); setRevealed(false); setTyped(""); setCompleted(!next);
     } catch {
       // Keep the current card visible so the student can retry without losing the response.
@@ -249,16 +256,17 @@ function ReviewPage() {
   }
 
   if (loading) return <div className="loading-panel">Preparando revisões…</div>;
-  const dueCount = concepts.filter(concept => isPublished(concept) && concept.fsrs.due <= Date.now() && (subject === "all" || concept.subject === subject)).length;
+  const dueCount = scoped(concepts).filter(concept => isPublished(concept) && concept.fsrs.due <= Date.now() && (context.requested||subject === "all" || concept.subject === subject)).length;
   return <div className="stack">
-    <header className="heading"><div><small>RITMO / APRENDIZAGEM</small><h1>Revisões</h1><p>O FSRS agenda cada família de conhecimentos; a cobrança varia entre as versões cadastradas.</p></div><Link className="secondary-button" to="/flashcards"><Layers3 size={15}/>Flashcards</Link></header>
+    <header className="heading"><div><small>RITMO / APRENDIZAGEM</small><h1>Revisões</h1><p>O FSRS agenda cada família de conhecimentos; a cobrança varia entre as versões cadastradas.</p></div><Link className="secondary-button" to={context.valid?topicUrl("/flashcards",context.ref,context.date):"/flashcards"}><Layers3 size={15}/>Flashcards</Link></header>
+    {context.requested&&<p className="inline-feedback">{context.valid?context.plan?.title+" · "+context.title:"Assunto indisponível ou carregando."} · <Link to={context.returnTo}>Voltar a Aprender</Link></p>}
     {!current && !completed && <section className="panel review-start">
       <div className="panel-title-row"><div><span className="step-kicker">SESSÃO DE ESTUDO</span><h2>O que vamos revisar?</h2><p>{dueCount} família(s) vencida(s) no filtro atual.</p></div><span className="soft-tag">FSRS-6</span></div>
       <div className="form-grid">
         <div className="field-block"><label>Tipo de sessão</label><select value={mode} onChange={event => setMode(event.target.value as ReviewMode)}><option value="normal">Revisões do dia</option><option value="difficult">Esquecimentos recorrentes</option><option value="law">Lei seca e exceções</option></select></div>
         <div className="field-block"><label>Área</label><select value={subject} onChange={event => setSubject(event.target.value as "all" | StudySubject)}><option value="all">Todas</option><option value="tae">TAE</option><option value="fisica">Física</option></select></div>
       </div>
-      <button className="primary-button" onClick={startSession}><BookOpen size={16}/>Começar revisão <ArrowRight size={16}/></button>
+      <button className="primary-button" disabled={context.requested&&!context.valid} onClick={startSession}><BookOpen size={16}/>Começar revisão <ArrowRight size={16}/></button>
       <p className="field-hint">Limites diários: {settings.newLimit} novas famílias e {settings.reviewLimit} revisões antigas. As versões não multiplicam a carga de revisão.</p>
     </section>}
     {current && <section className="panel review-card-panel">
@@ -277,7 +285,7 @@ function ReviewPage() {
         <button className="grade-easy" disabled={saving} onClick={() => grade("easy")}>Fácil</button>
       </div><small>O intervalo é calculado pelo FSRS com sua meta de retenção atual ({Math.round(settings.retention * 100)}%).</small></div>}
     </section>}
-    {completed && <section className="panel empty-state"><Check size={30}/><strong>Sessão concluída</strong><span>Não há mais cartões disponíveis nesta sessão dentro dos limites diários. Você pode voltar depois ou cadastrar novos conhecimentos.</span><button className="primary-button" onClick={() => { setCompleted(false); setCurrent(null); }}>Voltar ao início</button><Link className="text-link" to="/flashcards">Gerenciar flashcards</Link></section>}
+    {completed && <section className="panel empty-state"><Check size={30}/><strong>Sessão concluída</strong><span>Não há mais cartões disponíveis nesta sessão dentro dos limites diários. Você pode voltar depois ou cadastrar novos conhecimentos.</span><button className="primary-button" onClick={() => { setCompleted(false); setCurrent(null); }}>Voltar ao início</button><Link className="text-link" to={context.valid?topicUrl("/flashcards",context.ref,context.date):"/flashcards"}>Gerenciar flashcards</Link></section>}
   </div>;
 }
 

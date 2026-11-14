@@ -141,6 +141,24 @@ try{
  assert.equal(await page.locator(".rl-history-item").count(),1);
  const stored=await page.evaluate(async()=>await new Promise((resolve,reject)=>{const req=indexedDB.open("ritmo-8",2);req.onerror=()=>reject(req.error);req.onsuccess=()=>{const db=req.result,read=db.transaction("concepts").objectStore("concepts").get("learning-test");read.onsuccess=()=>{db.close();resolve(read.result)};read.onerror=()=>reject(read.error);};}));
  assert.deepEqual(stored,studyFixture,"learning does not change flashcards or FSRS");
+ const now=new Date(),studyDate=[now.getFullYear(),String(now.getMonth()+1).padStart(2,"0"),String(now.getDate()).padStart(2,"0")].join("-");
+ const bound=fixture("bound-learning",[general,specific],[{nodeId:"newton",name:"Leis de Newton",path:["Física","Dinâmica","Leis de Newton"],origin:"edital",sourceRef:"item",day:now.getDay()}],{startDate:studyDate,examDate:"",days:[now.getDay()],minutes:60,mode:"alternate"});
+ bound.status="active";bound.title="Plano integrado";
+ await seed(page,bound);
+ await page.goto(url+"/#/agenda");const pf=page.getByRole("combobox",{name:"Filtrar agenda por plano"});await pf.locator('option[value="bound-learning"]').waitFor({state:"attached"});await pf.selectOption("bound-learning");
+ await page.locator(".ra-event").filter({hasText:"Leis de Newton"}).getByRole("link",{name:"Estudar"}).click();
+ await page.locator(".rl-topic").getByRole("heading",{name:"Leis de Newton"}).waitFor();
+ assert.equal(await page.locator(".rl-mode:disabled").count(),4,"unlinked material must not leak into scoped study");
+ await page.getByRole("textbox",{name:"Anotações do assunto"}).fill("Estudo da inércia.");
+ await page.locator(".rl-topic-tools").getByRole("button",{name:"Salvar",exact:true}).click();await page.getByText("Anotações salvas.",{exact:true}).waitFor();
+ await page.getByText("Vincular material já cadastrado",{exact:true}).click();await page.getByRole("combobox",{name:"Material existente"}).selectOption("concepts:learning-test");
+ await page.getByRole("button",{name:"Vincular",exact:true}).click();await page.locator('.rl-mode[data-mode="recall"]:not(:disabled)').waitFor();
+ await page.reload();await page.getByRole("textbox",{name:"Anotações do assunto"}).waitFor();await page.waitForFunction(()=>document.querySelector('[aria-label="Anotações do assunto"]')?.value==="Estudo da inércia.");
+ await page.screenshot({path:"planner-screenshots/14-aprender-integrado.png",fullPage:true});
+ await page.getByRole("button",{name:"Concluir sessão",exact:true}).click();await page.getByRole("button",{name:"Concluído",exact:true}).waitFor();
+ await page.goto(url+"/#/agenda");await page.getByRole("combobox",{name:"Filtrar agenda por plano"}).locator('option[value="bound-learning"]').waitFor({state:"attached"});await page.getByRole("combobox",{name:"Filtrar agenda por plano"}).selectOption("bound-learning");
+ await page.getByRole("button",{name:"Desmarcar Leis de Newton",exact:true}).waitFor();
+ await page.goto(url+"/#/learn?plan=bound-learning&topic=ldb&date="+studyDate);await page.locator(".rl-topic").getByRole("heading",{name:"LDB",exact:true}).waitFor();assert.equal(await page.locator(".rl-mode:disabled").count(),4,"another topic retains separate materials");
  await page.setViewportSize({width:390,height:844});await page.screenshot({path:"planner-screenshots/13-aprender-mobile.png",fullPage:true});
  console.log("Planner: layout, mouse, touch, return and persistence verified.");
 }catch(error){

@@ -39,6 +39,8 @@ export interface Concept {
   suspended: boolean;
 }
 export interface ReviewLog {
+  planTopic?:PlanTopicRef;
+  sessionDate?:string;
   id: string;
   conceptId: string;
   subject: StudySubject;

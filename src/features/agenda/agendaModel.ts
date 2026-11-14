@@ -9,7 +9,7 @@ export function fromDateKey(key:string){const [y,m,d]=key.split("-").map(Number)
 export const monthStart=(d:Date)=>new Date(d.getFullYear(),d.getMonth(),1);
 export function monthDates(month:Date){const d=monthStart(month),lead=(d.getDay()+6)%7,n=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();return Array.from({length:Math.ceil((lead+n)/7)*7},(_,i)=>new Date(d.getFullYear(),d.getMonth(),i-lead+1));}
 export type ReviewItem={id:string;topic:string;type:"Flashcards"|"Caderno de erros";subject:string;due:number;planTopics?:PlanTopicRef[]};
-export type AgendaEvent={id:string;kind:"study"|"simulation"|"review";title:string;original:string;tone:AreaTone|"simulation"|"review";area:string;planId?:string;nodeId?:string;done:boolean;reviewType?:ReviewItem["type"]};
+export type AgendaEvent={id:string;kind:"study"|"simulation"|"review";title:string;original:string;tone:AreaTone|"simulation"|"review";area:string;planId?:string;nodeId?:string;done:boolean;reviewType?:ReviewItem["type"];reviewTopic?:PlanTopicRef};
 export type Session={planId:string;title:string;time:string;minutes:number;events:AgendaEvent[]};
 export function preparePlans(plans:StudyPlan[],filter:string){return plans.filter(p=>p.status==="active"&&p.scheduleConfig&&(filter==="all"||p.id===filter)).map(plan=>({plan,leaves:new Map(getSelectedLeaves(plan.tree).map(l=>[l.id,l]))}));}
 export function eventsForDay(date:Date,prepared:ReturnType<typeof preparePlans>,reviews:ReviewItem[],filter:string){
@@ -25,7 +25,7 @@ export function eventsForDay(date:Date,prepared:ReturnType<typeof preparePlans>,
   }
   return events.length?[{planId:plan.id,title:plan.title,time,minutes:minutesForDay(c,day),events}]:[];
  });
- const revisions:AgendaEvent[]=reviews.filter(i=>(filter==="all"||prepared.some(({plan})=>linkedToPlan(i,plan)))&&Number.isFinite(i.due)&&dateKey(new Date(i.due))===key).map(i=>({id:"review:"+i.type+":"+i.id,kind:"review",title:pieceTitle(i.topic),original:i.topic,tone:"review",area:i.subject,reviewType:i.type,done:false}));
+ const revisions:AgendaEvent[]=reviews.filter(i=>(filter==="all"||prepared.some(({plan})=>linkedToPlan(i,plan)))&&Number.isFinite(i.due)&&dateKey(new Date(i.due))===key).map(i=>({id:"review:"+i.type+":"+i.id,kind:"review",title:pieceTitle(i.topic),original:i.topic,tone:"review",area:i.subject,reviewType:i.type,done:false,reviewTopic:filter!=="all"?i.planTopics?.find(ref=>prepared.some(({plan,leaves})=>plan.id===ref.planId&&leaves.has(ref.nodeId))):undefined}));
  return {sessions,revisions,events:[...sessions.flatMap(s=>s.events),...revisions]};
 }
 export function toggleDatedCompletion(plan:StudyPlan,event:AgendaEvent,key:string):StudyPlan{
