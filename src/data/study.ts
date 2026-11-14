@@ -1,4 +1,6 @@
 import { database } from "./database";
+import type {PlanTopicRef} from "../domain/study";
+import {addTopicLink,resolveTopic,markTopicStudied,topicScheduled,dateKey} from "../domain/topicContext";
 import type { Concept, ErrorRecord, FlashcardVariant, LearningSession, QuestionBlock, ReviewLog, StudySettings } from "../domain/study";
 import { emptyFsrsState } from "../domain/fsrs";
 
@@ -15,13 +17,14 @@ export async function saveConcept(concept: Concept): Promise<Concept> {
   await (await database()).put("concepts", concept);
   return concept;
 }
-export async function createConcept(input: Pick<Concept, "subject" | "topic" | "source">, variants: FlashcardVariant[], status: Concept["status"] = "published"): Promise<Concept> {
+export async function createConcept(input: Pick<Concept, "subject" | "topic" | "source" | "planTopics">, variants: FlashcardVariant[], status: Concept["status"] = "published"): Promise<Concept> {
   const now = Date.now();
   const concept: Concept = {
     id: newId(),
     subject: input.subject,
     topic: input.topic.trim(),
     source: input.source.trim(),
+    ...(input.planTopics?.length?{planTopics:input.planTopics}:{}),
     status,
     variants,
     createdAt: now,
@@ -90,4 +93,32 @@ export async function recordConceptReview(concept: Concept, review: ReviewLog): 
     tx.objectStore("reviews").put(review),
   ]);
   await tx.done;
+}
+
+export type MaterialKind="concepts"|"errors"|"blocks";
+export async function linkStudyMaterial(kind:MaterialKind,id:string,ref:PlanTopicRef){
+ const db=await database();
+ const tx=db.transaction(["plans","concepts","errors","blocks"],"readwrite");
+ const plan=await tx.objectStore("plans").get(ref.planId);
+ if(!resolveTopic(plan,ref)){await tx.done;throw Error("Assunto indisponível");}
+ if(kind==="concepts"){const store=tx.objectStore("concepts"),item=await store.get(id);if(item)await store.put({...item,planTopics:addTopicLink(item.planTopics,ref)});else{await tx.done;throw Error("Material não encontrado");}}
+ else if(kind==="errors"){const store=tx.objectStore("errors"),item=await store.get(id);if(item)await store.put({...item,planTopics:addTopicLink(item.planTopics,ref)});else{await tx.done;throw Error("Material não encontrado");}}
+ else {const store=tx.objectStore("blocks"),item=await store.get(id);if(item)await store.put({...item,planTopics:addTopicLink(item.planTopics,ref)});else{await tx.done;throw Error("Material não encontrado");}}
+ await tx.done;
+}
+const noteKey=(r:PlanTopicRef)=>"topic-note:"+JSON.stringify([r.planId,r.nodeId]);
+export async function readTopicNote(ref:PlanTopicRef):Promise<string>{const row=await (await database()).get("appState",noteKey(ref));return typeof row?.value==="string"?row.value:"";}
+export async function saveTopicNote(ref:PlanTopicRef,value:string){
+ const tx=(await database()).transaction(["plans","appState"],"readwrite");
+ const plan=await tx.objectStore("plans").get(ref.planId);
+ if(!resolveTopic(plan,ref)){await tx.done;throw Error("Assunto indisponível");}
+ await tx.objectStore("appState").put({key:noteKey(ref),value});await tx.done;
+}
+export async function finishTopicStudy(ref:PlanTopicRef,key:string){
+ const tx=(await database()).transaction("plans","readwrite");
+ const plan=await tx.store.get(ref.planId);
+ if(!plan||key>dateKey()||!topicScheduled(plan,ref.nodeId,key)){await tx.done;throw Error("Sessão não disponível");}
+ const next=markTopicStudied(plan,ref,key);
+ if(next!==plan)await tx.store.put({...next,updatedAt:Date.now()});
+ await tx.done;return next;
 }

@@ -60,3 +60,18 @@
 @media(max-width:1080px){.ritmo-learning .rl-mode-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:650px){.ritmo-learning .rl-lower,.ritmo-learning .rl-workspace.revealed{grid-template-columns:minmax(0,1fr)}.ritmo-learning .rl-mode{min-height:114px;padding:9px}.ritmo-learning .rl-mode strong{font-size:12px}.ritmo-learning .rl-mode>small{font-size:10px}.ritmo-learning .rl-filter{max-width:145px}.ritmo-learning .rl-grade-actions{width:100%}.ritmo-learning .rl-grade-actions button{flex:1 1 90px}}
 @media(prefers-reduced-motion:reduce){.ritmo-learning *{transition:none!important}}
+
+.ritmo-learning .rl-context{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;min-width:0}
+.ritmo-learning .rl-context .rl-section-head a{display:flex;align-items:center;gap:4px;color:var(--blue);font-size:11px}
+.ritmo-learning .rl-context-selects{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.7fr) minmax(0,1.5fr);gap:8px}
+.ritmo-learning .rl-context-selects label{display:grid;gap:4px;font-size:11px;color:var(--muted);min-width:0}
+.ritmo-learning :is(.rl-context-selects,.rl-link-form) :is(select,input){width:100%;min-width:0;border:1px solid var(--line);border-radius:7px;background:var(--surface-soft);color:var(--dark);font:inherit;font-size:12px;padding:7px;min-height:34px}
+.ritmo-learning .rl-topic{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--area-edge);border-radius:8px;background:var(--area-bg);color:var(--area-ink);padding:10px;margin-top:9px}
+.ritmo-learning .rl-topic>div{min-width:0}.ritmo-learning .rl-topic h2{font-size:17px;margin:3px 0}.ritmo-learning .rl-topic small,.ritmo-learning .rl-topic details{font-size:11px}.ritmo-learning .rl-topic p{margin:5px 0;overflow-wrap:anywhere}.ritmo-learning .rl-topic button{flex:none}
+.ritmo-learning .rl-free-hint{display:block;color:var(--muted);font-size:11px;margin-top:7px}
+.ritmo-learning .rl-topic-tools{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:10px}
+.ritmo-learning .rl-topic-tools textarea{width:100%;box-sizing:border-box;resize:vertical;min-height:85px;font:inherit;font-size:13px;line-height:1.5;border:1px solid var(--line);border-radius:7px;padding:8px;background:var(--surface-soft);color:var(--dark)}
+.ritmo-learning .rl-linked-tools>a{display:flex;align-items:center;gap:7px;color:var(--blue);padding:7px 0;border-bottom:1px solid var(--line);font-size:12px}.ritmo-learning .rl-linked-tools>a svg:last-child{margin-left:auto}
+.ritmo-learning .rl-linked-tools details{margin-top:8px;color:var(--muted);font-size:11px}.ritmo-learning .rl-linked-tools summary{cursor:pointer}
+.ritmo-learning .rl-link-form{display:flex;gap:5px;margin-top:7px}.ritmo-learning .rl-link-form select{flex:1}
+@media(max-width:650px){.ritmo-learning .rl-context-selects,.ritmo-learning .rl-topic-tools{grid-template-columns:1fr}.ritmo-learning .rl-topic{align-items:flex-start;flex-direction:column}}

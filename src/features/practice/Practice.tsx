@@ -1,5 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
+import {useStudyContext} from "../study/useStudyContext";
+import {linkedTo,addTopicLink} from "../../domain/topicContext";
 import { ArrowRight, Check, ExternalLink, NotebookPen, Plus, Target, Trash2 } from "lucide-react";
 import type { Concept, ErrorRecord, StudySubject, QuestionBlock } from "../../domain/study";
 import { deleteError, deleteQuestionBlock, listConcepts, listErrors, listQuestionBlocks, saveError, saveQuestionBlock } from "../../data/study";
@@ -23,6 +25,7 @@ function safeHttpUrl(value: string) {
 }
 
 export function ErrorsPage() {
+  const context=useStudyContext();
   const [errors, setErrors] = useState<ErrorRecord[]>([]);
   const [concepts, setConcepts] = useState<Concept[]>([]);
   const [form, setForm] = useState(EMPTY_ERROR);
@@ -36,7 +39,7 @@ export function ErrorsPage() {
     setErrors(nextErrors); setConcepts(nextConcepts);
   }
   useEffect(() => { reload(); }, []);
-  const visible = errors.filter(error => filter === "all" || error.subject === filter);
+  const visible = errors.filter(error => context.requested?context.valid&&linkedTo(error,context.ref):filter === "all" || error.subject === filter);
   const due = visible.filter(isDue).length;
   function set<K extends keyof typeof EMPTY_ERROR>(key: K, value: typeof EMPTY_ERROR[K]) {
     setForm(current => ({ ...current, [key]: value }));
@@ -52,10 +55,11 @@ export function ErrorsPage() {
     setShowForm(true); setFeedback("");
   }
   function newError() {
-    setEditingId(""); setForm(EMPTY_ERROR); setShowForm(true); setFeedback("");
+    setEditingId("");setForm(context.valid?{...EMPTY_ERROR,topic:context.title,discipline:context.area,area:context.area,subject:/f[ií]sica/i.test(context.plan?.area||"")?"fisica":"tae"}:EMPTY_ERROR);setShowForm(true);setFeedback("");
   }
   async function submit(event: FormEvent) {
     event.preventDefault(); setFeedback("");
+    if(context.requested&&!context.valid){setFeedback("Assunto indisponível.");return;}
     if (!form.discipline.trim() || !form.area.trim() || !form.topic.trim()) { setFeedback("Preencha disciplina, área e assunto."); return; }
     if (!form.mistake.trim() || !form.fix.trim()) { setFeedback("Descreva o erro e sua correção fundamentada."); return; }
     if (form.questionUrl.trim()) {
@@ -73,6 +77,7 @@ export function ErrorsPage() {
       failures: old?.failures || 0,
       status: old?.status === "dominado" ? "pendente" : old?.status || "pendente",
       history: old?.history || [],
+      ...(context.valid?{planTopics:addTopicLink(old?.planTopics,context.ref)}:old?.planTopics?{planTopics:old.planTopics}:{}),
     };
     await saveError(record);
     setForm(EMPTY_ERROR); setEditingId(""); setShowForm(false);
@@ -105,6 +110,7 @@ export function ErrorsPage() {
 
   return <div className="stack">
     <header className="heading"><div><small>RITMO / PRÁTICA</small><h1>Caderno de erros</h1><p>Registre o que falhou, a correção e quando testar novamente em uma questão inédita.</p></div><button className="primary-button" onClick={newError}><Plus size={16}/>Registrar erro</button></header>
+    {context.requested&&<p className="inline-feedback">{context.valid?context.plan?.title+" · "+context.title:"Assunto indisponível ou carregando."} · <Link to={context.returnTo}>Voltar a Aprender</Link></p>}
     <section className="panel">
       <div className="practice-toolbar"><div className="filter-pills">{(["all", "tae", "fisica"] as const).map(value => <button key={value} className={filter === value ? "active" : ""} onClick={() => setFilter(value)}>{value === "all" ? "Todas" : value === "tae" ? "TAE" : "Física"}</button>)}</div><span className="soft-tag">{visible.length} registro(s) · {due} para retomar</span></div>
       {showForm && <form className="error-form" onSubmit={submit}>
@@ -150,6 +156,7 @@ export function ErrorsPage() {
 }
 
 export function QuestionsPage() {
+  const context=useStudyContext();
   const [blocks, setBlocks] = useState<QuestionBlock[]>([]);
   const [form, setForm] = useState(EMPTY_BLOCK);
   const [showForm, setShowForm] = useState(false);
@@ -157,13 +164,15 @@ export function QuestionsPage() {
   const [feedback, setFeedback] = useState("");
   async function reload() { setBlocks(await listQuestionBlocks()); }
   useEffect(() => { reload(); }, []);
-  const visible = blocks.filter(block => filter === "all" || block.subject === filter);
+  const visible = blocks.filter(block => context.requested?context.valid&&linkedTo(block,context.ref):filter === "all" || block.subject === filter);
+  function newBlock(){setForm(context.valid?{...EMPTY_BLOCK,topic:context.title,subject:/f[ií]sica/i.test(context.plan?.area||"")?"fisica":"tae"}:EMPTY_BLOCK);setShowForm(true);}
   const total = visible.reduce((sum, block) => sum + block.total, 0);
   const correct = visible.reduce((sum, block) => sum + block.correct, 0);
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if(context.requested&&!context.valid){setFeedback("Assunto indisponível.");return;}
     if (!form.topic.trim() || form.total < 1 || form.correct < 0 || form.correct > form.total) { setFeedback("Confira o assunto, o total e a quantidade de acertos."); return; }
-    await saveQuestionBlock({ ...form, id: crypto.randomUUID(), topic: form.topic.trim(), at: Date.now() });
+    await saveQuestionBlock({ ...form, id: crypto.randomUUID(), topic: form.topic.trim(), at: Date.now(),...(context.valid?{planTopics:[context.ref]}:{}) });
     setForm(EMPTY_BLOCK); setShowForm(false); setFeedback("Bloco registrado."); await reload();
   }
   async function remove(id: string) {
@@ -171,7 +180,8 @@ export function QuestionsPage() {
     await deleteQuestionBlock(id); await reload();
   }
   return <div className="stack">
-    <header className="heading"><div><small>RITMO / PRÁTICA</small><h1>Questões</h1><p>Registre blocos resolvidos e acompanhe a aplicação do que você estudou.</p></div><button className="primary-button" onClick={() => setShowForm(value => !value)}><Plus size={16}/>Registrar bloco</button></header>
+    <header className="heading"><div><small>RITMO / PRÁTICA</small><h1>Questões</h1><p>Registre blocos resolvidos e acompanhe a aplicação do que você estudou.</p></div><button className="primary-button" onClick={()=>showForm?setShowForm(false):newBlock()}><Plus size={16}/>Registrar bloco</button></header>
+    {context.requested&&<p className="inline-feedback">{context.valid?context.plan?.title+" · "+context.title:"Assunto indisponível ou carregando."} · <Link to={context.returnTo}>Voltar a Aprender</Link></p>}
     <section className="panel">
       <div className="practice-toolbar"><div className="filter-pills">{(["all", "tae", "fisica"] as const).map(value => <button key={value} className={filter === value ? "active" : ""} onClick={() => setFilter(value)}>{value === "all" ? "Todas" : value === "tae" ? "TAE" : "Física"}</button>)}</div><span className="soft-tag">{total} questões · {total ? Math.round(correct / total * 100) : 0}% de acertos</span></div>
       {showForm && <form className="question-form" onSubmit={submit}><div className="form-grid">
@@ -181,7 +191,7 @@ export function QuestionsPage() {
         <div className="field-block"><label>Acertos</label><input type="number" min={0} max={500} value={form.correct} onChange={event => setForm(current => ({ ...current, correct: Number(event.target.value) }))}/></div>
         <div className="field-block field-span"><label>Observação (opcional)</label><textarea rows={2} value={form.note} onChange={event => setForm(current => ({ ...current, note: event.target.value }))} placeholder="Banca, dificuldade, tipo de erro…"/></div>
       </div>{feedback && <p className="inline-feedback">{feedback}</p>}<div className="form-actions"><button type="button" className="secondary-button" onClick={() => setShowForm(false)}>Cancelar</button><button className="primary-button" type="submit">Registrar questões <Check size={15}/></button></div></form>}
-      <div className="question-block-list">{visible.length ? visible.map(block => <article className="question-block-card" key={block.id}><div><span className="subject-pill">{subjectLabel(block.subject)}</span><h3>{block.topic}</h3><p>{dateLabel(block.at)} · {block.total} questões · {block.correct} acertos · {Math.round(block.correct / block.total * 100)}%</p>{block.note && <small>{block.note}</small>}</div><button className="icon-button" aria-label="Excluir bloco" onClick={() => remove(block.id)}><Trash2 size={14}/></button></article>) : <div className="empty-state"><Target size={28}/><strong>Nenhum bloco registrado</strong><span>Registre uma sessão de questões para acompanhar seus acertos por assunto.</span><button className="primary-button" onClick={() => setShowForm(true)}>Registrar primeiro bloco</button></div>}</div>
+      <div className="question-block-list">{visible.length ? visible.map(block => <article className="question-block-card" key={block.id}><div><span className="subject-pill">{subjectLabel(block.subject)}</span><h3>{block.topic}</h3><p>{dateLabel(block.at)} · {block.total} questões · {block.correct} acertos · {Math.round(block.correct / block.total * 100)}%</p>{block.note && <small>{block.note}</small>}</div><button className="icon-button" aria-label="Excluir bloco" onClick={() => remove(block.id)}><Trash2 size={14}/></button></article>) : <div className="empty-state"><Target size={28}/><strong>Nenhum bloco registrado</strong><span>Registre uma sessão de questões para acompanhar seus acertos por assunto.</span><button className="primary-button" onClick={newBlock}>Registrar primeiro bloco</button></div>}</div>
     </section>
   </div>;
 }

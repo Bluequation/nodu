@@ -1,0 +1,8 @@
+import {describe,it,expect} from "vitest";
+import {addTopicLink,linkedTo,linkedToPlan,markTopicStudied,topicScheduled,topicUrl} from "./topicContext";
+import type {StudyPlan} from "./models";
+const p:StudyPlan={id:"p",title:"Plano",institution:"",position:"",area:"",organizer:"",examDate:"",sourceFile:"",sourceText:"",tree:[{id:"n",name:"Mesmo nome",selected:true,origin:"edital",sourceText:"",sourceRef:"",children:[]}],warnings:[],selectionIndex:0,status:"active",stage:"schedule",createdAt:0,updatedAt:0,scheduleConfig:{startDate:"2026-11-01",examDate:"2026-11-30",days:[1],minutes:60,mode:"alternate"},assignments:[{nodeId:"n",name:"Mesmo nome",path:["Mesmo nome"],origin:"edital",sourceRef:"",day:1}]};
+describe("topic context",()=>{
+ it("isolates same-name topics in different plans",()=>{const ref={planId:"p",nodeId:"n"},other={planId:"other",nodeId:"n"},m={planTopics:addTopicLink(undefined,ref)};expect(linkedTo(m,ref)).toBe(true);expect(linkedTo(m,other)).toBe(false);expect(linkedToPlan(m,p)).toBe(true);expect(linkedToPlan(m,{...p,id:"other"})).toBe(false);expect(addTopicLink(m.planTopics,ref)).toHaveLength(1);expect(topicUrl("/learn",ref,"2026-11-09")).toBe("/learn?plan=p&topic=n&date=2026-11-09");});
+ it("marks only a scheduled valid occurrence, once",()=>{const ref={planId:"p",nodeId:"n"};expect(topicScheduled(p,"n","2026-11-09")).toBe(true);const next=markTopicStudied(p,ref,"2026-11-09","2026-11-14");expect(next.assignments[0].completedDates).toEqual(["2026-11-09"]);expect(markTopicStudied(next,ref,"2026-11-09","2026-11-14")).toBe(next);expect(markTopicStudied(p,ref,"2026-11-16","2026-11-14")).toBe(p);expect(markTopicStudied(p,ref,"2026-11-10","2026-11-14")).toBe(p);});
+});

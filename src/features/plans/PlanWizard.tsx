@@ -6,6 +6,7 @@ import {
   NotebookPen, Pencil, Plus, Sparkles, Target, TrendingUp, Upload, LoaderCircle,
 } from "lucide-react";
 import { getPlan, savePlan } from "../../data/plans";
+import {learnUrl,linkedToPlan} from "../../domain/topicContext";
 import { listConcepts, listErrors, listQuestionBlocks } from "../../data/study";
 import type { Concept, ErrorRecord, QuestionBlock } from "../../domain/study";
 import type { DaySchedule, PlanAssignment, PlanNode, PlanStage, ScheduleConfig, StudyPlan } from "../../domain/models";
@@ -495,21 +496,18 @@ export function PlanDetailRoute() {
   const subjectFilter = plan ? planSubjectFilter(plan) : null;
   const relevantConcepts = concepts.filter(item =>
     item.status === "published" && !item.suspended &&
-    topicKeys.has(normalizePlanTopic(item.topic)) &&
-    (!subjectFilter || item.subject === subjectFilter)
+    (item.planTopics?.length?Boolean(plan&&linkedToPlan(item,plan)):topicKeys.has(normalizePlanTopic(item.topic))&&(!subjectFilter||item.subject===subjectFilter))
   );
   const dueConcepts = relevantConcepts.filter(item => item.fsrs.due <= Date.now());
   const relevantErrors = errors.filter(item =>
     item.status !== "dominado" &&
-    topicKeys.has(normalizePlanTopic(item.topic)) &&
-    (!subjectFilter || item.subject === subjectFilter)
+    (item.planTopics?.length?Boolean(plan&&linkedToPlan(item,plan)):topicKeys.has(normalizePlanTopic(item.topic))&&(!subjectFilter||item.subject===subjectFilter))
   );
   const dueErrors = relevantErrors.filter(item => item.nextReview <= Date.now()).sort((a, b) => a.nextReview - b.nextReview);
 
   const performanceByTopic = new Map<string, { topic: string; subject: string; total: number; correct: number }>();
   questionBlocks.filter(item =>
-    topicKeys.has(normalizePlanTopic(item.topic)) &&
-    (!subjectFilter || item.subject === subjectFilter)
+    (item.planTopics?.length?Boolean(plan&&linkedToPlan(item,plan)):topicKeys.has(normalizePlanTopic(item.topic))&&(!subjectFilter||item.subject===subjectFilter))
   ).forEach(block => {
     const key = block.subject + "|" + normalizePlanTopic(block.topic);
     const current = performanceByTopic.get(key) || { topic: block.topic, subject: block.subject, total: 0, correct: 0 };
@@ -633,7 +631,7 @@ export function PlanDetailRoute() {
               {nextStudyItems.length > 5 && <span className="plan-more-topics">+ {nextStudyItems.length - 5} outros assuntos previstos nesta sessão</span>}
             </div>
             <div className="plan-next-actions">
-              {nextStudySimulation ? <Link className="plan-light-button" to="/questions"><Target size={15}/>Registrar simulado</Link> : <Link className="plan-light-button" to="/learn"><BookOpen size={15}/>Abrir Aprender</Link>}
+              {nextStudySimulation ? <Link className="plan-light-button" to="/questions"><Target size={15}/>Registrar simulado</Link> : <Link className="plan-light-button" to={learnUrl(plan.id,nextStudyKey,nextStudyItems[0]?.nodeId)}><BookOpen size={15}/>Abrir Aprender</Link>}
               <Link className="plan-hero-link" to="/agenda">Ver agenda <ArrowRight size={14}/></Link>
             </div>
           </> : <div className="plan-no-next"><CalendarDays size={28}/><h2>Não há sessões futuras no cronograma.</h2><p>Confira as datas da preparação e a distribuição dos assuntos.</p><Link className="plan-light-button" to={"/plans/" + plan.id + "/verticalize"}>Revisar cronograma</Link></div>}
@@ -742,7 +740,7 @@ export function PlanDetailRoute() {
     </>}
 
     <section className="plan-quick-actions">
-      <Link to="/learn"><BookOpen size={17}/><span><b>Aprender</b><small>Estudar seus materiais</small></span><ArrowRight size={15}/></Link>
+      <Link to={learnUrl(plan.id)}><BookOpen size={17}/><span><b>Aprender</b><small>Estudar seus materiais</small></span><ArrowRight size={15}/></Link>
       <Link to="/reviews"><Clock3 size={17}/><span><b>Revisões</b><small>Retomar o que está vencido</small></span><ArrowRight size={15}/></Link>
       <Link to="/questions"><NotebookPen size={17}/><span><b>Questões</b><small>Medir seu aproveitamento</small></span><ArrowRight size={15}/></Link>
       <Link to="/errors"><Flame size={17}/><span><b>Caderno de erros</b><small>Trabalhar suas dificuldades</small></span><ArrowRight size={15}/></Link>

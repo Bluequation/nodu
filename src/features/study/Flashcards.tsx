@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, BookOpen, Check, Clock3, Layers3, Plus, RotateCcw, Sparkles } from "lucide-react";
 import type { Concept, FlashcardVariant, ReviewLog, StudySettings, StudySubject } from "../../domain/study";
+import {useStudyContext} from "./useStudyContext";
+import {addTopicLink} from "../../domain/topicContext";
 import { emptyFsrsState, rateFsrs, type FsrsGrade } from "../../domain/fsrs";
 import {
   createConcept, getConcept, getStudySettings, listConcepts, listReviews,
@@ -72,7 +74,8 @@ function FlashcardEditor() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const returnTo = searchParams.get("return") === "curation" ? "/curation" : "/flashcards";
+  const context=useStudyContext();
+  const returnTo = context.requested?context.returnTo:searchParams.get("return") === "curation" ? "/curation" : "/flashcards";
   const editing = !!id;
   const [subject, setSubject] = useState<StudySubject>("tae");
   const [topic, setTopic] = useState("");
@@ -95,6 +98,7 @@ function FlashcardEditor() {
     }).finally(() => setLoading(false));
   }, [id]);
 
+  useEffect(()=>{if(!editing&&context.valid){setTopic(context.title);if(/f[ií]sica/i.test(context.plan?.area||""))setSubject("fisica");}},[editing,context.valid,context.title,context.plan?.area]);
   function updateVariant(index: number, patch: Partial<FlashcardVariant>) {
     setVariants(current => current.map((variant, i) => i === index ? { ...variant, ...patch } : variant));
   }
@@ -108,6 +112,7 @@ function FlashcardEditor() {
   }
   async function submit(event: FormEvent) {
     event.preventDefault(); setError("");
+    if(context.requested&&!context.valid){setError("O assunto do plano não está disponível.");return;}
     if (!topic.trim()) { setError("Informe o conhecimento que esta família vai cobrar."); return; }
     if (!variants.length || variants.some(variant => !variant.q.trim() || !variant.a.trim())) { setError("Cada versão precisa ter pergunta e resposta."); return; }
     const normalizedQuestions = variants.map(variant => variant.q.trim().toLocaleLowerCase().replace(/\\s+/g, " "));
@@ -118,9 +123,9 @@ function FlashcardEditor() {
     try {
       const clean = variants.map(variant => ({ ...variant }));
       if (existing) {
-        await saveConcept({ ...existing, subject, topic: topic.trim(), source: source.trim(), variants: clean });
+        await saveConcept({ ...existing, subject, topic: topic.trim(), source: source.trim(), variants: clean,...(context.valid?{planTopics:addTopicLink(existing.planTopics,context.ref)}:{}) });
       } else {
-        await createConcept({ subject, topic, source }, clean, "draft");
+        await createConcept({ subject, topic, source,...(context.valid?{planTopics:[context.ref]}:{}) }, clean, "draft");
       }
       navigate(returnTo);
     } catch {
@@ -130,7 +135,8 @@ function FlashcardEditor() {
   }
   if (loading) return <div className="loading-panel">Carregando família…</div>;
   return <div className="stack">
-    <header className="heading"><div><small>RITMO / FLASHCARDS</small><h1>{editing ? "Editar família" : "Nova família"}</h1><p>O conteúdo central permanece o mesmo; cada versão muda a forma de recuperação.</p></div><Link className="secondary-button" to="/flashcards"><ArrowLeft size={15}/>Voltar</Link></header>
+    <header className="heading"><div><small>RITMO / FLASHCARDS</small><h1>{editing ? "Editar família" : "Nova família"}</h1><p>O conteúdo central permanece o mesmo; cada versão muda a forma de recuperação.</p></div><Link className="secondary-button" to={returnTo}><ArrowLeft size={15}/>Voltar</Link></header>
+    {context.requested&&<p className="inline-feedback">{context.loading?"Carregando assunto…":context.valid?context.plan?.title+" · "+context.title+" · Família será salva como rascunho.":"Assunto indisponível."}</p>}
     <form className="stack" onSubmit={submit}>
       <section className="panel wizard-panel">
         <div className="panel-title-row"><div><span className="step-kicker">CONHECIMENTO</span><h2>Defina o que precisa ser lembrado</h2><p>Uma família deve representar um microconhecimento específico, não um capítulo inteiro.</p></div><span className="soft-tag">{variants.length}/10 versões</span></div>
@@ -158,7 +164,7 @@ function FlashcardEditor() {
         </div>
         <div className="note-strip"><strong>Controle de qualidade</strong>Prefira perguntas que peçam definição, diferença, comparação, competência, responsável, prazo, condição ou exceção. Em lei seca, teste a precisão da redação e a troca de uma palavra que altere o sentido. Não transforme uma informação não conferida em resposta.</div>
         {error && <p className="inline-feedback" role="alert">{error}</p>}
-        <div className="form-actions"><Link to="/flashcards">Cancelar</Link><button className="primary-button" disabled={saving}>{saving ? "Salvando…" : "Salvar família"} <Check size={15}/></button></div>
+        <div className="form-actions"><Link to={returnTo}>Cancelar</Link><button className="primary-button" disabled={saving}>{saving ? "Salvando…" : "Salvar família"} <Check size={15}/></button></div>
       </section>
     </form>
   </div>;

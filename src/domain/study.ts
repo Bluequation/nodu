@@ -26,6 +26,7 @@ export interface FsrsState {
   interval: number;
 }
 export interface Concept {
+  planTopics?: PlanTopicRef[];
   id: string;
   subject: StudySubject;
   topic: string;
@@ -59,6 +60,7 @@ export interface ErrorHistoryEntry {
   grade: "right" | "wrong";
 }
 export interface ErrorRecord {
+  planTopics?: PlanTopicRef[];
   id: string;
   subject: StudySubject;
   discipline: string;
@@ -81,6 +83,7 @@ export interface ErrorRecord {
   history: ErrorHistoryEntry[];
 }
 export interface QuestionBlock {
+  planTopics?: PlanTopicRef[];
   id: string;
   subject: StudySubject;
   topic: string;
@@ -90,6 +93,8 @@ export interface QuestionBlock {
   note: string;
 }
 export interface LearningSession {
+  planTopic?: PlanTopicRef;
+  sessionDate?: string;
   id: string;
   mode: string;
   topic: string;
@@ -109,3 +114,6 @@ export interface StudySettings {
   reviewLimit: number;
   leech: number;
 }
+
+/** Stable identity shared by materials from different modules. */
+export interface PlanTopicRef {planId:string;nodeId:string}
