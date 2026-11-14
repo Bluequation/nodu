@@ -10,7 +10,7 @@ if (scripts.length === 0) {
 }
 
 for (const [index, match] of scripts.entries()) {
-  new vm.Script(match[2], { filename: \`index.html:inline-script-\${index + 1}\` });
+  new vm.Script(match[2], { filename: 'index.html:inline-script-' + (index + 1) });
 }
 
-console.log(\`Validated \${scripts.length} inline script(s): JavaScript syntax is valid.\`);
+console.log('Validated ' + scripts.length + ' inline script(s): JavaScript syntax is valid.');
