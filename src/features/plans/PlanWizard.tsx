@@ -8,7 +8,7 @@ import { getPlan, savePlan } from "../../data/plans";
 import type { PlanNode, PlanStage, ScheduleConfig, StudyPlan } from "../../domain/models";
 import {
   addManualChildToTree, buildVerticalPrompt, getNodeSelectionState,
-  getPlanSections, getSelectedLeaves, parseVerticalMarkdown, renameNodeInTree,
+  getPlanSections, getSelectedLeaves, parseVerticalMarkdown, renameNodeInTree, type SelectedPlanLeaf,
   toggleNodeInTree,
 } from "../../domain/verticalization";
 
@@ -214,7 +214,7 @@ function distribute(plan: StudyPlan, config: ScheduleConfig) {
   }));
 }
 
-function buildPriorityPrompt(plan: StudyPlan, leaves: PlanNode[]) {
+function buildPriorityPrompt(plan: StudyPlan, leaves: SelectedPlanLeaf[]) {
   const topics = leaves.map(leaf => `ID: ${leaf.id}\nTÍTULO LITERAL: ${displayNodeName(leaf.name)}\nREFERÊNCIA: ${leaf.sourceRef || "não informada"}`).join("\n\n");
   return [
     "Analise a prioridade de estudo dos tópicos abaixo para um concurso.",
@@ -228,7 +228,7 @@ function buildPriorityPrompt(plan: StudyPlan, leaves: PlanNode[]) {
   ].join("\n");
 }
 
-function parsePriorityOrder(response: string, leaves: PlanNode[]) {
+function parsePriorityOrder(response: string, leaves: SelectedPlanLeaf[]) {
   const found: string[] = [];
   response.split(/\r?\n/).forEach(line => {
     const match = leaves.find(leaf => line.includes(leaf.id));
@@ -459,12 +459,14 @@ function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyP
     setConfig(next);
     void onSave({ ...plan, scheduleConfig: next, updatedAt: Date.now() });
   }
-  function changeDays(days: number[]) {
+  function changeDays(selectedDays: number[]) {
+    const days = WEEKDAYS.filter(day => selectedDays.includes(day.id)).map(day => day.id);
     const dayMinutes = { ...(config.dayMinutes || {}) };
     days.forEach(day => { if (!dayMinutes[day]) dayMinutes[day] = config.minutes; });
     const nextConfig = { ...config, days, dayMinutes };
     const nextAssignments = days.length ? assignments.map((item, index) => days.includes(item.day) ? item : { ...item, day: days[index % days.length] }) : assignments;
     setConfig(nextConfig); setAssignments(nextAssignments); setSelectedIds([]);
+    setBulkDay(current => days.includes(current) ? current : (days[0] ?? 1));
     void onSave({ ...plan, scheduleConfig: nextConfig, assignments: nextAssignments, updatedAt: Date.now() });
   }
   function setSharedMinutes(minutes: number) {
