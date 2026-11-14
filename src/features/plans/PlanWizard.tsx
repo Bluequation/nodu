@@ -839,9 +839,10 @@ function findNextPlanStudyDate(plan: StudyPlan, from = new Date()) {
     if (config.examDate && planDateKey(date) > config.examDate) break;
     if (!config.days.includes(date.getDay())) continue;
     const tasks = plan.assignments.filter(item => item.day === date.getDay());
-    if (!tasks.length) continue;
     const key = planDateKey(date);
-    if (tasks.some(item => !(item.completedDates || []).includes(key))) return date;
+    const simulation = config.daySchedules?.[date.getDay()];
+    const simulationPending = Boolean(simulation?.simulation && !(simulation.completedDates || []).includes(key));
+    if (tasks.some(item => !(item.completedDates || []).includes(key)) || simulationPending) return date;
   }
   return null;
 }
@@ -885,7 +886,10 @@ export function PlanDetailRoute() {
       const key = planDateKey(date);
       const items = plan.assignments.filter(item => item.day === day.id);
       const completed = items.filter(item => (item.completedDates || []).includes(key)).length;
-      return { ...day, date, key, items, completed, active: planDateIsActive(date, config), isToday: key === todayKey };
+      const slot = config.daySchedules?.[day.id];
+      const simulation = Boolean(slot?.simulation);
+      const simulationDone = Boolean(simulation && (slot?.completedDates || []).includes(key));
+      return { ...day, date, key, items, completed, slot, simulation, simulationDone, minutes: minutesForDay(config, day.id), active: planDateIsActive(date, config), isToday: key === todayKey };
     });
   }, [plan, config, todayKey]);
 
@@ -895,12 +899,18 @@ export function PlanDetailRoute() {
     ? plan.assignments.filter(item => item.day === nextStudyDate.getDay() && !(item.completedDates || []).includes(nextStudyKey))
     : [];
   const nextStudyMinutes = config && nextStudyDate ? minutesForDay(config, nextStudyDate.getDay()) : 0;
+  const nextStudySlot = config && nextStudyDate ? config.daySchedules?.[nextStudyDate.getDay()] : undefined;
+  const nextStudySimulation = Boolean(nextStudySlot?.simulation && !(nextStudySlot.completedDates || []).includes(nextStudyKey));
   const todayEntry = weekEntries.find(day => day.isToday);
-  const todayFinished = Boolean(todayEntry && todayEntry.items.length > 0 && todayEntry.completed === todayEntry.items.length);
+  const todayFinished = Boolean(todayEntry && (todayEntry.items.length > 0 || todayEntry.simulation) &&
+    todayEntry.completed === todayEntry.items.length && (!todayEntry.simulation || todayEntry.simulationDone));
   const weeklyPlanned = weekEntries.filter(day => day.active).reduce((sum, day) => sum + day.items.length, 0);
   const weeklyCompleted = weekEntries.filter(day => day.active).reduce((sum, day) => sum + day.completed, 0);
   const weeklyPercent = weeklyPlanned ? Math.round(weeklyCompleted / weeklyPlanned * 100) : 0;
-  const firstUpcomingDayKey = weekEntries.find(day => day.active && day.key >= todayKey && day.items.some(item => !(item.completedDates || []).includes(day.key)))?.key || "";
+  const firstUpcomingDayKey = weekEntries.find(day => day.active && day.key >= todayKey && (
+    day.items.some(item => !(item.completedDates || []).includes(day.key)) || (day.simulation && !day.simulationDone)
+  ))?.key || "";
+  const unassignedCount = (plan?.assignments || []).filter(item => !config?.days.includes(item.day)).length;
 
   const topicKeys = useMemo(() => new Set((plan?.assignments || []).map(item => normalizePlanTopic(displayNodeName(item.name)))), [plan]);
   const subjectFilter = plan ? planSubjectFilter(plan) : null;
@@ -946,6 +956,30 @@ export function PlanDetailRoute() {
   const coverageTotal = plan?.assignments.length || 0;
   const coveragePercent = coverageTotal ? Math.round(coverageStudied / coverageTotal * 100) : 0;
 
+  async function toggleSimulationCompletion(dayId: number, dateKey: string) {
+    if (!plan || !plan.scheduleConfig || savingCompletion) return;
+    setSavingCompletion(true);
+    const current = plan.scheduleConfig.daySchedules?.[dayId] || { startTime: "", endTime: "", simulation: false };
+    const dates = new Set(current.completedDates || []);
+    if (dates.has(dateKey)) dates.delete(dateKey);
+    else dates.add(dateKey);
+    const scheduleConfig = {
+      ...plan.scheduleConfig,
+      daySchedules: {
+        ...(plan.scheduleConfig.daySchedules || {}),
+        [dayId]: { ...current, simulation: true, completedDates: [...dates].sort() },
+      },
+    };
+    try {
+      const saved = await savePlan({ ...plan, scheduleConfig });
+      setPlan(saved);
+    } catch {
+      setLoadError("Não foi possível salvar a conclusão do simulado. Tente novamente.");
+    } finally {
+      setSavingCompletion(false);
+    }
+  }
+
   async function toggleStudyCompletion(nodeId: string, dateKey: string) {
     if (!plan || savingCompletion) return;
     setSavingCompletion(true);
@@ -974,7 +1008,10 @@ export function PlanDetailRoute() {
     : null;
   const statusLabel = plan.status === "active" ? "Preparação em andamento" : plan.status === "completed" ? "Plano concluído" : "Plano em construção";
   const subjectMeta = [plan.institution, plan.position, plan.area, plan.organizer].filter(Boolean).join(" · ");
-  const canStudy = Boolean(config && plan.assignments.length);
+  const canStudy = Boolean(config && (
+    plan.assignments.some(item => config.days.includes(item.day)) ||
+    config.days.some(day => config.daySchedules?.[day]?.simulation)
+  ));
 
   return <div className="stack plan-detail-stack">
     <header className="heading plan-detail-header">
@@ -1002,8 +1039,11 @@ export function PlanDetailRoute() {
           {todayFinished && nextStudyDate && nextStudyKey !== todayKey && <div className="plan-today-success"><CheckCircle2 size={15}/> Você concluiu o que estava previsto para hoje. Bom trabalho!</div>}
           {nextStudyDate ? <>
             <div className="plan-next-date">{planDateLabel(nextStudyDate, { weekday: "long", day: "2-digit", month: "long" })}</div>
-            <h2>{nextStudyKey === todayKey ? "Vamos avançar um assunto de cada vez." : "Sua próxima sessão já está organizada."}</h2>
-            <p className="plan-next-description">{nextStudyMinutes} minutos reservados no seu cronograma. Escolha um assunto, estude com atenção e registre o que conseguiu aprender.</p>
+            <h2>{nextStudySimulation ? "Dia de simulado: chegou a hora de testar sua preparação." : nextStudyKey === todayKey ? "Vamos avançar um assunto de cada vez." : "Sua próxima sessão já está organizada."}</h2>
+            <p className="plan-next-description">{nextStudySlot?.startTime && nextStudySlot?.endTime
+              ? `Das ${nextStudySlot.startTime} às ${nextStudySlot.endTime} · ${formatDuration(nextStudyMinutes)}.`
+              : nextStudyMinutes ? `${nextStudyMinutes} minutos reservados no seu cronograma.` : "O horário desta sessão ainda não foi definido."} {nextStudySimulation ? "Faça o simulado no tempo previsto e registre o resultado." : "Escolha um assunto, estude com atenção e registre o que conseguiu aprender."}</p>
+            {nextStudySimulation && <div className="plan-week-simulation"><Target size={16}/><span>Dia reservado para simulado. Ao terminar, marque a realização na seção “Esta semana”.</span><Link to="/questions">Registrar resultado <ArrowRight size={12}/></Link></div>}
             <div className="plan-next-topic-list">
               {nextStudyItems.slice(0, 5).map(item => <label className="plan-next-topic" key={item.nodeId}>
                 <span className="plan-topic-bullet"/>
@@ -1049,6 +1089,8 @@ export function PlanDetailRoute() {
         </div>
       </section>
 
+      {unassignedCount > 0 && <div className="plan-unassigned-notice"><Info size={17}/><span><b>{unassignedCount} conteúdo(s) ainda sem dia.</b> Eles continuam no seu plano, mas não entram nas sessões até você organizá-los.</span><Link to={"/plans/" + plan.id + "/verticalize"}>Organizar <ArrowRight size={12}/></Link></div>}
+
       <div className="plan-detail-columns">
         <section className="panel plan-weekly-panel">
           <div className="plan-section-heading compact">
@@ -1057,7 +1099,9 @@ export function PlanDetailRoute() {
           </div>
           <div className="plan-week-list">
             {weekEntries.map(day => <details className={"plan-week-day " + (day.isToday ? "is-today" : "")} key={day.id} open={day.key === (firstUpcomingDayKey || todayKey)}>
-              <summary><span className="plan-week-day-name">{day.label}{day.isToday && <em>Hoje</em>}</span><span className="plan-week-day-count">{day.completed}/{day.items.length} estudados</span><ChevronDown size={15}/></summary>
+              <summary><span className="plan-week-day-name">{day.label}{day.isToday && <em>Hoje</em>}</span><span className="plan-week-day-count">{day.simulation ? (day.simulationDone ? "Simulado realizado" : "Dia de simulado") : `${day.completed}/${day.items.length} estudados`}</span><ChevronDown size={15}/></summary>
+              {(day.slot?.startTime || day.slot?.endTime) && <p className="plan-week-day-time">{day.slot?.startTime || "--:--"} às {day.slot?.endTime || "--:--"} · {formatDuration(day.minutes)}</p>}
+              {day.simulation && <div className="plan-week-simulation"><Target size={16}/><span>Dia reservado para simulado.</span><label><input type="checkbox" checked={day.simulationDone} disabled={savingCompletion || !day.active} onChange={() => toggleSimulationCompletion(day.id, day.key)}/>{day.simulationDone ? "Realizado" : "Marcar como realizado"}</label><Link to="/questions">Registrar resultado <ArrowRight size={12}/></Link></div>}
               {day.items.length ? <div className="plan-week-topic-list">
                 {day.items.map(item => {
                   const done = (item.completedDates || []).includes(day.key);
@@ -1067,7 +1111,7 @@ export function PlanDetailRoute() {
                     <em>{done ? "Estudado" : day.active ? "Marcar como estudado" : "Fora do período"}</em>
                   </label>;
                 })}
-              </div> : <p className="plan-week-empty">Nenhum assunto distribuído para este dia.</p>}
+              </div> : !day.simulation ? <p className="plan-week-empty">Nenhum assunto distribuído para este dia.</p> : null}
             </details>)}
           </div>
         </section>
