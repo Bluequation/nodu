@@ -31,13 +31,6 @@
 .ritmo-planner .rp-toggle input{accent-color:#376b9f;margin:0;width:13px;height:13px}
 .ritmo-planner .rp-day-body{display:flex;flex-wrap:wrap;align-content:flex-start;align-items:flex-start;gap:5px;flex:1;min-height:37px;max-height:138px;padding:7px 10px 9px;overflow:auto;scrollbar-width:thin;scrollbar-color:#c7ced5 transparent;overscroll-behavior:contain}
 .ritmo-planner .rp-mock{display:flex;align-items:center;gap:4px;color:#8e6d38;background:#f2e8d3;padding:6px 7px;border-radius:6px;font-size:11px}
-.ritmo-planner [data-tone]{--area-bg:#f4f0ea;--area-chip:#e9e2d8;--area-ink:#6f6254;--area-edge:#e1d8cc;--area-dot:#a89884}
-.ritmo-planner [data-tone="law"]{--area-bg:#edf3fa;--area-chip:#dbe8f6;--area-ink:#315c84;--area-edge:#d5e3f1;--area-dot:#6d9ac5}
-.ritmo-planner [data-tone="pedagogy"]{--area-bg:#f3eef8;--area-chip:#e8ddf2;--area-ink:#70558c;--area-edge:#e7dcef;--area-dot:#a08ab9}
-.ritmo-planner [data-tone="administration"]{--area-bg:#faf4e7;--area-chip:#f0e2c4;--area-ink:#85622e;--area-edge:#eee2c9;--area-dot:#c29b58}
-.ritmo-planner [data-tone="language"]{--area-bg:#edf4ee;--area-chip:#dceadf;--area-ink:#486d57;--area-edge:#dbe9df;--area-dot:#7ba58b}
-.ritmo-planner [data-tone="data"]{--area-bg:#eaf3f3;--area-chip:#d6e8e9;--area-ink:#38696e;--area-edge:#d7e7e8;--area-dot:#6ca0a4}
-.ritmo-planner [data-tone="specific"]{--area-bg:#eeeffa;--area-chip:#dfe1f5;--area-ink:#585b96;--area-edge:#dfe2f3;--area-dot:#8b90c5}
 .ritmo-planner .rp-tile{display:flex;align-items:center;min-width:0;max-width:100%;flex:0 1 auto;background:var(--area-chip);color:var(--area-ink);border-radius:6px;transition:opacity .15s}
 .ritmo-planner .rp-tile.picked{outline:2px solid var(--area-dot);outline-offset:-1px}
 .ritmo-planner .rp-tile.moving{opacity:.4}

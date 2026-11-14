@@ -137,7 +137,7 @@ function Plans() {
   const upcoming=active.map(plan=>({plan,next:galleryNext(plan,now)})).filter(item=>item.next!==null).sort((a,b)=>a.next!.date.getTime()-b.next!.date.getTime());
   const first=upcoming[0];
   const todayCount=active.filter(plan=>{const d=galleryDay(plan,now);return d.pending||d.pendingSimulation;}).length;
-  return <div className="stack hybrid-plans">
+  return <div className="stack hybrid-plans ritmo-plan-surface">
     <Heading eyebrow="PLANEJAMENTO" title="Meus planos" desc="" action={<Link className="primary-button" to="/plans/new">Novo plano <ArrowRight size={16}/></Link>}/>
     {first&&<section className="gallery-today">
       <div className="gallery-today-icon"><CalendarDays size={22}/></div>
@@ -156,9 +156,9 @@ function Plans() {
         <div className="gallery-plan-top"><span className={`gallery-status ${plan.status}`}>{plan.status==="active"?"Ativo":plan.status==="completed"?"Concluído":"Rascunho"}</span><div className="gallery-ring" style={{background:`conic-gradient(var(--blue) ${percent}%, #eee9e1 0)`}} aria-label={`${percent}% dos conteúdos organizados`}><b>{percent}%</b></div></div>
         <div className="gallery-name"><h3>{plan.title}</h3><p>{[plan.institution,plan.position,plan.area].filter(Boolean).join(" · ")}</p></div>
         <div className="gallery-next"><small>{plan.status==="draft"?"EM CONSTRUÇÃO":next?.pendingSimulation?"PRÓXIMO SIMULADO / ESTUDO":"PRÓXIMA SESSÃO"}</small><strong>{nextLabel}</strong>{next&&<span>{next.pending} {next.pending===1?"assunto pendente":"assuntos pendentes"}{next.pendingSimulation?" · Simulado":""}</span>}</div>
-        <div className="gallery-progress-label"><span>Conteúdos organizados</span><b>{organized}/{count}</b></div>
+        <div className="gallery-progress-label"><span>Organização da semana</span><b>{organized}/{count}</b></div>
         <div className="gallery-progress" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100} aria-label="Organização do plano"><i style={{width:percent+"%"}}/></div>
-        <div className="gallery-week" aria-label="Semana atual">{weekDates.map((date,i)=>{
+        <div className="gallery-week" aria-label="Semana atual"><span className="rp-gallery-week-caption">Esta semana</span>{weekDates.map((date,i)=>{
           const d=galleryDay(plan,date);
           const state= d.hasSession&&!d.pending&&!d.pendingSimulation?"done":d.simulation?"simulation":d.tasks.length?"study":d.active?"available":"";
           return <div key={i} title={`${GALLERY_DAYS[i]}: ${d.tasks.length} conteúdo(s)${d.simulation?" · Simulado":""}`}><span>{GALLERY_DAYS[i]}</span><i className={state}>{state==="done"?<CheckCircle2 size={13}/>:d.simulation?"S":d.tasks.length||""}</i></div>;
@@ -189,7 +189,7 @@ function NewPlan() {
       setSaving(false);
     }
   }
-  return <div className="stack">
+  return <div className="stack ritmo-plan-surface rp-new-plan">
     <Heading eyebrow="PLANEJAMENTO · NOVO PLANO" title="Identifique seu concurso" desc="Um concurso pode ter vários cargos e áreas. Cada plano deve representar o recorte que você realmente vai estudar."/>
     <Panel className="wizard-panel">
       <div className="panel-title-row"><div><span className="step-kicker">PASSO 1 · IDENTIFICAÇÃO</span><h2>Sobre o que você vai estudar?</h2><p>Essas informações ajudam a IA a não misturar conteúdos de outros cargos ou áreas.</p></div><span className="soft-tag">Você controla o plano</span></div>

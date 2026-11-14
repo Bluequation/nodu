@@ -64,6 +64,9 @@ try{
  assert.equal(await day(page,1).locator(".rp-tile").getAttribute("data-tone"),"law");
  await saved(page);
  await page.reload();await topic(day(page,1),"LDB").waitFor();
+ await page.getByRole("button",{name:"Edital",exact:true}).click();await page.locator("#source-text").waitFor();
+ await page.getByRole("button",{name:"Seleção",exact:true}).click();await page.locator(".selection-progress").waitFor();
+ await page.getByRole("button",{name:"Cronograma",exact:true}).click();await topic(day(page,1),"LDB").waitFor();
  await drag(page,topic(day(page,1),"LDB"),day(page,4));
  await topic(day(page,4),"LDB").waitFor();await saved(page);
  await page.screenshot({path:"planner-screenshots/02-filled-desktop.png",fullPage:true});

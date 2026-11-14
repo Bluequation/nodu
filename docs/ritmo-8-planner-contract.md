@@ -18,3 +18,6 @@ Peças da biblioteca compactas, de largura conforme o título, agrupadas por cat
 
 ## Revisão autorizada — planner vertical
 A proporção 40/60 substitui o desenho anterior de sete dias lado a lado. Cores por área: legislação azul, pedagogia lilás, administração âmbar, português verde acinzentado, dados petróleo, específicos índigo; fallback neutro. Os cards expandidos usam a largura disponível. Os testes verificam geometria desktop, cor persistente e os gestos existentes. A referência SVG é esquemática e não equivale à captura do aplicativo.
+
+## Consistência de Meus planos
+Peças em ordem alfabética pelo título apresentado dentro de cada grupo, com ordenação pt-BR; a ordem original do edital não muda. Navegação pelas etapas já disponíveis, aguardando salvamento antes de sair. A aparência das telas Edital, Seleção, Novo plano, galeria e Ver plano usa a mesma paleta e superfícies compactas; cobertura por área e títulos curtos não alteram dados oficiais.

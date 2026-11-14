@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback, type ChangeEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft, ArrowRight, AlertCircle, BookOpen, CalendarDays, Check, CheckCircle2, Clipboard,
@@ -16,7 +16,8 @@ import {
 } from "../../domain/verticalization";
 
 import {ScheduleStep} from "./planner/PlannerEditor";
-import {WEEKDAYS,today,displayNodeName,durationFromTimes,minutesForDay,formatDuration,emptyDaySchedule,defaultSchedule,reconcileAssignments} from "./planner/plannerModel";
+import {WEEKDAYS,today,displayNodeName,durationFromTimes,minutesForDay,formatDuration,emptyDaySchedule,defaultSchedule,reconcileAssignments,pieceTitle,topicPlacement,topicTone,areaTone,areaDisplayName} from "./planner/plannerModel";
+import "./plan-surfaces.css";
 
 declare global {
   interface Window {
@@ -69,15 +70,13 @@ function saveBlob(name: string, text: string, type = "text/plain;charset=utf-8")
   URL.revokeObjectURL(url);
 }
 
-function Stepper({ stage }: { stage: PlanStage }) {
-  const current = stage === "source" ? 1 : stage === "selection" ? 2 : 3;
-  return <div className="wizard-stepper" aria-label="Etapas do plano">
-    {["Edital", "Seleção", "Cronograma"].map((label, index) => (
-      <div className={index + 1 <= current ? "wizard-step is-current" : "wizard-step"} key={label}>
-        <span>{index + 1 < current ? <Check size={14}/> : index + 1}</span>{label}
-      </div>
-    ))}
-  </div>;
+type BeforeLeave = (handler: (()=>Promise<boolean>) | null)=>void;
+function Stepper({stage,hasTree,hasSelection,busy,onChange}: {stage:PlanStage;hasTree:boolean;hasSelection:boolean;busy:boolean;onChange:(stage:PlanStage)=>void}) {
+  const stages=[{id:"source",label:"Edital",allowed:true},{id:"selection",label:"Seleção",allowed:hasTree},{id:"schedule",label:"Cronograma",allowed:hasSelection}] as const;
+  const current=stages.findIndex(item=>item.id===stage);
+  return <nav className="wizard-stepper" aria-label="Etapas do plano">
+    {stages.map((step,index)=><button type="button" key={step.id} className={"wizard-step "+(index===current?"is-current":index<current?"is-complete":"")} aria-current={index===current?"step":undefined} disabled={busy||!step.allowed||index===current} onClick={()=>onChange(step.id)}><span>{index<current?<Check size={14}/>:index+1}</span>{step.label}</button>)}
+  </nav>;
 }
 
 function SelectionNode({
@@ -148,7 +147,7 @@ function SelectionNode({
   </div>;
 }
 
-function SourceStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyPlan) => Promise<void> }) {
+function SourceStep({ plan, onSave, registerBeforeLeave }: { plan: StudyPlan; onSave: (next: StudyPlan) => Promise<void>; registerBeforeLeave:BeforeLeave }) {
   const [sourceText, setSourceText] = useState(plan.sourceText);
   const [sourceFile, setSourceFile] = useState(plan.sourceFile);
   const [structureText, setStructureText] = useState("");
@@ -157,6 +156,16 @@ function SourceStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyPla
   const [savingSource, setSavingSource] = useState(false);
   const [savedSource, setSavedSource] = useState(false);
   useEffect(() => { setSourceText(plan.sourceText); setSourceFile(plan.sourceFile); }, [plan.id, plan.sourceText, plan.sourceFile]);
+
+  useEffect(()=>{
+    registerBeforeLeave(async()=>{
+      if(busy||savingSource)return false;
+      if(structureText.trim()&&!window.confirm("A estrutura ainda não foi importada. Sair desta etapa sem importá-la?"))return false;
+      if(sourceText!==plan.sourceText||sourceFile!==plan.sourceFile)await onSave({...plan,sourceText,sourceFile});
+      return true;
+    });
+    return ()=>registerBeforeLeave(null);
+  },[registerBeforeLeave,plan,sourceText,sourceFile,structureText,busy,savingSource,onSave]);
 
   async function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -210,6 +219,7 @@ function SourceStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyPla
   async function importStructure() {
     try {
       const parsed = parseVerticalMarkdown(structureText);
+      if(plan.tree.length&&!window.confirm("Substituir a estrutura importada? Isso reinicia a seleção e a distribuição do edital atual."))return;
       await onSave({
         ...plan,
         sourceText,
@@ -274,7 +284,7 @@ function SourceStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyPla
         <button className="secondary-button" type="button" onClick={() => setStructureText("# [EDITAL] Conhecimentos gerais\n## [EDITAL] Disciplina\n### [EDITAL] Assunto") }>Usar modelo manual</button>
         <button className="text-button" type="button" onClick={() => saveBlob("modelo-verticalizacao-ritmo.md", "# [EDITAL] Disciplina\n## [EDITAL] Área ou eixo\n### [EDITAL] Assunto literal\n> Referência: página ou item, se disponível\n> Trecho literal: transcrição fiel, quando necessária\n") }>Baixar modelo</button>
       </div>
-      <div className="note-strip">A IA apenas organiza o que está no edital. Não deve acrescentar assuntos, exemplos, pré-requisitos ou subtemas. O que não estiver no documento só pode entrar se você adicionar manualmente.</div>
+      <div className="note-strip">A IA organiza apenas o edital. Conteúdos extras só entram por escolha manual.</div>
     </section>}
     {message && <p className={`inline-feedback source-save-feedback ${savedSource ? "is-saved" : ""}`} role="status">{busy ? "Lendo arquivo…" : message}</p>}
   </div>;
@@ -371,30 +381,55 @@ export function PlanWizardRoute() {
   const { id = "" } = useParams();
   const [plan, setPlan] = useState<StudyPlan | null>(null);
   const [loading, setLoading] = useState(true);
+  const [switching,setSwitching]=useState(false);
+  const [navigationError,setNavigationError]=useState("");
+  const latest=useRef<StudyPlan|null>(null);
+  const writes=useRef<Promise<unknown>>(Promise.resolve());
+  const beforeLeave=useRef<(()=>Promise<boolean>)|null>(null);
+  const registerBeforeLeave=useCallback<BeforeLeave>(handler=>{beforeLeave.current=handler;},[]);
   useEffect(() => {
     let active = true;
-    getPlan(id).then(found => { if (active) setPlan(found || null); }).finally(() => { if (active) setLoading(false); });
+    setLoading(true);
+    getPlan(id).then(found => { if (active) {latest.current=found||null;setPlan(found || null);} }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [id]);
 
-  async function persist(next: StudyPlan) {
-    const saved = await savePlan(next);
-    setPlan(saved);
+  const persist=useCallback(async(next:StudyPlan)=>{
+    const previous=latest.current;
+    latest.current=next;setPlan(next);
+    const task=writes.current.catch(()=>{}).then(()=>savePlan(next));
+    writes.current=task;
+    try {const saved=await task;if(latest.current===next){latest.current=saved;setPlan(saved);}}
+    catch(error){if(latest.current===next){latest.current=previous;setPlan(previous);}throw error;}
+  },[]);
+  async function navigateStage(stage:PlanStage){
+    if(switching||!latest.current||latest.current.stage===stage)return;
+    setSwitching(true);setNavigationError("");
+    try {
+      if(beforeLeave.current&&!(await beforeLeave.current()))return;
+      await writes.current;
+      const current=latest.current;
+      if(!current||stage==="selection"&&!current.tree.length||stage==="schedule"&&!getSelectedLeaves(current.tree).length)return;
+      const schedule=stage==="schedule"?(current.scheduleConfig||defaultSchedule(current)):current.scheduleConfig;
+      await persist({...current,stage,scheduleConfig:schedule});
+    }catch{setNavigationError("Não foi possível salvar antes de mudar de etapa. Tente novamente.");}
+    finally{setSwitching(false);}
   }
   if (loading) return <div className="stack"><div className="loading-panel">Abrindo seu plano…</div></div>;
   if (!plan) return <div className="stack"><div className="panel empty-state"><FolderOpen size={28}/><strong>Não encontrei este plano.</strong><Link to="/plans" className="text-link">Voltar aos planos</Link></div></div>;
 
-  return <div className="stack wizard-stack">
+  return <div className="stack wizard-stack ritmo-plan-surface">
     <header className="heading wizard-heading">
       <div><small>MEUS PLANOS / {plan.stage==="schedule"?"CRONOGRAMA":plan.stage==="selection"?"CONTEÚDOS":"EDITAL"}</small><h1>{plan.title}</h1><p>{[plan.institution, plan.position, plan.area].filter(Boolean).join(" · ")}</p></div>
       <Link className="secondary-button" to="/plans"><ArrowLeft size={16}/>Meus planos</Link>
     </header>
-    <Stepper stage={plan.stage}/>
+    <Stepper stage={plan.stage} hasTree={plan.tree.length>0} hasSelection={getSelectedLeaves(plan.tree).length>0} busy={switching} onChange={navigateStage}/>
+    {navigationError&&<p className="inline-feedback" role="alert">{navigationError}</p>}
     {plan.stage === "source"
-      ? <SourceStep plan={plan} onSave={persist}/>
+      ? <SourceStep plan={plan} onSave={persist} registerBeforeLeave={registerBeforeLeave}/>
       : plan.stage === "selection"
         ? <SelectionStep plan={plan} onSave={persist}/>
-        : <ScheduleStep key={plan.id} plan={plan} onSave={persist}/>}
+        : <ScheduleStep key={plan.id} plan={plan} onSave={persist} registerBeforeLeave={registerBeforeLeave}/>}
     <div className="wizard-footnote">Seus dados permanecem neste navegador. A estrutura original do edital e as sugestões ficam identificadas separadamente.</div>
   </div>;
 }
@@ -479,6 +514,11 @@ export function PlanDetailRoute() {
   const today = new Date();
   const todayKey = planDateKey(today);
   const config = plan?.scheduleConfig || null;
+  const selectedLeaves=useMemo(()=>plan?getSelectedLeaves(plan.tree):[],[plan]);
+  const leafById=useMemo(()=>new Map(selectedLeaves.map(leaf=>[leaf.id,leaf])),[selectedLeaves]);
+  const selectedAssignments=useMemo(()=>plan?reconcileAssignments(selectedLeaves,plan.assignments,config?.days||[]):[],[plan,selectedLeaves,config]);
+  const toneFor=(item:PlanAssignment)=>{const leaf=leafById.get(item.nodeId);return leaf?topicTone(leaf,plan?.area):"neutral";};
+  const areaFor=(item:PlanAssignment)=>{const leaf=leafById.get(item.nodeId);return leaf?areaDisplayName(topicPlacement(leaf,plan?.area).groups[0]||"Outros assuntos"):"Outros assuntos";};
 
   const weekEntries = useMemo(() => {
     if (!plan || !config) return [];
@@ -486,19 +526,19 @@ export function PlanDetailRoute() {
     return WEEKDAYS.filter(day => config.days.includes(day.id)).map(day => {
       const date = shiftPlanDate(monday, day.id === 0 ? 6 : day.id - 1);
       const key = planDateKey(date);
-      const items = plan.assignments.filter(item => item.day === day.id);
+      const items = selectedAssignments.filter(item => item.day === day.id);
       const completed = items.filter(item => (item.completedDates || []).includes(key)).length;
       const slot = config.daySchedules?.[day.id];
       const simulation = Boolean(slot?.simulation);
       const simulationDone = Boolean(simulation && (slot?.completedDates || []).includes(key));
       return { ...day, date, key, items, completed, slot, simulation, simulationDone, minutes: minutesForDay(config, day.id), active: planDateIsActive(date, config), isToday: key === todayKey };
     });
-  }, [plan, config, todayKey]);
+  }, [plan, config, todayKey, selectedAssignments]);
 
-  const nextStudyDate = useMemo(() => plan ? findNextPlanStudyDate(plan) : null, [plan]);
+  const nextStudyDate = useMemo(() => plan ? findNextPlanStudyDate({...plan,assignments:selectedAssignments}) : null, [plan,selectedAssignments]);
   const nextStudyKey = nextStudyDate ? planDateKey(nextStudyDate) : "";
   const nextStudyItems = nextStudyDate && plan
-    ? plan.assignments.filter(item => item.day === nextStudyDate.getDay() && !(item.completedDates || []).includes(nextStudyKey))
+    ? selectedAssignments.filter(item => item.day === nextStudyDate.getDay() && !(item.completedDates || []).includes(nextStudyKey))
     : [];
   const nextStudyMinutes = config && nextStudyDate ? minutesForDay(config, nextStudyDate.getDay()) : 0;
   const nextStudySlot = config && nextStudyDate ? config.daySchedules?.[nextStudyDate.getDay()] : undefined;
@@ -512,9 +552,9 @@ export function PlanDetailRoute() {
   const firstUpcomingDayKey = weekEntries.find(day => day.active && day.key >= todayKey && (
     day.items.some(item => !(item.completedDates || []).includes(day.key)) || (day.simulation && !day.simulationDone)
   ))?.key || "";
-  const unassignedCount = (plan?.assignments || []).filter(item => !config?.days.includes(item.day)).length;
+  const unassignedCount = selectedAssignments.filter(item => !config?.days.includes(item.day)).length;
 
-  const topicKeys = useMemo(() => new Set((plan?.assignments || []).map(item => normalizePlanTopic(displayNodeName(item.name)))), [plan]);
+  const topicKeys = useMemo(() => new Set(selectedAssignments.map(item => normalizePlanTopic(displayNodeName(item.name)))), [selectedAssignments]);
   const subjectFilter = plan ? planSubjectFilter(plan) : null;
   const relevantConcepts = concepts.filter(item =>
     item.status === "published" && !item.suspended &&
@@ -546,16 +586,18 @@ export function PlanDetailRoute() {
     .sort((a, b) => a.percent - b.percent || b.total - a.total)
     .slice(0, 3);
 
-  const coverageGroups = new Map<string, { total: number; studied: number }>();
-  (plan?.assignments || []).forEach(item => {
-    const group = displayNodeName(item.path[0] || "Outros");
-    const current = coverageGroups.get(group) || { total: 0, studied: 0 };
+  const coverageGroups = new Map<string, { total: number; studied: number; tone:string; column:string }>();
+  selectedAssignments.forEach(item => {
+    const leaf=leafById.get(item.nodeId);
+    const column=leaf?topicPlacement(leaf,plan?.area).column:"general";
+    const group=areaFor(item);
+    const current = coverageGroups.get(group) || { total: 0, studied: 0,tone:toneFor(item),column };
     current.total += 1;
     if ((item.completedDates || []).length > 0) current.studied += 1;
     coverageGroups.set(group, current);
   });
-  const coverageStudied = (plan?.assignments || []).filter(item => (item.completedDates || []).length > 0).length;
-  const coverageTotal = plan?.assignments.length || 0;
+  const coverageStudied = selectedAssignments.filter(item => (item.completedDates || []).length > 0).length;
+  const coverageTotal = selectedAssignments.length;
   const coveragePercent = coverageTotal ? Math.round(coverageStudied / coverageTotal * 100) : 0;
 
   async function toggleSimulationCompletion(dayId: number, dateKey: string) {
@@ -611,11 +653,11 @@ export function PlanDetailRoute() {
   const statusLabel = plan.status === "active" ? "Preparação em andamento" : plan.status === "completed" ? "Plano concluído" : "Plano em construção";
   const subjectMeta = [plan.institution, plan.position, plan.area, plan.organizer].filter(Boolean).join(" · ");
   const canStudy = Boolean(config && (
-    plan.assignments.some(item => config.days.includes(item.day)) ||
+    selectedAssignments.some(item => config.days.includes(item.day)) ||
     config.days.some(day => config.daySchedules?.[day]?.simulation)
   ));
 
-  return <div className="stack plan-detail-stack">
+  return <div className="stack plan-detail-stack ritmo-plan-surface">
     <header className="heading plan-detail-header">
       <div>
         <small>RITMO / SUA PREPARAÇÃO</small>
@@ -641,16 +683,16 @@ export function PlanDetailRoute() {
           {todayFinished && nextStudyDate && nextStudyKey !== todayKey && <div className="plan-today-success"><CheckCircle2 size={15}/> Você concluiu o que estava previsto para hoje. Bom trabalho!</div>}
           {nextStudyDate ? <>
             <div className="plan-next-date">{planDateLabel(nextStudyDate, { weekday: "long", day: "2-digit", month: "long" })}</div>
-            <h2>{nextStudySimulation ? "Dia de simulado: chegou a hora de testar sua preparação." : nextStudyKey === todayKey ? "Vamos avançar um assunto de cada vez." : "Sua próxima sessão já está organizada."}</h2>
+            <h2>{nextStudySimulation ? "Dia de simulado" : nextStudyKey === todayKey ? "Seu estudo de hoje" : "Sua próxima sessão"}</h2>
             <p className="plan-next-description">{nextStudySlot?.startTime && nextStudySlot?.endTime
               ? `Das ${nextStudySlot.startTime} às ${nextStudySlot.endTime} · ${formatDuration(nextStudyMinutes)}.`
-              : nextStudyMinutes ? `${nextStudyMinutes} minutos reservados no seu cronograma.` : "O horário desta sessão ainda não foi definido."} {nextStudySimulation ? "Faça o simulado no tempo previsto e registre o resultado." : "Escolha um assunto, estude com atenção e registre o que conseguiu aprender."}</p>
+              : nextStudyMinutes ? `${nextStudyMinutes} minutos reservados no seu cronograma.` : "O horário desta sessão ainda não foi definido."}</p>
             {nextStudySimulation && <div className="plan-week-simulation"><Target size={16}/><span>Dia reservado para simulado. Ao terminar, marque a realização na seção “Esta semana”.</span><Link to="/questions">Registrar resultado <ArrowRight size={12}/></Link></div>}
             <div className="plan-next-topic-list">
-              {nextStudyItems.slice(0, 5).map(item => <label className="plan-next-topic" key={item.nodeId}>
+              {nextStudyItems.slice(0, 5).map(item => <div className="plan-next-topic" data-tone={toneFor(item)} key={item.nodeId} title={displayNodeName(item.name)}>
                 <span className="plan-topic-bullet"/>
-                <span><b>{displayNodeName(item.name)}</b><small>{item.path.slice(0, -1).map(displayNodeName).join(" / ")}</small></span>
-              </label>)}
+                <span><b>{pieceTitle(item.name)}</b><small>{areaFor(item)}</small></span>
+              </div>)}
               {nextStudyItems.length > 5 && <span className="plan-more-topics">+ {nextStudyItems.length - 5} outros assuntos previstos nesta sessão</span>}
             </div>
             <div className="plan-next-actions">
@@ -679,15 +721,13 @@ export function PlanDetailRoute() {
 
       <section className="panel plan-week-progress">
         <div className="plan-section-heading">
-          <div><span className="step-kicker">ACOMPANHAMENTO REAL</span><h2>Como está sua semana?</h2><p>Marque os assuntos depois de estudá-los. O progresso é seu, não uma estimativa automática.</p></div>
+          <div><span className="step-kicker">ACOMPANHAMENTO REAL</span><h2>Como está sua semana?</h2><p>Sessões registradas nesta semana.</p></div>
           <strong className="plan-week-ratio">{weeklyCompleted}<small> / {weeklyPlanned}</small></strong>
         </div>
         <div className="plan-progress-track"><span style={{ width: weeklyPercent + "%" }}/></div>
         <div className="plan-progress-foot"><span>{weeklyPercent}% do cronograma semanal concluído</span><span>{weeklyPlanned - weeklyCompleted} assunto(s) ainda previsto(s)</span></div>
         <div className="plan-week-strip">
-          {weekEntries.map(day => <div className={"plan-week-chip " + (day.isToday ? "today" : "") + (day.active ? "" : " inactive")} key={day.id}>
-            <span>{day.short}</span><b>{day.simulation ? (day.simulationDone ? "OK" : "SIM") : day.items.length ? day.completed + "/" + day.items.length : "—"}</b>
-          </div>)}
+          {WEEKDAYS.map(day=>{const entry=weekEntries.find(item=>item.id===day.id);return <div className={"plan-week-chip "+(entry?.isToday?"today ":"")+(!entry?.active?"inactive":"")} key={day.id}><span>{day.short}</span><b>{!entry?.active?"—":entry.simulation?(entry.simulationDone?"OK":"SIM"):entry.items.length?entry.completed+"/"+entry.items.length:"—"}</b></div>;})}
         </div>
       </section>
 
@@ -707,9 +747,9 @@ export function PlanDetailRoute() {
               {day.items.length ? <div className="plan-week-topic-list">
                 {day.items.map(item => {
                   const done = (item.completedDates || []).includes(day.key);
-                  return <label className={"plan-week-topic " + (done ? "is-done" : "")} key={item.nodeId}>
+                  return <label className={"plan-week-topic " + (done ? "is-done" : "")} data-tone={toneFor(item)} title={displayNodeName(item.name)} key={item.nodeId}>
                     <input type="checkbox" checked={done} disabled={savingCompletion || !day.active} onChange={() => toggleStudyCompletion(item.nodeId, day.key)}/>
-                    <span><b>{displayNodeName(item.name)}</b><small>{item.path.slice(0, -1).map(displayNodeName).join(" / ")}</small></span>
+                    <span><b>{pieceTitle(item.name)}</b><small>{areaFor(item)}</small></span>
                     <em>{done ? "Estudado" : day.active ? "Marcar como estudado" : "Fora do período"}</em>
                   </label>;
                 })}
@@ -720,7 +760,7 @@ export function PlanDetailRoute() {
 
         <section className="panel plan-attention-panel">
           <div className="plan-section-heading compact">
-            <div><span className="step-kicker">SINAIS DE ATENÇÃO</span><h2>Onde vale retomar?</h2><p>Registros de questões, flashcards e erros com nomes de assuntos correspondentes ao seu plano.</p></div>
+            <div><span className="step-kicker">SINAIS DE ATENÇÃO</span><h2>Onde vale retomar?</h2><p>Revisões e desempenho nos assuntos deste plano.</p></div>
             <AlertCircle size={20}/>
           </div>
           <div className="plan-attention-stats">
@@ -748,15 +788,15 @@ export function PlanDetailRoute() {
 
       <section className="panel plan-coverage-panel">
         <div className="plan-section-heading">
-          <div><span className="step-kicker">VISÃO DO EDITAL</span><h2>Conteúdos que você já trabalhou</h2><p>Um assunto entra aqui depois que você marca pelo menos uma sessão como estudada. Isso não significa domínio do conteúdo.</p></div>
+          <div><span className="step-kicker">VISÃO DO EDITAL</span><h2>Conteúdos que você já trabalhou</h2><p>Assuntos estudados por área, sem estimar domínio.</p></div>
           <strong className="plan-coverage-total">{coverageStudied}<small> / {coverageTotal}</small></strong>
         </div>
         <div className="plan-coverage-overall"><span style={{ width: coveragePercent + "%" }}/></div>
         <div className="plan-coverage-grid">
           {[...coverageGroups.entries()].map(([name, value]) => {
             const percent = value.total ? Math.round(value.studied / value.total * 100) : 0;
-            return <div className="plan-coverage-item" key={name}>
-              <div><b>{name}</b><small>{value.studied} de {value.total} assuntos</small></div>
+            return <div className="plan-coverage-item" data-tone={value.tone} key={name}>
+              <div><b>{name}</b><small>{value.column==="specific"?"Específicos":"Gerais"} · {value.studied}/{value.total}</small></div>
               <div className="plan-coverage-track"><span style={{ width: percent + "%" }}/></div>
             </div>;
           })}

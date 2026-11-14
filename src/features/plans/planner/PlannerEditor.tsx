@@ -4,7 +4,7 @@ import type {DaySchedule,PlanAssignment,ScheduleConfig,StudyPlan} from "../../..
 import {getSelectedLeaves,type SelectedPlanLeaf} from "../../../domain/verticalization";
 import {WEEKDAYS,defaultSchedule,reconcileAssignments,displayNodeName,emptyDaySchedule,minutesForDay,normalizePlannerText,pieceTitle,topicTone,areaTone,areaDisplayName,makeLibrary,changePlacement,availableTopics,restartWeek,type LibraryGroup} from "./plannerModel";
 import "./planner.css";
-export function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyPlan) => Promise<void> }) {
+export function ScheduleStep({ plan, onSave, registerBeforeLeave }: { plan: StudyPlan; onSave: (next: StudyPlan) => Promise<void>; registerBeforeLeave?: (handler:(()=>Promise<boolean>)|null)=>void }) {
   const leaves = useMemo(() => getSelectedLeaves(plan.tree), [plan.tree]);
   const [config, setConfig] = useState<ScheduleConfig>(() => plan.scheduleConfig || defaultSchedule(plan));
   const [assignments, setAssignments] = useState<PlanAssignment[]>(() => reconcileAssignments(leaves, plan.assignments, (plan.scheduleConfig || defaultSchedule(plan)).days));
@@ -32,6 +32,8 @@ export function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next:
     setConfig(nextConfig); setAssignments(nextAssignments); setSearch(""); setSelected(null);
     setSaveState("idle"); setFeedback(""); setExpanded({});
   }, [plan.id]);
+
+  useEffect(()=>{registerBeforeLeave?.(async()=>{await queue.current;return !finishing;});return ()=>registerBeforeLeave?.(null);},[registerBeforeLeave,finishing]);
 
   function commit(nextConfig:ScheduleConfig, nextAssignments:PlanAssignment[], finish=false) {
     latest.current = {config:nextConfig,assignments:nextAssignments};

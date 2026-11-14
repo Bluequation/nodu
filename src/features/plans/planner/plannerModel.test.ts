@@ -41,4 +41,8 @@ describe("planner contract",()=>{
    expect(areaTone("general","Administração Pública")).toBe("administration");expect(areaTone("general","Língua Portuguesa")).toBe("language");expect(areaTone("general","Leitura e Interpretação de Dados e Indicadores Educacionais")).toBe("data");
    expect(areaDisplayName("Língua Portuguesa")).toBe("Português");
  });
+ it("orders draggable titles alphabetically within every library group",()=>{
+   const items=[leaf("z","Zoologia",["Conhecimentos Específicos","Física","Teste"]),leaf("a","Álgebra",["Conhecimentos Específicos","Física","Teste"]),leaf("m","Movimento uniforme",["Conhecimentos Específicos","Física","Teste"])];
+   expect(makeLibrary(items,"Física")[1].groups[0].groups[0].topics.map(x=>x.id)).toEqual(["a","m","z"]);
+ });
 });

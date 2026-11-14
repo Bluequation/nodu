@@ -160,6 +160,13 @@ export function makeLibrary(leaves:SelectedPlanLeaf[],area="",visibleIds?:Readon
   }
   const ranks=["Legislação","Pedagogia","Português"];
   columns[0].groups.sort((a,b)=>(ranks.includes(a.label)?ranks.indexOf(a.label):99)-(ranks.includes(b.label)?ranks.indexOf(b.label):99));
+  const collator=new Intl.Collator("pt-BR",{sensitivity:"base",numeric:true});
+  function sortTopics(group:LibraryGroup){
+    group.topics.sort((a,b)=>collator.compare(pieceTitle(a.name),pieceTitle(b.name))||collator.compare(a.id,b.id));
+    group.groups.sort((a,b)=>collator.compare(areaDisplayName(a.label),areaDisplayName(b.label)));
+    group.groups.forEach(sortTopics);
+  }
+  columns.forEach(column=>column.groups.forEach(sortTopics));
   return columns;
 }
 export function availableTopics(leaves:SelectedPlanLeaf[],assignments:PlanAssignment[],days:number[]){
