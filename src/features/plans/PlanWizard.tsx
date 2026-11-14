@@ -565,7 +565,7 @@ function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyP
     const selected = new Set(selectedIds);
     const byId = new Map(assignments.map(item => [item.nodeId, item]));
     const next = leaves.map(leaf => {
-      const current = byId.get(leaf.id) || assignmentFromLeaf(leaf, 0);
+      const current = byId.get(leaf.id) || assignmentFromLeaf(leaf, -1);
       return selected.has(leaf.id) ? { ...current, day: bulkDay } : current;
     });
     persist(next);
@@ -758,7 +758,7 @@ function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyP
 
     <section className="panel wizard-panel">
       <div className="wizard-navigation"><button className="secondary-button" type="button" onClick={() => onSave({ ...plan, stage: "selection" })}><ArrowLeft size={16}/>Voltar à seleção</button>
-        <button className="primary-button" type="button" disabled={!config.days.length || !leaves.length || !assignments.some(item => item.day > 0 && config.days.includes(item.day))} onClick={finish}>Salvar meu cronograma <Check size={16}/></button></div>
+        <button className="primary-button" type="button" disabled={!config.days.length || !leaves.length || !assignments.some(item => item.day >= 0 && config.days.includes(item.day))} onClick={finish}>Salvar meu cronograma <Check size={16}/></button></div>
       {scheduleFeedback && <p className="inline-feedback" role="status">{scheduleFeedback}</p>}
       {unassigned.length > 0 && <p className="field-hint">{unassigned.length} conteúdo(s) ainda estão sem dia. Você pode salvar o cronograma e organizá-los depois, sem perder sua seleção.</p>}
     </section>
