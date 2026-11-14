@@ -108,6 +108,8 @@ function FlashcardEditor() {
     event.preventDefault(); setError("");
     if (!topic.trim()) { setError("Informe o conhecimento que esta família vai cobrar."); return; }
     if (!variants.length || variants.some(variant => !variant.q.trim() || !variant.a.trim())) { setError("Cada versão precisa ter pergunta e resposta."); return; }
+    const normalizedQuestions = variants.map(variant => variant.q.trim().toLocaleLowerCase().replace(/\\s+/g, " "));
+    if (new Set(normalizedQuestions).size !== normalizedQuestions.length) { setError("Há perguntas repetidas. Cada versão deve cobrar o mesmo conhecimento por uma operação diferente."); return; }
     if (variants.some(variant => variant.format === "cloze" && !/\{\{c\d+::[^}]+\}\}/.test(variant.q))) { setError("Nas lacunas, marque a resposta usando {{c1::resposta}}."); return; }
     if (variants.some(variant => variant.format === "image" && !variant.image.trim())) { setError("Adicione a imagem para cada versão do tipo imagem."); return; }
     setSaving(true);
