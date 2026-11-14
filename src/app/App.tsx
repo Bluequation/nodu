@@ -169,6 +169,16 @@ function displayTopicName(name: string) {
 function planMinutesForDay(plan: StudyPlan, dayId: number) {
   const config = plan.scheduleConfig;
   if (!config) return 0;
+  const slot = config.daySchedules?.[dayId];
+  if (slot?.startTime && slot?.endTime) {
+    const [startHour, startMinute] = slot.startTime.split(":").map(Number);
+    const [endHour, endMinute] = slot.endTime.split(":").map(Number);
+    const start = startHour * 60 + startMinute;
+    let end = endHour * 60 + endMinute;
+    if (end < start) end += 24 * 60;
+    return end - start;
+  }
+  if (config.daySchedules) return 0;
   return config.sameMinutes === false ? (config.dayMinutes?.[dayId] ?? config.minutes) : config.minutes;
 }
 function Agenda() {
@@ -210,6 +220,21 @@ function Agenda() {
       }));
     });
   }
+  function simulationsForDate(date: Date) {
+    const key = dateKey(date);
+    const weekday = date.getDay();
+    return active.filter(plan => {
+      const config = plan.scheduleConfig;
+      if (!config || !config.days.includes(weekday) || !config.daySchedules?.[weekday]?.simulation) return false;
+      if (config.startDate && key < config.startDate) return false;
+      if (config.examDate && key > config.examDate) return false;
+      return true;
+    }).map(plan => ({
+      id: plan.id,
+      title: plan.title,
+      area: [plan.position, plan.area].filter(Boolean).join(" · "),
+    }));
+  }
   function reviewsForDate(date: Date) {
     const key = dateKey(date);
     return reviewItems.filter(item => dateKey(new Date(item.due)) === key);
@@ -222,9 +247,11 @@ function Agenda() {
 
   const selected = fromDateKey(selectedDate);
   const selectedTopics = topicsForDate(selected);
+  const selectedSimulations = simulationsForDate(selected);
   const selectedReviews = reviewsForDate(selected);
-  const minutes = active.filter(plan => plan.scheduleConfig?.days.includes(selected.getDay()) && plan.assignments.some(item => item.day === selected.getDay()))
-    .reduce((sum, plan) => sum + planMinutesForDay(plan, selected.getDay()), 0);
+  const minutes = active.filter(plan => plan.scheduleConfig?.days.includes(selected.getDay()) && (
+    plan.assignments.some(item => item.day === selected.getDay()) || plan.scheduleConfig.daySchedules?.[selected.getDay()]?.simulation
+  )).reduce((sum, plan) => sum + planMinutesForDay(plan, selected.getDay()), 0);
   const monthLabel = month.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
   const todayKey = dateKey(new Date());
 
@@ -249,23 +276,25 @@ function Agenda() {
               const key = dateKey(date);
               const topicCount = topicsForDate(date).length;
               const reviewCount = reviewsForDate(date).length;
+              const simulationCount = simulationsForDate(date).length;
               const isSelected = key === selectedDate;
               const isOutside = date.getMonth() !== month.getMonth();
               const isToday = key === todayKey;
-              return <button type="button" key={key} className={`agenda-calendar-date ${isSelected ? "selected" : ""} ${isOutside ? "outside" : ""} ${isToday ? "today" : ""}`} onClick={() => { setSelectedDate(key); if (isOutside) setMonth(new Date(date.getFullYear(), date.getMonth(), 1)); }} aria-label={`${date.toLocaleDateString("pt-BR")} · ${topicCount} conteúdo(s) · ${reviewCount} revisão(ões)`}>
+              return <button type="button" key={key} className={`agenda-calendar-date ${isSelected ? "selected" : ""} ${isOutside ? "outside" : ""} ${isToday ? "today" : ""}`} onClick={() => { setSelectedDate(key); if (isOutside) setMonth(new Date(date.getFullYear(), date.getMonth(), 1)); }} aria-label={`${date.toLocaleDateString("pt-BR")} · ${topicCount} conteúdo(s) · ${simulationCount} simulado(s) · ${reviewCount} revisão(ões)`}>
                 <span>{date.getDate()}</span>
-                {(topicCount > 0 || reviewCount > 0) && <i className="agenda-date-markers">{topicCount > 0 && <b className="study-marker"/>}{reviewCount > 0 && <b className="review-marker"/>}</i>}
+                {(topicCount > 0 || reviewCount > 0 || simulationCount > 0) && <i className="agenda-date-markers">{topicCount > 0 && <b className="study-marker"/>}{simulationCount > 0 && <b className="simulation-marker"/>}{reviewCount > 0 && <b className="review-marker"/>}</i>}
                 {topicCount > 0 && <small>{topicCount}</small>}
               </button>;
             })}
           </div>
-          <div className="agenda-legend"><span><i className="study-marker"/> Conteúdos</span><span><i className="review-marker"/> Revisões</span></div>
+          <div className="agenda-legend"><span><i className="study-marker"/> Conteúdos</span><span><i className="simulation-marker"/> Simulado</span><span><i className="review-marker"/> Revisões</span></div>
         </div>
         <aside className="agenda-day-detail">
           <div className="agenda-detail-head"><small>RESUMO DO DIA</small><h3>{selected.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}</h3>{minutes > 0 && <span>{minutes} min disponíveis</span>}</div>
           {selectedTopics.length > 0 && <section className="agenda-detail-section"><strong>Conteúdos <span>{selectedTopics.length}</span></strong>{selectedTopics.map((item, index) => <article className="agenda-event study" key={`${item.id}-${index}`}><b>{item.name}</b><small>{item.planTitle} · {item.planArea}</small></article>)}</section>}
+          {selectedSimulations.length > 0 && <section className="agenda-detail-section"><strong>Simulados <span>{selectedSimulations.length}</span></strong>{selectedSimulations.map(item => <article className="agenda-event simulation" key={item.id}><b>Dia reservado para simulado</b><small>{item.title} · {item.area}</small><Link to="/questions">Registrar resultado <ArrowRight size={12}/></Link></article>)}</section>}
           {selectedReviews.length > 0 && <section className="agenda-detail-section"><strong>Revisões <span>{selectedReviews.length}</span></strong>{selectedReviews.map(item => <article className="agenda-event review" key={`${item.type}-${item.id}`}><b>{item.topic}</b><small>{item.type} · {item.subject}</small><Link to={item.type === "Flashcards" ? "/reviews" : "/errors"}>Abrir <ArrowRight size={12}/></Link></article>)}</section>}
-          {selectedTopics.length === 0 && selectedReviews.length === 0 && <div className="agenda-day-empty"><CalendarDays size={23}/><span>Nenhuma atividade marcada para este dia.</span></div>}
+          {selectedTopics.length === 0 && selectedSimulations.length === 0 && selectedReviews.length === 0 && <div className="agenda-day-empty"><CalendarDays size={23}/><span>Nenhuma atividade marcada para este dia.</span></div>}
         </aside>
       </div>
     </Panel>
