@@ -16,11 +16,12 @@ npm run build
 ```
 
 ## Estado da versão 8.0
-- React + TypeScript + Vite.
-- IndexedDB local-first.
-- Fluxo guiado de plano: identificação, verticalização assistida por Markdown, seleção por seções e cronograma semanal.
-- A IA é opcional e externa nesta etapa; não há API key embutida no app.
-- A cópia legada fica preservada em snapshot, sem apagar localStorage.
-- Flashcards, FSRS, questões e caderno de erros ainda precisam ser integrados e validados antes da migração final.
+- React + TypeScript + Vite, com IndexedDB local-first.
+- Plano guiado: identificação, verticalização assistida por Markdown, seleção por seções e cronograma semanal.
+- Flashcards em famílias de até dez versões e sessão de revisão FSRS-6.
+- Caderno de erros, registro de blocos de questões e atividades de aprendizagem ativa.
+- A IA é opcional e externa na verticalização; não há API key embutida no app.
+- Dados legados 7.1 são copiados para snapshot e importados por stores sem apagar o localStorage.
+- Importador avançado, curadoria, backup/restauração e validação de migração com dados reais ainda precisam ser concluídos antes da publicação.
 
 Não configure GitHub Pages para a branch de desenvolvimento até a versão de teste estar aprovada.
