@@ -750,13 +750,13 @@ export function PlanDetailRoute() {
   );
   const dueErrors = relevantErrors.filter(item => item.nextReview <= Date.now()).sort((a, b) => a.nextReview - b.nextReview);
 
-  const performanceByTopic = new Map<string, { topic: string; total: number; correct: number }>();
+  const performanceByTopic = new Map<string, { topic: string; subject: string; total: number; correct: number }>();
   questionBlocks.filter(item =>
     topicKeys.has(normalizePlanTopic(item.topic)) &&
     (!subjectFilter || item.subject === subjectFilter)
   ).forEach(block => {
-    const key = normalizePlanTopic(block.topic);
-    const current = performanceByTopic.get(key) || { topic: block.topic, total: 0, correct: 0 };
+    const key = block.subject + "|" + normalizePlanTopic(block.topic);
+    const current = performanceByTopic.get(key) || { topic: block.topic, subject: block.subject, total: 0, correct: 0 };
     current.total += block.total;
     current.correct += block.correct;
     performanceByTopic.set(key, current);
@@ -907,17 +907,17 @@ export function PlanDetailRoute() {
 
         <section className="panel plan-attention-panel">
           <div className="plan-section-heading compact">
-            <div><span className="step-kicker">SINAIS DE ATENÇÃO</span><h2>Onde vale retomar?</h2><p>Somente registros relacionados aos assuntos selecionados neste plano.</p></div>
+            <div><span className="step-kicker">SINAIS DE ATENÇÃO</span><h2>Onde vale retomar?</h2><p>Registros de questões, flashcards e erros com nomes de assuntos correspondentes ao seu plano.</p></div>
             <AlertCircle size={20}/>
           </div>
           <div className="plan-attention-stats">
             <div className="plan-attention-stat"><span>Flashcards vencidos</span><strong>{dueConcepts.length}</strong><Link to="/reviews">Revisar <ArrowRight size={12}/></Link></div>
-            <div className="plan-attention-stat"><span>Erros para retomar</span><strong>{dueErrors.length}</strong><Link to="/errors">Abrir caderno <ArrowRight size={12}/></Link></div>
+            <div className="plan-attention-stat"><span>Erros vencidos</span><strong>{dueErrors.length}</strong><Link to="/errors">Abrir caderno <ArrowRight size={12}/></Link></div>
           </div>
           {lowestPerformance.length ? <div className="plan-performance">
             <div className="plan-performance-title"><TrendingUp size={15}/> Menor aproveitamento em questões</div>
             {lowestPerformance.map(item => <div className="plan-performance-row" key={item.topic}>
-              <div><b>{item.topic}</b><small>{item.correct} de {item.total} acertos</small></div>
+              <div><b>{item.topic}</b><small>{item.subject === "tae" ? "TAE" : "Física"} · {item.correct} de {item.total} acertos</small></div>
               <div className="plan-performance-track"><span style={{ width: item.percent + "%" }}/></div>
               <strong>{item.percent}%</strong>
             </div>)}
