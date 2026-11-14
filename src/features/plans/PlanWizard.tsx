@@ -104,6 +104,7 @@ function SelectionNode({
   onToggle: (id: string, checked: boolean) => void;
   onRename: (id: string, name: string) => void;
 }) {
+  const [expanded, setExpanded] = useState(depth === 0);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [nameDraft, setNameDraft] = useState(node.name);
@@ -111,9 +112,19 @@ function SelectionNode({
   const state = getNodeSelectionState(node);
   const officialChildren = node.children.filter(child => child.origin !== "suggested");
   const suggestedChildren = node.children.filter(child => child.origin === "suggested");
+  const hasOfficialChildren = officialChildren.length > 0;
   const suggested = node.origin === "suggested";
   return <div className={`selection-node depth-${Math.min(depth, 4)} ${suggested ? "is-suggested" : ""}`}>
     <div className="selection-node-main">
+      {hasOfficialChildren
+        ? <button
+            className="selection-node-expand"
+            type="button"
+            aria-label={expanded ? `Recolher ${node.name}` : `Expandir ${node.name}`}
+            aria-expanded={expanded}
+            onClick={() => setExpanded(value => !value)}
+          >{expanded ? <ChevronDown size={15}/> : <ChevronRight size={15}/>}</button>
+        : <span className="selection-node-disclosure-spacer" aria-hidden="true"/>}
       <input
         aria-label={`Selecionar ${node.name}`}
         type="checkbox"
@@ -123,24 +134,27 @@ function SelectionNode({
       />
       <div className="selection-node-copy">
         <div className="selection-node-meta">
-          <span className={`origin-pill ${node.origin}`}>{suggested ? "Sugestão" : node.origin === "manual" ? "Manual" : "Edital"}</span>
+          {node.origin !== "edital" && <span className={`origin-pill ${node.origin}`}>{suggested ? "Complementar" : "Adicionado por você"}</span>}
           {node.sourceRef && <span className="source-reference">{node.sourceRef}</span>}
+          {hasOfficialChildren && <span className="selection-node-count">{officialChildren.length} subitem(ns)</span>}
         </div>
-        {editing ? <div className="inline-node-edit"><input aria-label="Editar nome do conteúdo" value={nameDraft} maxLength={240} onChange={event => setNameDraft(event.target.value)}/><button type="button" aria-label="Salvar nome" onClick={() => { if (nameDraft.trim()) onRename(node.id, nameDraft); setEditing(false); }}><Check size={14}/></button><button type="button" aria-label="Cancelar edição" onClick={() => { setNameDraft(node.name); setEditing(false); }}>×</button></div> : <strong>{node.name}</strong>}
-        {node.sourceText && !suggested && <details className="source-excerpt">
+        {editing
+          ? <div className="inline-node-edit"><input aria-label="Editar nome do conteúdo" value={nameDraft} maxLength={240} onChange={event => setNameDraft(event.target.value)}/><button type="button" aria-label="Salvar nome" onClick={() => { if (nameDraft.trim()) onRename(node.id, nameDraft); setEditing(false); }}><Check size={14}/></button><button type="button" aria-label="Cancelar edição" onClick={() => { setNameDraft(node.name); setEditing(false); }}>×</button></div>
+          : <strong>{node.name}</strong>}
+        {node.sourceText && !suggested && node.sourceText.trim() !== node.name.trim() && <details className="source-excerpt">
           <summary>Consultar trecho original</summary>
           <p>{node.sourceText}</p>
         </details>}
       </div>
       <button className="node-edit-button" type="button" title="Editar nome" aria-label={`Editar ${node.name}`} onClick={() => setEditing(true)}><Pencil size={13}/></button>
     </div>
-    {officialChildren.length > 0 && <div className="selection-children">
+    {hasOfficialChildren && expanded && <div className="selection-children">
       {officialChildren.map(child => <SelectionNode key={child.id} node={child} depth={depth + 1} onToggle={onToggle} onRename={onRename}/>)}
     </div>}
     {suggestedChildren.length > 0 && <div className="suggestion-area">
       <button type="button" className="suggestion-toggle" onClick={() => setSuggestionsOpen(open => !open)} aria-expanded={suggestionsOpen}>
-        <span><Sparkles size={15}/>{suggestionsOpen ? "Ocultar" : "Ver"} {suggestedChildren.length} aprofundamento(s) sugerido(s)</span>
-        <small>Opcional · não está escrito literalmente no edital</small>
+        <span><Sparkles size={15}/>{suggestionsOpen ? "Ocultar" : "Ver"} {suggestedChildren.length} complemento(s) antigo(s)</span>
+        <small>Não faz parte do edital · desmarcado por padrão</small>
         {suggestionsOpen ? <ChevronDown size={16}/> : <ChevronRight size={16}/>}
       </button>
       {suggestionsOpen && <div className="suggestion-list">
@@ -269,15 +283,15 @@ function SourceStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyPla
       </div>
       <div className="field-block">
         <label htmlFor="structure-text">Estrutura verticalizada recebida da IA</label>
-        <textarea id="structure-text" rows={10} value={structureText} onChange={event => setStructureText(event.target.value)} placeholder={"# [EDITAL] Conhecimentos específicos\n## [EDITAL] Física\n### [EDITAL] Mecânica\n> Referência: p. 14, item 1\n#### [SUGERIDO] Desdobramento didático"}/>
-        <small>O formato é Markdown legível, não JSON. Itens do edital e sugestões precisam estar identificados separadamente.</small>
+        <textarea id="structure-text" rows={10} value={structureText} onChange={event => setStructureText(event.target.value)} placeholder={"# [EDITAL] Conhecimentos específicos\n## [EDITAL] Física\n### [EDITAL] Mecânica\n> Referência: p. 14, item 1\n> Trecho literal: Mecânica"}/>
+        <small>O formato é Markdown legível, não JSON. A IA deve retornar somente o que estiver expresso no edital, sem criar subassuntos ou conteúdos extras.</small>
       </div>
       <div className="button-row">
         <button className="primary-button" type="button" disabled={!structureText.trim()} onClick={importStructure}>Importar estrutura e selecionar <ArrowRight size={16}/></button>
-        <button className="secondary-button" type="button" onClick={() => setStructureText("# [MANUAL] Conhecimentos gerais\n## [MANUAL] Disciplina\n### [MANUAL] Assunto\n#### [MANUAL] Subassunto")}>Usar modelo manual</button>
-        <button className="text-button" type="button" onClick={() => saveBlob("modelo-verticalizacao-ritmo.md", "# [EDITAL] Disciplina\n## [EDITAL] Área ou eixo\n### [EDITAL] Assunto literal\n> Referência: página ou item, se disponível\n> Trecho literal: transcrição do edital\n#### [SUGERIDO] Desdobramento didático\n")}>Baixar modelo</button>
+        <button className="secondary-button" type="button" onClick={() => setStructureText("# [EDITAL] Conhecimentos gerais\n## [EDITAL] Disciplina\n### [EDITAL] Assunto") }>Usar modelo manual</button>
+        <button className="text-button" type="button" onClick={() => saveBlob("modelo-verticalizacao-ritmo.md", "# [EDITAL] Disciplina\n## [EDITAL] Área ou eixo\n### [EDITAL] Assunto literal\n> Referência: página ou item, se disponível\n> Trecho literal: transcrição fiel, quando necessária\n") }>Baixar modelo</button>
       </div>
-      <div className="note-strip">A IA não altera seu plano automaticamente. Você revisa a estrutura antes de selecionar. Sugestões começam desmarcadas.</div>
+      <div className="note-strip">A IA apenas organiza o que está no edital. Não deve acrescentar assuntos, exemplos, pré-requisitos ou subtemas. O que não estiver no documento só pode entrar se você adicionar manualmente.</div>
     </section>}
     {message && <p className="inline-feedback" role="status">{busy ? "Lendo arquivo…" : message}</p>}
   </div>;
@@ -291,7 +305,8 @@ function SelectionStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: Study
   const review = index >= sections.length;
   const current = sections[index];
   const leaves = getSelectedLeaves(plan.tree);
-  const officialCount = leaves.filter(leaf => leaf.origin !== "suggested").length;
+  const officialCount = leaves.filter(leaf => leaf.origin === "edital").length;
+  const manualCount = leaves.filter(leaf => leaf.origin === "manual").length;
   const suggestedCount = leaves.filter(leaf => leaf.origin === "suggested").length;
   const progress = review ? 100 : Math.round(((index + 1) / Math.max(1, sections.length)) * 100);
 
@@ -318,21 +333,22 @@ function SelectionStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: Study
         <span className="step-kicker">SEÇÃO {index + 1}</span>
         {current.path.length > 0 && <p className="selection-breadcrumb">{current.path.join(" / ")}</p>}
         <h2>{current.node.name}</h2>
-        <p>Marque os itens do edital que deseja estudar. Você pode selecionar a seção inteira ou escolher assuntos específicos.</p>
+        <p>Abra os grupos para visualizar os subitens. Marcar um grupo seleciona seus conteúdos; você também pode escolher itens individualmente.</p>
       </div>
       <div className="selection-toolbar">
         <span>{getSelectedLeaves([current.node]).length} selecionado(s) nesta seção</span>
         <div className="button-row">
-          <button className="secondary-button compact" type="button" onClick={() => updateTree(toggleNodeInTree(plan.tree, current.node.id, true, false))}>Selecionar itens do edital</button>
+          <button className="secondary-button compact" type="button" onClick={() => updateTree(toggleNodeInTree(plan.tree, current.node.id, true, false))}>Selecionar itens da seção</button>
           <button className="secondary-button compact" type="button" onClick={() => updateTree(toggleNodeInTree(plan.tree, current.node.id, false, true))}>Limpar seção</button>
           <button className="text-button" type="button" onClick={() => setShowManual(value => !value)}><Pencil size={13}/>Adicionar conteúdo</button>
         </div>
       </div>
       {showManual && <form className="manual-add-row" onSubmit={event => { event.preventDefault(); if (!manualName.trim()) return; updateTree(addManualChildToTree(plan.tree, current.node.id, manualName)); setManualName(""); setShowManual(false); }}><input aria-label="Novo conteúdo manual" value={manualName} onChange={event => setManualName(event.target.value)} placeholder="Digite o assunto ou subassunto"/><button className="secondary-button compact" type="submit" disabled={!manualName.trim()}><Plus size={14}/>Adicionar</button></form>}
       <div className="selection-content">
+        <div className="selection-list-heading"><strong>Conteúdos identificados no edital</strong><small>Abra os grupos para consultar os subitens sem alongar a lista inteira.</small></div>
         <SelectionNode node={current.node} depth={0} onToggle={(id, checked) => updateTree(toggleNodeInTree(plan.tree, id, checked))} onRename={(id, name) => updateTree(renameNodeInTree(plan.tree, id, name))}/>
       </div>
-      <div className="selection-help"><Sparkles size={16}/><div><strong>Aprofundamentos sugeridos são opcionais</strong><p>Abra a área de sugestões se quiser consultar subdivisões didáticas. Elas não fazem parte literalmente do edital e só entram no plano se você as marcar.</p></div></div>
+      <div className="selection-scope-note"><Info size={16}/><span>O Ritmo não acrescenta assuntos automaticamente. O plano mantém os itens do edital; conteúdos extras só entram se você os adicionar manualmente.</span></div>
       <div className="wizard-navigation">
         <button className="secondary-button" type="button" onClick={() => index === 0 ? onSave({ ...plan, stage: "source" }) : moveTo(index - 1)}><ArrowLeft size={16}/>{index === 0 ? "Voltar ao edital" : "Seção anterior"}</button>
         <button className="primary-button" type="button" onClick={() => moveTo(index + 1)}>{index === sections.length - 1 ? "Salvar e revisar seleção" : "Salvar e avançar"}<ArrowRight size={16}/></button>
@@ -340,10 +356,11 @@ function SelectionStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: Study
     </section>}
 
     {review && <section className="panel selection-panel">
-      <div className="selection-heading"><span className="step-kicker">ÚLTIMA ETAPA DA SELEÇÃO</span><h2>Confira o que vai entrar no seu plano</h2><p>Os itens sugeridos aparecem separados dos conteúdos expressos no edital.</p></div>
+      <div className="selection-heading"><span className="step-kicker">ÚLTIMA ETAPA DA SELEÇÃO</span><h2>Confira o que vai entrar no seu plano</h2><p>O cronograma será montado com os itens selecionados. Conteúdos adicionados manualmente ficam identificados à parte.</p></div>
       <div className="selection-summary-grid">
-        <div><strong>{officialCount}</strong><span>Itens do edital/manual</span></div>
-        <div><strong>{suggestedCount}</strong><span>Aprofundamentos sugeridos</span></div>
+        <div><strong>{officialCount}</strong><span>Itens do edital</span></div>
+        {manualCount > 0 && <div><strong>{manualCount}</strong><span>Adicionados por você</span></div>}
+        {suggestedCount > 0 && <div><strong>{suggestedCount}</strong><span>Complementos antigos</span></div>}
         <div><strong>{leaves.length}</strong><span>Total selecionado</span></div>
       </div>
       <div className="review-sections">

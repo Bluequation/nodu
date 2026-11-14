@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildVerticalPrompt,
   clearWholeSection,
   getNodeSelectionState,
   getPlanSections,
@@ -29,6 +30,28 @@ describe("verticalização em Markdown", () => {
     expect(mechanics.sourceRef).toBe("p. 14, item 1");
     expect(mechanics.sourceText).toBe("1. Mecânica.");
     expect(parsed.warnings).toHaveLength(1);
+  });
+
+  it("não cria trechos originais artificiais quando o edital não os fornece", () => {
+    const parsed = parseVerticalMarkdown(sample);
+    const mechanics = parsed.tree[0].children[0].children[0];
+    const kinematics = mechanics.children[0];
+    expect(mechanics.sourceText).toBe("1. Mecânica.");
+    expect(kinematics.sourceText).toBe("");
+  });
+
+  it("orienta a IA a organizar sem ampliar o edital", () => {
+    const prompt = buildVerticalPrompt({
+      title: "SEDUC-CE",
+      institution: "SEDUC",
+      position: "Professor",
+      area: "Física",
+      organizer: "UECE",
+      sourceText: "1. Mecânica",
+    });
+    expect(prompt).toContain("NÃO amplie o edital");
+    expect(prompt).toContain("mantenha-o como um único item");
+    expect(prompt).not.toContain("[SUGERIDO]");
   });
 
   it("mantém sugestões desmarcadas por padrão", () => {

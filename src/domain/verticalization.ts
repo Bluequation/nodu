@@ -80,7 +80,7 @@ export function parseVerticalMarkdown(input: string): ParsedVerticalization {
       name: name.slice(0, 240),
       origin,
       sourceRef: "",
-      sourceText: origin === "edital" ? name.slice(0, 1200) : "",
+      sourceText: "",
       selected: origin !== "suggested",
       children: [],
     };
@@ -99,7 +99,7 @@ export function parseVerticalMarkdown(input: string): ParsedVerticalization {
 }
 
 export function buildVerticalPrompt(plan: Pick<StudyPlan, "title" | "institution" | "position" | "area" | "organizer" | "sourceText">): string {
-  return `Você é especialista em análise de editais de concursos públicos e organização de conteúdo programático. Verticalize SOMENTE o conteúdo programático pertinente ao cargo/área indicado abaixo.
+  return `Você é especialista em análise de editais de concursos públicos e organização de conteúdo programático. Organize SOMENTE o conteúdo programático pertinente ao cargo/área indicado abaixo.
 
 CONCURSO/PLANO: ${plan.title}
 INSTITUIÇÃO: ${plan.institution || "não informada"}
@@ -109,29 +109,27 @@ BANCA: ${plan.organizer || "não informada"}
 
 REGRAS OBRIGATÓRIAS:
 1. Identifique apenas o conteúdo programático pertinente ao cargo/área selecionado. Não misture conteúdos de outros cargos.
-2. Preserve literalmente os itens expressos no edital. Organize em hierarquia: disciplina > área/eixo > assunto > subassunto, conforme o texto permitir.
-3. Não invente assuntos e não apresente conhecimento geral como se estivesse no edital.
-4. Quando um item amplo precisar de desdobramento para facilitar o estudo, coloque os filhos com a etiqueta [SUGERIDO] e mantenha o texto original do edital com a etiqueta [EDITAL]. Sugestões devem começar desmarcadas.
+2. Preserve literalmente os itens expressos no edital. Organize-os em hierarquia somente quando essa relação estiver indicada no documento: disciplina > área/eixo > assunto > subassunto.
+3. NÃO amplie o edital. Não crie sugestões, subassuntos, exemplos, definições, pré-requisitos, tópicos complementares ou conteúdos de conhecimento geral.
+4. Se um item for amplo e não tiver subdivisões no edital, mantenha-o como um único item. Não invente filhos para facilitar o estudo.
 5. Para cada item literal, informe a referência disponível em uma linha iniciada por "> Referência:". Não invente páginas, itens ou anexos.
-6. Se o trecho original for diferente do título resumido, acrescente uma linha "> Trecho literal:" com a transcrição fiel.
+6. Inclua "> Trecho literal:" somente quando for necessário registrar o trecho original completo que não aparece integralmente no título. Não repita o próprio título como trecho.
 7. Se o cargo, a área ou a seção do conteúdo programático não estiverem claros, registre a dúvida em uma linha "> ALERTA:".
 8. Não complete lacunas com conhecimento geral. Se o texto estiver incompleto, informe isso em ALERTA.
 9. Retorne APENAS uma estrutura Markdown legível. NÃO use JSON, tabelas, bloco de código ou explicações antes/depois.
-10. Use títulos Markdown para representar a hierarquia. Cada título representa um único nó:
+10. Use títulos Markdown para representar apenas a hierarquia encontrada no edital. Cada título representa um único nó:
 # [EDITAL] Disciplina ou bloco
-## [EDITAL] Área ou eixo
+## [EDITAL] Área ou eixo, se houver
 ### [EDITAL] Assunto literal
-#### [SUGERIDO] Desdobramento didático
+#### [EDITAL] Subassunto literal, somente se existir no edital
 11. Use níveis de # conforme a hierarquia real. Não pule níveis sem necessidade. Não use listas para os conteúdos: use títulos.
-12. Marque cada título com [EDITAL], [SUGERIDO] ou [MANUAL]. Não acrescente [SUGERIDO] a um item que esteja escrito no edital.
+12. Identifique todos os títulos como [EDITAL]. Não crie categorias de conteúdo que não existam no documento.
 
 EXEMPLO DE FORMATO (apenas para demonstrar a estrutura; não copie os assuntos):
 # [EDITAL] Conhecimentos específicos
 ## [EDITAL] Física
 ### [EDITAL] 11.1 Competências e habilidades propostas para o componente curricular
 > Referência: p. 16, item 11.1
-> Trecho literal: "11.1 Competências e habilidades propostas para o componente curricular"
-#### [SUGERIDO] Relação entre competências, habilidades e objetivos de aprendizagem
 
 CONTEÚDO EXTRAÍDO DO EDITAL:
 ${plan.sourceText.slice(0, 160000)}
