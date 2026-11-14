@@ -1,0 +1,2 @@
+# Agenda mensal — Ritmo 8
+Layout 70/30 no desktop, calendário com até dois chips por dia e +N, painel do dia e resumo mensal. Cores por área compartilhadas com Meus planos. Navegação Hoje, mês anterior/seguinte, filtro por plano. Revisões gerais só em Todos os planos (não há vínculo explícito). Datas de início/fim e seleção oficial respeitadas. Conclusão datada usa o armazenamento existente. Sem alteração do planner. Em telas pequenas, regiões empilhadas. Capturas de tela e testes antes de declarar aprovação visual. Visualização semanal fica fora desta rodada.

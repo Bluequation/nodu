@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import {
-  Activity, ArrowRight, BookOpen, Brain, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList,
+  Activity, ArrowRight, BookOpen, Brain, CalendarDays, CheckCircle2, ClipboardList,
   FileText, FolderKanban, LayoutDashboard, Layers3, NotebookPen, Settings, Target,
   Upload, WandSparkles,
 } from "lucide-react";
@@ -14,6 +14,7 @@ import { FlashcardEditorPage, FlashcardsPage, ReviewPageRoute } from "../feature
 import { ErrorsPage, QuestionsPage } from "../features/practice/Practice";
 import { SettingsPage } from "../features/settings/Settings";
 import { LearningPage } from "../features/study/Learning";
+import { AgendaPage } from "../features/agenda/AgendaPage";
 import { CurationPage, ImportPage } from "../features/study/ImportCuration";
 
 const groups = [
@@ -46,7 +47,7 @@ function Shell() {
         <Route path="/plans/new" element={<NewPlan/>}/>
         <Route path="/plans/:id/verticalize" element={<PlanWizardRoute/>}/>
         <Route path="/plans/:id" element={<PlanDetailRoute/>}/>
-        <Route path="/agenda" element={<Agenda/>}/>
+        <Route path="/agenda" element={<AgendaPage/>}/>
         <Route path="/flashcards" element={<FlashcardsPage/>}/>
         <Route path="/flashcards/new" element={<FlashcardEditorPage/>}/>
         <Route path="/flashcards/:id/edit" element={<FlashcardEditorPage/>}/>
@@ -198,7 +199,6 @@ function NewPlan() {
   </div>;
 }
 
-const AGENDA_WEEKDAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 function dateKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
@@ -206,159 +206,6 @@ function fromDateKey(value: string) {
   const [year, month, day] = value.split("-").map(Number);
   return new Date(year, month - 1, day);
 }
-function displayTopicName(name: string) {
-  return name.replace(/^\s*\[EDITAL\]\s*/i, "").trim();
-}
-function planMinutesForDay(plan: StudyPlan, dayId: number) {
-  const config = plan.scheduleConfig;
-  if (!config) return 0;
-  const slot = config.daySchedules?.[dayId];
-  if (slot?.startTime && slot?.endTime) {
-    const [startHour, startMinute] = slot.startTime.split(":").map(Number);
-    const [endHour, endMinute] = slot.endTime.split(":").map(Number);
-    const start = startHour * 60 + startMinute;
-    let end = endHour * 60 + endMinute;
-    if (end < start) end += 24 * 60;
-    return end - start;
-  }
-  if (config.daySchedules) return 0;
-  return config.sameMinutes === false ? (config.dayMinutes?.[dayId] ?? config.minutes) : config.minutes;
-}
-function Agenda() {
-  const [plans, setPlans] = useState<StudyPlan[]>([]);
-  const [reviewItems, setReviewItems] = useState<Array<{ id: string; topic: string; type: string; subject: string; due: number }>>([]);
-  const [month, setMonth] = useState(() => { const now = new Date(); return new Date(now.getFullYear(), now.getMonth(), 1); });
-  const [selectedDate, setSelectedDate] = useState(() => dateKey(new Date()));
-  const [filterPlan, setFilterPlan] = useState("all");
-
-  useEffect(() => {
-    Promise.all([listPlans(), listConcepts(), listErrors()]).then(([nextPlans, concepts, errors]) => {
-      setPlans(nextPlans);
-      const items = [
-        ...concepts.filter(concept => concept.status === "published" && !concept.suspended).map(concept => ({ id: concept.id, topic: concept.topic, type: "Flashcards", subject: concept.subject === "tae" ? "TAE" : "Física", due: concept.fsrs.due })),
-        ...errors.filter(error => error.status !== "dominado").map(error => ({ id: error.id, topic: error.topic, type: "Caderno de erros", subject: error.subject === "tae" ? "TAE" : "Física", due: error.nextReview })),
-      ].sort((a, b) => a.due - b.due).slice(0, 60);
-      setReviewItems(items);
-    });
-  }, []);
-
-  const active = plans.filter(plan => plan.status === "active" && plan.assignments.length && (filterPlan === "all" || plan.id === filterPlan));
-  const monthStart = new Date(month.getFullYear(), month.getMonth(), 1);
-  const leadingDays = (monthStart.getDay() + 6) % 7;
-  const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
-  const totalCells = Math.ceil((leadingDays + daysInMonth) / 7) * 7;
-  const calendarDates = Array.from({ length: totalCells }, (_, index) => new Date(month.getFullYear(), month.getMonth(), index - leadingDays + 1));
-
-  function topicsForDate(date: Date) {
-    const key = dateKey(date);
-    const weekday = date.getDay();
-    return active.flatMap(plan => {
-      const config = plan.scheduleConfig;
-      if (!config || !config.days.includes(weekday)) return [];
-      if (config.startDate && key < config.startDate) return [];
-      if (config.examDate && key > config.examDate) return [];
-      const slot = config.daySchedules?.[weekday];
-      const timeRange = slot?.startTime && slot?.endTime ? `${slot.startTime}–${slot.endTime}` : "";
-      return plan.assignments.filter(item => item.day === weekday).map(item => ({
-        id: item.nodeId, name: displayTopicName(item.name), planTitle: plan.title,
-        planArea: [plan.position, plan.area].filter(Boolean).join(" · "), timeRange,
-      }));
-    });
-  }
-  function simulationsForDate(date: Date) {
-    const key = dateKey(date);
-    const weekday = date.getDay();
-    return active.filter(plan => {
-      const config = plan.scheduleConfig;
-      if (!config || !config.days.includes(weekday) || !config.daySchedules?.[weekday]?.simulation) return false;
-      if (config.startDate && key < config.startDate) return false;
-      if (config.examDate && key > config.examDate) return false;
-      return true;
-    }).map(plan => {
-      const slot = plan.scheduleConfig?.daySchedules?.[weekday];
-      return {
-        id: plan.id,
-        title: plan.title,
-        area: [plan.position, plan.area].filter(Boolean).join(" · "),
-        timeRange: slot?.startTime && slot?.endTime ? `${slot.startTime}–${slot.endTime}` : "",
-      };
-    });
-  }
-  function reviewsForDate(date: Date) {
-    const key = dateKey(date);
-    return reviewItems.filter(item => dateKey(new Date(item.due)) === key);
-  }
-  function shiftMonth(amount: number) {
-    const next = new Date(month.getFullYear(), month.getMonth() + amount, 1);
-    setMonth(next);
-    setSelectedDate(dateKey(next));
-  }
-
-  const selected = fromDateKey(selectedDate);
-  const selectedTopics = topicsForDate(selected);
-  const selectedSimulations = simulationsForDate(selected);
-  const selectedReviews = reviewsForDate(selected);
-  const selectedScheduleSlots = active.flatMap(plan => {
-    const config = plan.scheduleConfig;
-    if (!config || !config.days.includes(selected.getDay())) return [];
-    const slot = config.daySchedules?.[selected.getDay()];
-    if (!plan.assignments.some(item => item.day === selected.getDay()) && !slot?.simulation) return [];
-    return [{
-      title: plan.title,
-      timeRange: slot?.startTime && slot?.endTime ? `${slot.startTime}–${slot.endTime}` : "",
-      minutes: planMinutesForDay(plan, selected.getDay()),
-    }];
-  });
-  const minutes = selectedScheduleSlots.reduce((sum, item) => sum + item.minutes, 0);
-  const monthLabel = month.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
-  const todayKey = dateKey(new Date());
-
-  return <div className="stack">
-    <Heading eyebrow="PLANEJAMENTO" title="Agenda" desc=""/>
-    <Panel className="agenda-calendar-panel">
-      <div className="agenda-calendar-toolbar">
-        <div className="cal-head"><h2>{monthLabel}</h2><div>
-          <button type="button" aria-label="Mês anterior" onClick={() => shiftMonth(-1)}><ChevronLeft size={16}/></button>
-          <button type="button" aria-label="Mês seguinte" onClick={() => shiftMonth(1)}><ChevronRight size={16}/></button>
-        </div></div>
-        <select aria-label="Filtrar agenda por plano" value={filterPlan} onChange={event => setFilterPlan(event.target.value)}>
-          <option value="all">Todos os planos</option>
-          {plans.filter(plan => plan.status === "active" && plan.assignments.length).map(plan => <option key={plan.id} value={plan.id}>{plan.title}</option>)}
-        </select>
-      </div>
-      <div className="agenda-calendar-layout">
-        <div className="agenda-calendar-main">
-          <div className="agenda-calendar-weekdays">{AGENDA_WEEKDAYS.map(day => <span key={day}>{day}</span>)}</div>
-          <div className="agenda-calendar-grid">
-            {calendarDates.map(date => {
-              const key = dateKey(date);
-              const topicCount = topicsForDate(date).length;
-              const reviewCount = reviewsForDate(date).length;
-              const simulationCount = simulationsForDate(date).length;
-              const isSelected = key === selectedDate;
-              const isOutside = date.getMonth() !== month.getMonth();
-              const isToday = key === todayKey;
-              return <button type="button" key={key} className={`agenda-calendar-date ${isSelected ? "selected" : ""} ${isOutside ? "outside" : ""} ${isToday ? "today" : ""}`} onClick={() => { setSelectedDate(key); if (isOutside) setMonth(new Date(date.getFullYear(), date.getMonth(), 1)); }} aria-label={`${date.toLocaleDateString("pt-BR")} · ${topicCount} conteúdo(s) · ${simulationCount} simulado(s) · ${reviewCount} revisão(ões)`}>
-                <span>{date.getDate()}</span>
-                {(topicCount > 0 || reviewCount > 0 || simulationCount > 0) && <i className="agenda-date-markers">{topicCount > 0 && <b className="study-marker"/>}{simulationCount > 0 && <b className="simulation-marker"/>}{reviewCount > 0 && <b className="review-marker"/>}</i>}
-                {topicCount > 0 && <small>{topicCount}</small>}
-              </button>;
-            })}
-          </div>
-          <div className="agenda-legend"><span><i className="study-marker"/> Conteúdos</span><span><i className="simulation-marker"/> Simulado</span><span><i className="review-marker"/> Revisões</span></div>
-        </div>
-        <aside className="agenda-day-detail">
-          <div className="agenda-detail-head"><small>RESUMO DO DIA</small><h3>{selected.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}</h3>{selectedScheduleSlots.some(item => item.timeRange) ? <span>{selectedScheduleSlots.filter(item => item.timeRange).map(item => `${item.title}: ${item.timeRange}`).join(" · ")}</span> : minutes > 0 && <span>{minutes} min disponíveis</span>}</div>
-          {selectedTopics.length > 0 && <section className="agenda-detail-section"><strong>Conteúdos <span>{selectedTopics.length}</span></strong>{selectedTopics.map((item, index) => <article className="agenda-event study" key={`${item.id}-${index}`}><b>{item.name}</b><small>{item.planTitle} · {item.planArea}{item.timeRange ? ` · ${item.timeRange}` : ""}</small></article>)}</section>}
-          {selectedSimulations.length > 0 && <section className="agenda-detail-section"><strong>Simulados <span>{selectedSimulations.length}</span></strong>{selectedSimulations.map(item => <article className="agenda-event simulation" key={item.id}><b>Dia reservado para simulado</b><small>{item.title} · {item.area}{item.timeRange ? ` · ${item.timeRange}` : ""}</small><Link to="/questions">Registrar resultado <ArrowRight size={12}/></Link></article>)}</section>}
-          {selectedReviews.length > 0 && <section className="agenda-detail-section"><strong>Revisões <span>{selectedReviews.length}</span></strong>{selectedReviews.map(item => <article className="agenda-event review" key={`${item.type}-${item.id}`}><b>{item.topic}</b><small>{item.type} · {item.subject}</small><Link to={item.type === "Flashcards" ? "/reviews" : "/errors"}>Abrir <ArrowRight size={12}/></Link></article>)}</section>}
-          {selectedTopics.length === 0 && selectedSimulations.length === 0 && selectedReviews.length === 0 && <div className="agenda-day-empty"><CalendarDays size={23}/><span>Nenhuma atividade marcada para este dia.</span></div>}
-        </aside>
-      </div>
-    </Panel>
-  </div>;
-}
-
 const features: Record<string, [string, string, string[]]> = {
   learn: ["Aprender", "Atividades construídas a partir do seu próprio material.", ["Autoexplicação", "Recuperação livre", "Retomada de erros", "Prática intercalada", "Histórico de sessões"]],
   flashcards: ["Flashcards", "Famílias de conhecimentos e versões de cartões.", ["Famílias de microconhecimentos", "Cartões básicos, lacunas e respostas digitadas", "Imagens com ocultação", "Fontes e justificativas"]],

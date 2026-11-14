@@ -1,0 +1,51 @@
+
+.ritmo-agenda{min-width:0;gap:14px}
+.ritmo-agenda .ra-filter{max-width:245px;min-height:38px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--dark);font:inherit;font-size:12px}
+.ritmo-agenda .ra-layout{display:grid;grid-template-columns:minmax(0,7fr) minmax(205px,3fr);gap:12px;align-items:start;min-width:0}
+.ritmo-agenda :is(.ra-calendar,.ra-detail,.ra-summary){min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:13px}
+.ritmo-agenda .ra-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
+.ritmo-agenda .ra-toolbar h2{margin:0;font-size:18px;letter-spacing:-.3px}.ritmo-agenda .ra-toolbar h2:first-letter{text-transform:uppercase}
+.ritmo-agenda .ra-toolbar>div{display:flex;gap:5px;align-items:center}
+.ritmo-agenda .ra-toolbar button{display:grid;place-items:center;border:1px solid var(--line);background:var(--surface);color:var(--text-secondary);min-height:31px;padding:0 8px;border-radius:7px;cursor:pointer;font-size:12px}
+.ritmo-agenda .ra-toolbar button:hover{background:var(--surface-recessed)}
+.ritmo-agenda .ra-weekdays,.ritmo-agenda .ra-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+.ritmo-agenda .ra-weekdays span{color:var(--muted);font-size:11px;font-weight:600;padding:5px 7px}
+.ritmo-agenda .ra-grid{gap:1px;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--line)}
+.ritmo-agenda .ra-day{display:flex;flex-direction:column;align-items:stretch;gap:4px;text-align:left;border:0;background:var(--surface);color:var(--dark);padding:5px;min-width:0;height:clamp(93px,11vh,116px);cursor:pointer;position:relative;transition:background .15s}
+.ritmo-agenda .ra-day:hover{background:#f4f7fb}.ritmo-agenda .ra-day.selected{background:#eff5fb;box-shadow:inset 0 0 0 1.5px #87add0;z-index:1}
+.ritmo-agenda .ra-day.outside{background:var(--surface-soft);color:#8a97a8}.ritmo-agenda .ra-day.outside .ra-chips{opacity:.55}
+.ritmo-agenda .ra-number{display:grid;place-items:center;width:23px;height:23px;font-size:11px;font-weight:650;border-radius:50%}
+.ritmo-agenda .ra-day.today .ra-number{background:var(--blue);color:white}
+.ritmo-agenda .ra-chips{display:grid;gap:3px;min-width:0}
+.ritmo-agenda [data-tone="simulation"]{--area-bg:#faf4e7;--area-chip:#f4e5c7;--area-ink:#80602b;--area-edge:#eddfc2;--area-dot:#bd9553}
+.ritmo-agenda [data-tone="review"]{--area-bg:#edf5ef;--area-chip:#dcece1;--area-ink:#416950;--area-edge:#d8e8dd;--area-dot:#75a288}
+.ritmo-agenda .ra-chip{display:flex;align-items:center;gap:4px;min-width:0;background:var(--area-chip);color:var(--area-ink);border-radius:4px;padding:4px;font-size:10px;line-height:1.15}
+.ritmo-agenda .ra-chip i,.ritmo-agenda .ra-legend i{flex:none;width:5px;height:5px;border-radius:50%;background:var(--area-dot)}
+.ritmo-agenda .ra-chip svg{flex:none}.ritmo-agenda .ra-chip>span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.ritmo-agenda .ra-chip.done>span{text-decoration:line-through;opacity:.7}.ritmo-agenda .ra-more{color:var(--muted);font-size:10px;padding-left:3px}
+.ritmo-agenda .ra-legend{display:flex;flex-wrap:wrap;gap:12px;padding:11px 2px 0;color:var(--muted);font-size:10px}.ritmo-agenda .ra-legend span{display:flex;align-items:center;gap:5px}
+.ritmo-agenda .ra-sidebar{display:grid;gap:10px;min-width:0}
+.ritmo-agenda .ra-detail-head{display:flex;gap:10px;align-items:center;margin-bottom:12px}
+.ritmo-agenda .ra-date-tile{background:var(--blue-soft);color:var(--blue);border-radius:9px;width:48px;height:54px;display:grid;align-content:center;justify-items:center;flex:none}
+.ritmo-agenda .ra-date-tile small{text-transform:uppercase;font-size:9px;font-weight:650}.ritmo-agenda .ra-date-tile strong{font-size:24px;line-height:1.1}
+.ritmo-agenda .ra-detail-head>div{min-width:0;display:grid;gap:3px}.ritmo-agenda .ra-detail-head>div>small{color:var(--blue);font-size:9px;font-weight:750;letter-spacing:.5px}
+.ritmo-agenda .ra-detail-head h2{font-size:16px;margin:0}.ritmo-agenda .ra-detail-head h2:first-letter{text-transform:uppercase}.ritmo-agenda .ra-detail-head>div>span{font-size:11px;color:var(--muted)}
+.ritmo-agenda .ra-completion{display:grid;gap:5px;padding:9px;background:var(--surface-soft);border-radius:7px}
+.ritmo-agenda .ra-completion>span{display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}.ritmo-agenda .ra-completion b{color:var(--blue)}
+.ritmo-agenda .ra-completion>div{height:5px;background:var(--track);border-radius:5px;overflow:hidden}.ritmo-agenda .ra-completion>div>i{display:block;height:100%;background:var(--blue);border-radius:5px;transition:width .2s}
+.ritmo-agenda .ra-session{margin-top:12px}.ritmo-agenda .ra-session>header{display:grid;gap:4px;margin-bottom:7px}
+.ritmo-agenda .ra-session>header a,.ritmo-agenda .ra-session>header b{display:flex;gap:4px;align-items:center;font-size:12px;font-weight:650;color:var(--dark)}
+.ritmo-agenda .ra-session>header small{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--muted)}
+.ritmo-agenda .ra-event-list{display:grid;gap:5px}
+.ritmo-agenda .ra-event{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:5px;background:var(--area-bg);border:1px solid var(--area-edge);border-left:3px solid var(--area-dot);color:var(--area-ink);border-radius:7px;padding:9px}
+.ritmo-agenda .ra-copy{display:grid;gap:4px;min-width:0}.ritmo-agenda .ra-copy b{font-size:12px;line-height:1.4;overflow-wrap:anywhere}.ritmo-agenda .ra-copy small{font-size:10px}.ritmo-agenda .ra-event.done .ra-copy b{text-decoration:line-through;opacity:.75}
+.ritmo-agenda .ra-copy details{font-size:10px;line-height:1.4}.ritmo-agenda .ra-copy summary{cursor:pointer}.ritmo-agenda .ra-copy p{margin:4px 0 0;overflow-wrap:anywhere}
+.ritmo-agenda .ra-check{width:21px;height:21px;display:grid;place-items:center;border:1px solid var(--area-dot);border-radius:5px;background:#ffffff80;color:var(--area-ink);cursor:pointer;padding:0}.ritmo-agenda .ra-check.checked{background:var(--area-ink);color:white}.ritmo-agenda .ra-check:disabled{opacity:.45;cursor:default}
+.ritmo-agenda .ra-result,.ritmo-agenda .ra-empty a{display:flex;align-items:center;gap:4px;font-size:10px;font-weight:650;color:inherit;grid-column:1/-1}
+.ritmo-agenda .ra-empty{display:grid;justify-items:center;text-align:center;gap:7px;padding:22px 6px;color:var(--muted);font-size:11px}.ritmo-agenda .ra-empty b{font-size:13px;color:var(--text-secondary)}.ritmo-agenda .ra-empty a{color:var(--blue)}
+.ritmo-agenda .ra-summary h3{font-size:13px;margin:0 0 8px}.ritmo-agenda .ra-summary>div{display:grid;gap:5px}.ritmo-agenda .ra-summary>div span{display:flex;justify-content:space-between;gap:5px;color:var(--muted);font-size:11px;padding:5px 0}.ritmo-agenda .ra-summary b{color:var(--dark)}.ritmo-agenda .ra-summary>small{display:block;color:var(--muted);font-size:10px;margin-top:7px;line-height:1.4}
+.ritmo-agenda .ra-error{margin:0;padding:9px;background:#fceeea;color:#9a4336;border-radius:8px;font-size:12px}
+.ritmo-agenda button:focus-visible,.ritmo-agenda a:focus-visible,.ritmo-agenda select:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+@media(max-width:1000px){.ritmo-agenda .ra-layout{grid-template-columns:minmax(0,1fr)}.ritmo-agenda .ra-sidebar{grid-template-columns:minmax(0,2fr) minmax(0,1fr)}}
+@media(max-width:560px){.ritmo-agenda .ra-calendar{padding:7px}.ritmo-agenda .ra-toolbar h2{font-size:15px}.ritmo-agenda .ra-day{height:78px;padding:3px;gap:3px}.ritmo-agenda .ra-number{width:19px;height:19px;font-size:10px}.ritmo-agenda .ra-chip{padding:3px 2px;gap:2px;font-size:8px}.ritmo-agenda .ra-chip i{width:3px;height:3px}.ritmo-agenda .ra-chip svg{width:8px;height:8px}.ritmo-agenda .ra-more{font-size:8px}.ritmo-agenda .ra-weekdays span{padding:4px 2px;font-size:10px}.ritmo-agenda .ra-sidebar{grid-template-columns:1fr}.ritmo-agenda .ra-filter{max-width:150px}}
+@media(prefers-reduced-motion:reduce){.ritmo-agenda *{transition:none!important}}

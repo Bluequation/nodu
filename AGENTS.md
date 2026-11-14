@@ -1,5 +1,5 @@
 # Ritmo 8: development protocol
-- Scope freeze: remain in Meus planos, with the weekly planner as current focus. Do not start other features before the user explicitly approves.
+- Scope: user approved Meus planos and explicitly authorized Agenda monthly redesign. Stay in Agenda until approval; preserve planner and other features.
 - Treat an approved visual prototype as a specification, not inspiration. Read docs/ritmo-8-planner-contract.md before modifying the planner.
 - Keep the planner in src/features/plans/planner, using feature-local styles under .ritmo-planner. Do not append duplicate planner CSS to src/styles.css. Retain unrelated screen styles.
 - Keep original edital nodes, text, source references, IDs and progress intact. Presentation labels and library groups must not change the source or invent topics. A new plan starts unassigned; preserve a saved plan unless the user explicitly resets its distribution.

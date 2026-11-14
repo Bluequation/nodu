@@ -55,6 +55,14 @@ try{
  assert.equal(await page.locator(".gallery-today").count(),0,"no duplicate pending-session banner");
  assert.equal(await page.evaluate(()=>getComputedStyle(document.documentElement).backgroundColor),"rgb(244, 246, 249)");
  await page.screenshot({path:"planner-screenshots/00-meus-planos.png",fullPage:true});
+ await page.goto(url+"/#/agenda");await page.locator(".ra-grid").waitFor();
+ const agendaFilter=page.getByRole("combobox",{name:"Filtrar agenda por plano"});await agendaFilter.locator('option[value="gallery-active"]').waitFor({state:"attached"});await agendaFilter.selectOption("gallery-active");
+ await page.locator(".ra-day.today .ra-chip").first().waitFor();
+ assert.ok(await page.locator(".ra-day").count()>=28);assert.equal(await page.locator(".ra-day.today.selected").count(),1);
+ await page.screenshot({path:"planner-screenshots/09-agenda-desktop.png",fullPage:true});
+ await page.getByRole("button",{name:"Mês seguinte"}).click();await page.getByRole("button",{name:"Hoje",exact:true}).click();await page.locator(".ra-day.today.selected").waitFor();
+ await page.setViewportSize({width:390,height:844});await page.screenshot({path:"planner-screenshots/10-agenda-mobile.png",fullPage:true});await page.setViewportSize({width:1440,height:1050});
+
  await seed(page,fixture("empty",[general,specific]));
  assert.equal(await page.locator(".rp-planner").evaluate(el=>getComputedStyle(el).backgroundColor),"rgb(238, 242, 246)");
  assert.equal(await page.locator(".rp-day").count(),7);
