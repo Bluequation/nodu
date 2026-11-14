@@ -161,7 +161,17 @@ try{
  await page.goto(url+"/#/learn?plan=bound-learning&topic=ldb&date="+studyDate);await page.locator(".rl-topic").getByRole("heading",{name:"LDB",exact:true}).waitFor();assert.equal(await page.locator(".rl-mode:disabled").count(),4,"another topic retains separate materials");
  await page.goto(url+"/#/import?plan=bound-learning&topic=ldb&date="+studyDate);
  await page.getByRole("button",{name:"Gerar com IA",exact:true}).waitFor();assert.ok(await page.getByRole("button",{name:"Gerar com IA",exact:true}).isDisabled());
- await page.getByRole("link",{name:"Manual",exact:true}).click();await page.getByRole("button",{name:"Manual",exact:true}).waitFor();await page.getByRole("link",{name:"Voltar",exact:true}).click();await page.locator("#import-text").waitFor();assert.match(page.url(),/plan=bound-learning.*topic=ldb/);
+ assert.equal(await page.locator("#flashcard-reference").count(),0);
+ await page.getByRole("link",{name:"Manual",exact:true}).click();await page.getByRole("button",{name:"Manual",exact:true}).waitFor();
+ const dimensions=await page.locator(".rm-editor-form").evaluate(el=>{const form=el.getBoundingClientRect(),parent=el.parentElement.getBoundingClientRect(),q=el.querySelector("textarea").getBoundingClientRect();return {form:form.width,parent:parent.width,qWidth:q.width,qHeight:q.height};});
+ assert.ok(dimensions.form>=dimensions.parent*.95,"manual form must fill page content");
+ assert.ok(dimensions.qWidth>=250&&dimensions.qHeight>=110,"comfortable writing field");
+ await page.screenshot({path:"planner-screenshots/17-manual-desktop.png",fullPage:true});
+ await page.setViewportSize({width:390,height:844});
+ assert.ok(await page.locator(".rm-editor-form").evaluate(el=>el.scrollWidth<=el.clientWidth+1),"no mobile overflow");
+ await page.screenshot({path:"planner-screenshots/18-manual-mobile.png",fullPage:true});
+ await page.setViewportSize({width:1440,height:1050});
+ await page.getByRole("link",{name:"Voltar",exact:true}).click();await page.locator("#import-text").waitFor();assert.match(page.url(),/plan=bound-learning.*topic=ldb/);
  await page.locator("#import-text").fill("# RITMO-FLASHCARDS v1\n\n## Família: Princípio de teste\n**Fonte da família:** Fonte de teste\n\n### Cartão 1\n**Tipo:** Definição\n**Formato:** basic\n**Pergunta:** Qual princípio?\n**Resposta:** Uma resposta\n**Justificativa:** Justificativa de teste\n**Fonte:** Fonte de teste");
  await page.getByRole("button",{name:"Pré-visualizar e validar"}).click();
  await page.getByRole("button",{name:"Importar para Curadoria"}).click();

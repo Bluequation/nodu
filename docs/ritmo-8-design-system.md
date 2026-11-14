@@ -1,0 +1,8 @@
+# Ritmo 8 — Padrões de interface
+Derived from the approved Meus planos, weekly planner, Agenda and Aprender layouts. Approved prototypes take precedence.
+- Reuse Inter/system typography, cool canvas, white surfaces and the tokens in src/styles.css; area colors from src/features/plans/plan-surfaces.css. Do not introduce competing palettes. Page headings use .heading; section titles normally 15–20px, labels 11–12px, body/input text about 12–14px in CSS. Maintain user zoom.
+- Reuse primary/secondary actions, borders, clear selected states and subdued disabled states. Ordinary inputs about 40–43px high; secondary compact buttons 33–35px. Maintain focus and touch usability.
+- Cards: 12–17px radius, 14–18px padding for normal content, gaps about 8–14px. Reduce redundant wrappers, instructions, repeated labels and empty space, not legibility or writing comfort.
+- .stack is a page container (max-width 1320px). Do not reuse it for a nested form: auto margins can cause grid items to shrink to intrinsic width. Use a feature-local grid with width:100%, min-width:0, margin:0, justify-self:stretch. Side-by-side related fields on desktop, stacked when narrow. Long text needs useful width and height (manual flashcard question/answer at least 112px on desktop, resizable). No horizontal overflow.
+- Preserve plan/topic/date context, existing data, FSRS and approved screens. Explicit back navigation.
+- Verify at 1440 and 390px: panel alignment, relative editor width, writing field dimensions, overflow and screenshots. Compare with approved designs. A build is not visual validation. Report incomplete checks; no production promotion without approval.

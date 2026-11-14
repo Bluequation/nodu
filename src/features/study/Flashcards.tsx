@@ -130,13 +130,13 @@ function FlashcardEditor() {
     <header className="heading"><div><small>RITMO / FLASHCARDS</small><h1>{editing ? "Editar família" : "Adicionar flashcards"}</h1></div><Link className="secondary-button" to={returnTo}><ArrowLeft size={15}/>Voltar</Link></header>
     {!editing&&<div className="rm-toolbar"><div className="rm-tabs"><Link to={materialRoute("/import",searchParams)}>Importar</Link><button type="button" aria-pressed="true">Manual</button><button type="button" disabled title="Disponível quando houver integração com API"><Sparkles size={13}/> Gerar com IA</button></div><MaterialScopePicker plans={plans} creation disabled={saving}/></div>}
     {context.requested&&<p className="inline-feedback">{context.loading?"Carregando assunto…":context.valid?context.plan?.title+" · "+context.title+" · Família será salva como rascunho.":"Assunto indisponível."}</p>}
-    <form className="stack" onSubmit={submit}>
+    <form className="rm-editor-form" onSubmit={submit}>
       <section className="panel wizard-panel">
         <div className="panel-title-row"><h2>Microconhecimento</h2><small>{variants.length}/10 versões</small></div>
-        <div className="form-grid">
+        <div className={"form-grid rm-knowledge-grid "+(context.valid?"has-context":"")}>
           {!context.valid&&<div className="field-block"><label>Área de estudo</label><select value={subject} onChange={event => setSubject(event.target.value as StudySubject)}><option value="tae">Geral</option><option value="fisica">Física</option></select></div>}
           <div className="field-block"><label>Conhecimento / tópico *</label><input required maxLength={180} value={topic} onChange={event => setTopic(event.target.value)} placeholder="Ex.: Competências do SINAES"/></div>
-          <div className="field-block"><label>Fonte ou referência (opcional)</label><input value={source} onChange={event => setSource(event.target.value)} placeholder="Ex.: Lei nº 10.861/2004, art. 3º"/></div>
+          <div className="field-block rm-knowledge-source"><label>Fonte ou referência (opcional)</label><input value={source} onChange={event => setSource(event.target.value)} placeholder="Ex.: Lei nº 10.861/2004, art. 3º"/></div>
         </div>
       </section>
       <section className="panel wizard-panel">
@@ -147,8 +147,8 @@ function FlashcardEditor() {
             <div className="form-grid">
               <div className="field-block"><label>Operação mental</label><select value={variant.kind} onChange={event => updateVariant(index, { kind: event.target.value })}>{KINDS.map(kind => <option key={kind}>{kind}</option>)}</select></div>
               <div className="field-block"><label>Formato</label><select value={variant.format} onChange={event => updateVariant(index, { format: event.target.value })}>{FORMATS.map(format => <option key={format.value} value={format.value}>{format.label}</option>)}</select></div>
-              <div className="field-block"><label>Pergunta / comando *</label><textarea rows={2} value={variant.q} onChange={event => updateVariant(index, { q: event.target.value })} placeholder="Ex.: Diferencie avaliação institucional e avaliação de cursos no SINAES."/></div>
-              <div className="field-block"><label>Resposta esperada *</label><textarea rows={2} value={variant.a} onChange={event => updateVariant(index, { a: event.target.value })} placeholder="Resposta objetiva, precisa e verificável."/></div>
+              <div className="field-block"><label>Pergunta / comando *</label><textarea aria-label="Pergunta / comando" rows={4} value={variant.q} onChange={event => updateVariant(index, { q: event.target.value })} placeholder="Escreva a pergunta do flashcard."/></div>
+              <div className="field-block"><label>Resposta esperada *</label><textarea aria-label="Resposta esperada" rows={4} value={variant.a} onChange={event => updateVariant(index, { a: event.target.value })} placeholder="Escreva a resposta esperada."/></div>
               {variant.format === "image" && <div className="field-block field-span"><label>URL ou data URL da imagem</label><input value={variant.image} onChange={event => updateVariant(index, { image: event.target.value })} placeholder="https://… ou data:image/…"/><small>O editor visual de máscaras de imagem será integrado em uma etapa posterior.</small></div>}
               <details className="rm-optional field-span"><summary>Justificativa e fonte específica (opcional)</summary><div className="form-grid"><div className="field-block"><label>Justificativa / explicação (opcional)</label><textarea rows={2} value={variant.reason} onChange={event => updateVariant(index, { reason: event.target.value })} placeholder="Explique por que a resposta está correta ou onde está a pegadinha."/></div>
               <div className="field-block"><label>Fonte específica desta versão (opcional)</label><input value={variant.source} onChange={event => updateVariant(index, { source: event.target.value })} placeholder="Artigo, inciso, página ou referência"/></div></div></details>

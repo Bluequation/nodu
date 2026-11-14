@@ -17,14 +17,14 @@ function downloadFile(name: string, content: string, type: string) {
   anchor.href = url; anchor.download = name; anchor.click();
   URL.revokeObjectURL(url);
 }
-function buildCardPrompt(reference:string,context:string,amount:number){
+function buildCardPrompt(context:string,amount:number){
  return `Você é especialista em aprendizagem ativa e elaboração de flashcards para concursos públicos.
 
 CONTEXTO: ${context}
 META: até ${amount} famílias, sem preencher quantidade artificialmente.
 
 REGRAS OBRIGATÓRIAS:
-1. Use exclusivamente o material de referência fornecido pelo estudante (inclusive anexos enviados separadamente). Não invente fatos, leis, artigos, páginas, autores, fontes ou estatísticas de incidência. Se não houver material suficiente, solicite-o antes de gerar o arquivo.
+1. Fundamente cada cartão em material fornecido diretamente pelo estudante ou em fontes confiáveis efetivamente consultadas (legislação oficial, documentos institucionais, livros técnicos e fontes primárias). Priorize o material fornecido e confira sua atualidade quando pertinente. Não invente fatos, leis, artigos, páginas, autores, fontes ou estatísticas de incidência. Se não puder consultar fontes confiáveis ou se a informação não estiver sustentada, solicite material adicional antes de gerar cartões.
 2. Cada família representa UM microconhecimento do assunto selecionado. Não misture conteúdos de outras áreas ou extrapole o edital. Use título curto e específico.
 3. Crie de 2 a 10 cartões por família somente quando houver operações mentais genuinamente distintas; se só houver uma forma rigorosa, use uma. Não crie sinônimos da mesma pergunta.
 4. Varie conforme o material: definição, diferenciação, comparação, identificação, competência, responsável, condição, prazo, exceção, consequência, aplicação e armadilha. Adapte ao estilo da banca se houver evidência, sem inventar questões anteriores.
@@ -39,14 +39,13 @@ MODELO OBRIGATÓRIO:
 ${FLASHCARD_MARKDOWN_MODEL}
 
 MATERIAL DE REFERÊNCIA:
-${reference||"O estudante anexará ou colará o material junto com esta solicitação."}`;
+O estudante pode anexar ou colar o material diretamente na IA externa. Sem anexo, utilize somente fontes confiáveis efetivamente consultadas; se isso não for possível, solicite material antes de produzir o Markdown.`;
 }
 
 export function ImportPage() {
   const navigate = useNavigate();
   const context=useStudyContext(),plans=useMaterialPlans(),[params]=useSearchParams();
   const [amount,setAmount]=useState(20);
-  const [reference, setReference] = useState("");
   const [input, setInput] = useState("");
   const [fileName, setFileName] = useState("");
   const [families, setFamilies] = useState<ImportedFamily[]>([]);
@@ -68,7 +67,7 @@ export function ImportPage() {
   }
   async function copyPrompt() {
     if(params.get("plan")&&!context.valid){setError("Selecione o assunto do plano.");return;}
-    const prompt = buildCardPrompt(reference,context.valid?`${context.plan?.title} · cargo ${context.plan?.position} · banca ${context.plan?.organizer||"não informada"} · ${context.area} · ${context.title}. Restrinja todas as famílias a este assunto do plano.`:"Estudo livre; use apenas o material fornecido.",amount);
+    const prompt = buildCardPrompt(context.valid?`${context.plan?.title} · cargo ${context.plan?.position} · banca ${context.plan?.organizer||"não informada"} · ${context.area} · ${context.title}. Restrinja todas as famílias a este assunto do plano.`:"Estudo livre; fundamente em fontes confiáveis consultadas.",amount);
     try {
       await navigator.clipboard.writeText(prompt);
       setFeedback("Solicitação copiada. Cole na IA externa e depois traga o Markdown de volta.");
@@ -114,11 +113,10 @@ export function ImportPage() {
     <div className="rm-toolbar"><div className="rm-tabs"><button type="button" aria-pressed="true">Importar</button><Link to={materialRoute("/flashcards/new",params)+(params.get("plan")||params.get("date")?"&":"?")+"return=import"}>Manual</Link><button type="button" disabled title="Disponível quando houver integração com API"><Sparkles size={13}/> Gerar com IA</button></div><MaterialScopePicker plans={plans} creation disabled={busy} onChange={()=>{setFamilies([]);setFeedback("");setError("");}}/></div>
     <p className="rm-scope-hint">{invalid?"Escolha um assunto para vincular os cartões.":context.valid?"Destino do lote: "+context.plan?.title+" · "+context.title+". Todas as famílias serão vinculadas a este assunto.":"Destino: estudo livre, sem vínculo com um plano."} Importe um assunto por lote.</p>
     <div className="rm-import-layout">
-      <section className="panel wizard-panel"><div className="panel-title-row"><div><span className="step-kicker">1 · IA EXTERNA</span><h2>Preparar solicitação</h2><p>Copie o prompt e envie junto com seu material de referência.</p></div></div>
+      <section className="panel wizard-panel"><div className="panel-title-row"><div><span className="step-kicker">1 · IA EXTERNA</span><h2>Preparar solicitação</h2><p>Envie o prompt à IA externa. Se tiver material de estudo, anexe-o diretamente lá.</p></div></div>
         <div className="field-block"><label>Quantidade de famílias (até)</label><select aria-label="Quantidade de famílias" value={amount} onChange={e=>setAmount(Number(e.target.value))}>{[10,20,30,50].map(n=><option key={n} value={n}>{n}</option>)}</select></div>
-        <div className="field-block"><label htmlFor="flashcard-reference">Material de referência (opcional)</label><textarea id="flashcard-reference" rows={3} value={reference} onChange={e=>setReference(e.target.value)} placeholder="Cole aqui ou envie o material diretamente à IA externa."/></div>
         <button className="primary-button compact" type="button" disabled={invalid} onClick={copyPrompt}><Clipboard size={15}/>Copiar solicitação</button>
-        <details className="rm-prompt-details"><summary>Critérios e formato do prompt</summary><pre>{buildCardPrompt("",context.valid?(context.plan?.title+" · "+context.title):"Estudo livre",amount)}</pre></details>
+        <details className="rm-prompt-details"><summary>Critérios e formato do prompt</summary><pre>{buildCardPrompt(context.valid?(context.plan?.title+" · "+context.title):"Estudo livre",amount)}</pre></details>
       </section>
       <section className="panel wizard-panel"><div className="panel-title-row"><div><span className="step-kicker">2 · IMPORTAR</span><h2>Adicionar arquivo ou texto</h2><p>Markdown é o formato principal. JSON e CSV continuam compatíveis.</p></div></div>
         <div className="field-block"><label htmlFor="import-file">Arquivo Markdown</label><div className="file-picker"><FileJson size={18}/><span>{fileName||"Selecione um arquivo .md ou .txt"}</span><label className="secondary-button compact" htmlFor="import-file">Procurar</label><input id="import-file" type="file" accept=".md,.markdown,.txt,.json,.csv,text/markdown,text/plain,application/json,text/csv" disabled={busy} onChange={handleFile}/></div></div>
