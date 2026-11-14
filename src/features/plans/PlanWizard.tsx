@@ -446,7 +446,6 @@ function CalendarDaysIcon() {
 
 export function PlanWizardRoute() {
   const { id = "" } = useParams();
-  const navigate = useNavigate();
   const [plan, setPlan] = useState<StudyPlan | null>(null);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
