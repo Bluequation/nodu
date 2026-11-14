@@ -5,3 +5,5 @@ Importação JSON/CSV em lote com vínculo por assunto, curadoria antes do FSRS,
 Importar é a aba inicial, Manual mantém o mesmo contexto e retorno; Gerar com IA permanece desabilitada até integração real. Markdown v1 legível com cabeçalhos e campos delimitados, validação estrutural e curadoria obrigatória. JSON/CSV permanecem compatíveis. Um lote por assunto selecionado, sem classificação automática; sem plano é estudo livre. Prompt externo é copiável na aba Importar. Manual compacto e campos auxiliares recolhíveis.
 
 Material de referência enviado diretamente à IA externa; prompt exige fontes confiáveis efetivamente consultadas. Formulário manual ocupa a largura útil e preserva áreas de escrita. Ver docs/ritmo-8-design-system.md.
+
+Seleção de destino dos flashcards: níveis dependentes baseados nos conteúdos selecionados no plano. Áreas e cores acompanham o cronograma; os capítulos reais são preservados. Somente o item final grava nodeId. Escolhas intermediárias não alteram materiais nem criam vínculos; filtros mostram o plano todo até a seleção final.

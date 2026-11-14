@@ -162,6 +162,22 @@ try{
  await page.goto(url+"/#/import?plan=bound-learning&topic=ldb&date="+studyDate);
  await page.getByRole("button",{name:"Gerar com IA",exact:true}).waitFor();assert.ok(await page.getByRole("button",{name:"Gerar com IA",exact:true}).isDisabled());
  assert.equal(await page.locator("#flashcard-reference").count(),0);
+ await page.getByRole("combobox",{name:"Área do material"}).waitFor();
+ assert.equal(await page.getByRole("combobox",{name:"Área do material"}).inputValue(),"area:general");
+ await page.getByRole("combobox",{name:"Área do material"}).selectOption("area:specific");
+ assert.ok(!new URL(page.url().replace("#","")).searchParams.has("topic"));
+ await page.getByRole("combobox",{name:"Disciplina do material"}).selectOption({label:"Física"});
+ await page.getByRole("combobox",{name:"Assunto do material"}).selectOption({label:"Cinemática"});
+ const topics=page.getByRole("combobox",{name:"Tópico do material"});
+ assert.equal(await topics.locator("option").count(),4,"only three cinematics topics and placeholder");
+ await topics.selectOption("topic:mruv");
+ assert.match(page.url(),/topic=mruv/);
+ await page.screenshot({path:"planner-screenshots/19-material-hierarchy.png",fullPage:true});
+ await page.getByRole("combobox",{name:"Área do material"}).selectOption("area:general");
+ await page.getByRole("combobox",{name:"Disciplina do material"}).selectOption({label:"Legislação"});
+ await page.getByRole("combobox",{name:"Assunto do material"}).selectOption("topic:ldb");
+ assert.match(page.url(),/topic=ldb/);
+
  await page.getByRole("link",{name:"Manual",exact:true}).click();await page.getByRole("button",{name:"Manual",exact:true}).waitFor();
  const dimensions=await page.locator(".rm-editor-form").evaluate(el=>{const form=el.getBoundingClientRect(),parent=el.parentElement.getBoundingClientRect(),q=el.querySelector("textarea").getBoundingClientRect();return {form:form.width,parent:parent.width,qWidth:q.width,qHeight:q.height};});
  assert.ok(dimensions.form>=dimensions.parent*.95,"manual form must fill page content");

@@ -25,3 +25,18 @@
 .ritmo-materials.rm-editor .form-actions{padding-top:13px;margin-top:14px}
 @media(max-width:1050px){.ritmo-materials.rm-editor .rm-knowledge-grid:not(.has-context){grid-template-columns:repeat(2,minmax(0,1fr))}.ritmo-materials.rm-editor .rm-knowledge-grid:not(.has-context) .rm-knowledge-source{grid-column:1/-1}}
 @media(max-width:700px){.ritmo-materials.rm-editor>.rm-editor-form>.panel{padding:14px}.ritmo-materials.rm-editor .form-grid,.ritmo-materials.rm-editor .rm-knowledge-grid.has-context,.ritmo-materials.rm-editor .rm-knowledge-grid:not(.has-context){grid-template-columns:minmax(0,1fr)}.ritmo-materials.rm-editor .panel-title-row{flex-direction:row;flex-wrap:wrap}.ritmo-materials.rm-editor .field-block textarea{font-size:14px;min-height:100px}.ritmo-materials.rm-editor .variant-editor{padding:12px}}
+
+/* Cascading scope selector. Keep native menus short and dependent on the previous level. */
+.rm-hierarchy{display:grid!important;gap:7px;flex:1 1 480px;min-width:0;max-width:100%}
+.rm-hierarchy .rm-hierarchy-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,158px),1fr));gap:8px;align-items:end;min-width:0}
+.rm-hierarchy .rm-hierarchy-fields label{display:grid;gap:5px;min-width:0;width:100%;font-size:12px;color:var(--area-ink,var(--muted))}
+.rm-hierarchy .rm-hierarchy-fields select,.ritmo-materials .rm-hierarchy .rm-hierarchy-fields select{box-sizing:border-box;min-width:0;width:100%;max-width:100%;height:41px;padding:8px 10px;border:1px solid var(--area-edge,var(--line));border-radius:9px;background:var(--area-bg,var(--surface-soft));font:inherit;font-size:13px;color:var(--dark);text-overflow:ellipsis}
+.rm-hierarchy select:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.rm-hierarchy .rm-hierarchy-path{display:flex;flex-wrap:wrap;align-items:center;gap:4px 7px;color:var(--muted);font-size:11px;line-height:1.45;overflow-wrap:anywhere}
+.rm-hierarchy .rm-hierarchy-path span{color:var(--area-ink,var(--muted));min-width:0}
+.rm-hierarchy .rm-hierarchy-path span+span:before{content:"›";color:var(--muted);margin-right:7px}
+.rm-hierarchy .rm-hierarchy-path span:last-child{font-weight:650;color:var(--dark)}
+.rm-hierarchy .rm-hierarchy-note{font-size:11px;color:var(--muted)}
+.ritmo-materials .rm-toolbar:has(.rm-hierarchy){align-items:start}
+.ritmo-materials .rm-toolbar:has(.rm-tabs)>.rm-hierarchy{flex-basis:100%}
+@media(max-width:600px){.rm-hierarchy{flex-basis:100%}.rm-hierarchy .rm-hierarchy-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.rm-hierarchy .rm-hierarchy-fields label:first-child{grid-column:1/-1}}
