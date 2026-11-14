@@ -47,7 +47,16 @@ try{
  await mkdir("planner-screenshots",{recursive:true});
  browser=await chromium.launch();
  const page=await browser.newPage({viewport:{width:1440,height:1050}});
+ const activePlan=fixture("gallery-active",[general,specific],[],{startDate:"2026-01-01",examDate:"",days:[new Date().getDay()],minutes:0,mode:"alternate",daySchedules:{[new Date().getDay()]:{startTime:"18:00",endTime:"20:00",simulation:true}}});
+ activePlan.status="active";
+ await seed(page,activePlan);
+ await page.goto(url+"/#/plans");
+ await page.locator(".gallery-plan").filter({hasText:"Plano de teste"}).waitFor();
+ assert.equal(await page.locator(".gallery-today").count(),0,"no duplicate pending-session banner");
+ assert.equal(await page.evaluate(()=>getComputedStyle(document.documentElement).backgroundColor),"rgb(244, 246, 249)");
+ await page.screenshot({path:"planner-screenshots/00-meus-planos.png",fullPage:true});
  await seed(page,fixture("empty",[general,specific]));
+ assert.equal(await page.locator(".rp-planner").evaluate(el=>getComputedStyle(el).backgroundColor),"rgb(238, 242, 246)");
  assert.equal(await page.locator(".rp-day").count(),7);
  assert.equal(await page.locator(".rp-day .rp-tile").count(),0);
  assert.equal(await page.locator(".rp-column").count(),2);

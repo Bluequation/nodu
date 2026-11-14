@@ -133,17 +133,8 @@ function Plans() {
   useEffect(()=>{listPlans().then(setItems).catch(()=>setError("Não foi possível abrir seus planos.")).finally(()=>setLoading(false));},[]);
   const now=new Date(), weekStart=galleryWeekStart(now);
   const weekDates=GALLERY_DAYS.map((_,i)=>new Date(weekStart.getFullYear(),weekStart.getMonth(),weekStart.getDate()+i));
-  const active=items.filter(plan=>plan.status==="active");
-  const upcoming=active.map(plan=>({plan,next:galleryNext(plan,now)})).filter(item=>item.next!==null).sort((a,b)=>a.next!.date.getTime()-b.next!.date.getTime());
-  const first=upcoming[0];
-  const todayCount=active.filter(plan=>{const d=galleryDay(plan,now);return d.pending||d.pendingSimulation;}).length;
   return <div className="stack hybrid-plans ritmo-plan-surface">
     <Heading eyebrow="PLANEJAMENTO" title="Meus planos" desc="" action={<Link className="primary-button" to="/plans/new">Novo plano <ArrowRight size={16}/></Link>}/>
-    {first&&<section className="gallery-today">
-      <div className="gallery-today-icon"><CalendarDays size={22}/></div>
-      <div><small>{todayCount?"HOJE":"PRÓXIMO PASSO"}</small><strong>{todayCount?`${todayCount} ${todayCount===1?"plano com atividade pendente":"planos com atividades pendentes"}`:first.plan.title}</strong><span>{first.plan.title}{first.next?.date&&dateKey(first.next.date)!==dateKey(now)?` · ${first.next.date.toLocaleDateString("pt-BR",{weekday:"short",day:"numeric",month:"short"})}`:""}</span></div>
-      <Link className="secondary-button" to={`/plans/${first.plan.id}`}>Retomar <ArrowRight size={15}/></Link>
-    </section>}
     <div className="gallery-section-heading"><h2>Seus planejamentos</h2><span>{items.length} {items.length===1?"plano":"planos"}</span></div>
     {loading?<div className="loading-panel">Carregando planos…</div>:error?<Panel>{error}</Panel>:items.length?<div className="plans-grid gallery-grid">{items.map(plan=>{
       const leaves=getSelectedLeaves(plan.tree), ids=new Set(leaves.map(item=>item.id));
@@ -153,7 +144,7 @@ function Plans() {
       const next=galleryNext(plan,now);
       const nextLabel=next?`${dateKey(next.date)===dateKey(now)?"Hoje":next.date.toLocaleDateString("pt-BR",{weekday:"short",day:"numeric",month:"short"})}${next.slot?.startTime&&next.slot.endTime?` · ${next.slot.startTime}–${next.slot.endTime}`:" · Horário a definir"}`:plan.status==="draft"?"Continue a montagem do seu plano":plan.status==="completed"?"Percurso concluído":"Nenhuma sessão futura definida";
       return <article className="gallery-plan" key={plan.id}>
-        <div className="gallery-plan-top"><span className={`gallery-status ${plan.status}`}>{plan.status==="active"?"Ativo":plan.status==="completed"?"Concluído":"Rascunho"}</span><div className="gallery-ring" style={{background:`conic-gradient(var(--blue) ${percent}%, #eee9e1 0)`}} aria-label={`${percent}% dos conteúdos organizados`}><b>{percent}%</b></div></div>
+        <div className="gallery-plan-top"><span className={`gallery-status ${plan.status}`}>{plan.status==="active"?"Ativo":plan.status==="completed"?"Concluído":"Rascunho"}</span><div className="gallery-ring" style={{background:`conic-gradient(var(--blue) ${percent}%, var(--track) 0)`}} aria-label={`${percent}% dos conteúdos organizados`}><b>{percent}%</b></div></div>
         <div className="gallery-name"><h3>{plan.title}</h3><p>{[plan.institution,plan.position,plan.area].filter(Boolean).join(" · ")}</p></div>
         <div className="gallery-next"><small>{plan.status==="draft"?"EM CONSTRUÇÃO":next?.pendingSimulation?"PRÓXIMO SIMULADO / ESTUDO":"PRÓXIMA SESSÃO"}</small><strong>{nextLabel}</strong>{next&&<span>{next.pending} {next.pending===1?"assunto pendente":"assuntos pendentes"}{next.pendingSimulation?" · Simulado":""}</span>}</div>
         <div className="gallery-progress-label"><span>Organização da semana</span><b>{organized}/{count}</b></div>

@@ -24,3 +24,6 @@ Peças em ordem alfabética pelo título apresentado dentro de cada grupo, com o
 
 ## Edital e Seleção
 Duas regiões compactas no Edital (documento e importação) e na Seleção (navegação direta das áreas oficiais e edição/revisão). Cards por área, observações recolhíveis e títulos compactos apenas no resumo. Barra de etapas ativa azul sólido, texto branco, opacidade 1. Cronograma aprovado permanece intacto.
+
+## Paleta neutra revisada
+Fundo global cinza frio #F4F6F9, cards brancos #FFFFFF, superfícies suaves #F8FAFC, regiões de trabalho #EEF2F6, texto #202B3C e azul institucional preservado #2F6298. Cores das áreas, simulados e avisos mantêm sua semântica. Em Meus planos, não repetir aviso de pendência acima dos cards: cada card continua exibindo a próxima sessão. Não alterar fluxos de estudo ou armazenamento.

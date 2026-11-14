@@ -1,6 +1,6 @@
 
 /* Shared plan palette and visual surfaces. */
-:is(.ritmo-planner,.ritmo-plan-surface) [data-tone]{--area-bg:#f4f0ea;--area-chip:#e9e2d8;--area-ink:#6f6254;--area-edge:#e1d8cc;--area-dot:#a89884}
+:is(.ritmo-planner,.ritmo-plan-surface) [data-tone]{--area-bg:#f1f4f8;--area-chip:#e4e9f0;--area-ink:#475569;--area-edge:#dfe5ec;--area-dot:#8493a6}
 :is(.ritmo-planner,.ritmo-plan-surface) [data-tone="law"]{--area-bg:#edf3fa;--area-chip:#dbe8f6;--area-ink:#315c84;--area-edge:#d5e3f1;--area-dot:#6d9ac5}
 :is(.ritmo-planner,.ritmo-plan-surface) [data-tone="pedagogy"]{--area-bg:#f3eef8;--area-chip:#e8ddf2;--area-ink:#70558c;--area-edge:#e7dcef;--area-dot:#a08ab9}
 :is(.ritmo-planner,.ritmo-plan-surface) [data-tone="administration"]{--area-bg:#faf4e7;--area-chip:#f0e2c4;--area-ink:#85622e;--area-edge:#eee2c9;--area-dot:#c29b58}
@@ -9,21 +9,21 @@
 :is(.ritmo-planner,.ritmo-plan-surface) [data-tone="specific"]{--area-bg:#eeeffa;--area-chip:#dfe1f5;--area-ink:#585b96;--area-edge:#dfe2f3;--area-dot:#8b90c5}
 .ritmo-plan-surface .wizard-heading,.ritmo-plan-surface .plan-detail-header{padding-bottom:12px}
 
-.ritmo-plan-surface .wizard-stepper{padding:4px;background:#eae5dc;gap:5px;border:1px solid #e3dcd1;border-radius:11px}
-.ritmo-plan-surface .wizard-step{border:1px solid transparent;cursor:pointer;background:transparent;color:#736b62;transition:background .18s,color .18s,box-shadow .18s;font-size:12px;min-height:39px;opacity:1}
-.ritmo-plan-surface .wizard-step.is-complete{color:#315e89;background:#fffefa}
+.ritmo-plan-surface .wizard-stepper{padding:4px;background:var(--surface-recessed);gap:5px;border:1px solid var(--line);border-radius:11px}
+.ritmo-plan-surface .wizard-step{border:1px solid transparent;cursor:pointer;background:transparent;color:var(--text-secondary);transition:background .18s,color .18s,box-shadow .18s;font-size:12px;min-height:39px;opacity:1}
+.ritmo-plan-surface .wizard-step.is-complete{color:#315e89;background:var(--surface)}
 .ritmo-plan-surface .wizard-step.is-complete span{background:#e5edf6;color:#315e89}
 .ritmo-plan-surface .wizard-step.is-current,.ritmo-plan-surface .wizard-step.is-current:disabled{background:#305e89;color:white;border-color:#305e89;box-shadow:0 2px 5px #26496d22;opacity:1}
 .ritmo-plan-surface .wizard-step.is-current span{background:#ffffff25;color:white}
-.ritmo-plan-surface .wizard-step:disabled:not(.is-current){cursor:default;opacity:1;color:#91877a}
+.ritmo-plan-surface .wizard-step:disabled:not(.is-current){cursor:default;opacity:1;color:var(--muted)}
 .ritmo-plan-surface .wizard-step:not(:disabled):not(.is-current):hover{background:#e1ebf5;color:#315e89}
 .ritmo-plan-surface .wizard-step:focus-visible{outline:2px solid #5487b4;outline-offset:2px}
-.ritmo-plan-surface .wizard-panel{border-radius:15px;box-shadow:none;background:#fffefa;padding:18px}
-.ritmo-plan-surface .rp-gallery-week-caption{grid-column:1/-1;text-align:left;color:#81766b;font-size:10px;margin-bottom:2px}
+.ritmo-plan-surface .wizard-panel{border-radius:15px;box-shadow:none;background:var(--surface);padding:18px}
+.ritmo-plan-surface .rp-gallery-week-caption{grid-column:1/-1;text-align:left;color:var(--muted);font-size:10px;margin-bottom:2px}
 .ritmo-plan-surface .gallery-plan{box-shadow:none;border-radius:15px}
 .ritmo-plan-surface .gallery-next{margin:9px 0;padding:10px;border:0;border-radius:8px;background:#edf3fa;min-height:0}
 .ritmo-plan-surface .gallery-name{min-height:44px}
-.ritmo-plan-surface .gallery-today{border-radius:13px}
+
 .ritmo-plan-surface .plan-detail-stack{gap:12px}
 .ritmo-plan-surface .plan-next-session{background:#e5edf6;color:#315c84;border:1px solid #d3e2ef;box-shadow:none;border-radius:15px;padding:18px}
 .ritmo-plan-surface .plan-next-topline,.ritmo-plan-surface .plan-next-date,.ritmo-plan-surface .plan-next-description,.ritmo-plan-surface .plan-hero-link,.ritmo-plan-surface .plan-more-topics{color:#476985}
@@ -38,9 +38,9 @@
 .ritmo-plan-surface .plan-light-button{background:#315e89;color:white;border:0}
 .ritmo-plan-surface .plan-light-button:hover{background:#244e74}
 .ritmo-plan-surface .plan-no-next p,.ritmo-plan-surface .plan-today-success{color:#315c84}
-.ritmo-plan-surface .plan-deadline-card,.ritmo-plan-surface .plan-week-progress,.ritmo-plan-surface .plan-weekly-panel,.ritmo-plan-surface .plan-attention-panel,.ritmo-plan-surface .plan-coverage-panel{box-shadow:none;border-radius:15px;padding:16px;background:#fffefa}
+.ritmo-plan-surface .plan-deadline-card,.ritmo-plan-surface .plan-week-progress,.ritmo-plan-surface .plan-weekly-panel,.ritmo-plan-surface .plan-attention-panel,.ritmo-plan-surface .plan-coverage-panel{box-shadow:none;border-radius:15px;padding:16px;background:var(--surface)}
 .ritmo-plan-surface .plan-detail-columns{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr)}
-.ritmo-plan-surface .plan-week-day{background:#f8f6f1;border-color:#e7e0d5}
+.ritmo-plan-surface .plan-week-day{background:var(--surface-soft);border-color:var(--line)}
 .ritmo-plan-surface .plan-week-topic-list{gap:5px;padding:0 9px 9px}
 .ritmo-plan-surface .plan-week-topic{background:var(--area-bg);border:1px solid var(--area-edge);border-radius:7px;padding:8px}
 .ritmo-plan-surface .plan-week-topic b,.ritmo-plan-surface .plan-week-topic small{color:var(--area-ink)}
@@ -51,19 +51,19 @@
 .ritmo-plan-surface .plan-coverage-item b,.ritmo-plan-surface .plan-coverage-item small{color:var(--area-ink)}
 .ritmo-plan-surface .plan-coverage-track{background:var(--area-chip)}
 .ritmo-plan-surface .plan-coverage-track span{background:var(--area-dot)}
-.ritmo-plan-surface .plan-attention-stat{background:#f5f1e9}
+.ritmo-plan-surface .plan-attention-stat{background:var(--canvas)}
 .ritmo-plan-surface .plan-quick-actions>a{box-shadow:none;border-radius:10px}
 @media(max-width:760px){.ritmo-plan-surface .plan-detail-columns{grid-template-columns:1fr}.ritmo-plan-surface .wizard-panel,.ritmo-plan-surface .selection-panel,.ritmo-plan-surface .selection-progress{padding:12px}.ritmo-plan-surface .wizard-step{font-size:11px}.ritmo-plan-surface .plan-next-session{padding:15px}}
 
 /* Feature-local source and selection workspaces; no planner changes. */
 .ritmo-plan-surface .rp-source-workspace,.ritmo-plan-surface .rp-selection-workspace{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,3fr);gap:12px;align-items:start}
-.ritmo-plan-surface .rp-flow-card{min-width:0;background:#fffefa;border:1px solid #e5ded3;border-radius:14px;padding:16px;display:grid;gap:12px}
-.ritmo-plan-surface .rp-import-card{background:#f8f6f1}
+.ritmo-plan-surface .rp-flow-card{min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;gap:12px}
+.ritmo-plan-surface .rp-import-card{background:var(--surface-soft)}
 .ritmo-plan-surface .rp-flow-heading{display:flex;align-items:center;gap:9px}
 .ritmo-plan-surface .rp-flow-heading>span{display:grid;place-items:center;width:36px;height:36px;flex:none;border-radius:9px;background:#e5edf6;color:#315e89}
 .ritmo-plan-surface .rp-flow-heading>span.purple{background:#eae4f2;color:#71598c}
 .ritmo-plan-surface .rp-flow-heading h2,.ritmo-plan-surface .rp-selection-nav h2,.ritmo-plan-surface .rp-review-heading h2{font-size:16px;letter-spacing:-.25px;margin:0 0 3px}
-.ritmo-plan-surface .rp-flow-heading p,.ritmo-plan-surface .rp-review-heading p{font-size:11px;color:#81766b;line-height:1.45;margin:0}
+.ritmo-plan-surface .rp-flow-heading p,.ritmo-plan-surface .rp-review-heading p{font-size:11px;color:var(--muted);line-height:1.45;margin:0}
 .ritmo-plan-surface .rp-flow-meta{display:flex;gap:5px;flex-wrap:wrap;margin:4px 0}
 .ritmo-plan-surface .rp-flow-meta span{background:#e5edf6;color:#315e89;border-radius:6px;padding:5px 8px;font-size:10px}
 .ritmo-plan-surface .rp-flow-card .field-block{margin:0;min-width:0}
@@ -71,38 +71,38 @@
 .ritmo-plan-surface .rp-flow-card .file-picker .secondary-button{min-height:30px}
 .ritmo-plan-surface .rp-flow-card textarea{font:12px/1.55 Inter,Arial,sans-serif;height:170px;min-height:110px;padding:10px;max-width:100%;resize:vertical}
 .ritmo-plan-surface .rp-flow-actions{display:flex;align-items:center;justify-content:space-between;gap:7px;flex-wrap:wrap}
-.ritmo-plan-surface .rp-flow-actions>small{color:#81766b;font-size:10px;flex:1}
+.ritmo-plan-surface .rp-flow-actions>small{color:var(--muted);font-size:10px;flex:1}
 .ritmo-plan-surface .rp-flow-actions button{min-height:34px;font-size:11px}
 .ritmo-plan-surface .rp-flow-actions .primary-button{margin-left:auto}
 .ritmo-plan-surface .rp-import-ready{display:flex;align-items:center;gap:8px;padding:10px;background:#e9f2eb;border:1px solid #dce9df;border-radius:8px;color:#486d57}
 .ritmo-plan-surface .rp-import-ready div{display:grid;gap:3px}
 .ritmo-plan-surface .rp-import-ready b{font-size:12px}.ritmo-plan-surface .rp-import-ready small{font-size:10px}
-.ritmo-plan-surface .rp-import-flow{background:#fffefa;border:1px solid #e8e1d7;border-radius:10px;padding:0 10px}
-.ritmo-plan-surface .rp-import-flow>div{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid #efeae2}
+.ritmo-plan-surface .rp-import-flow{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:0 10px}
+.ritmo-plan-surface .rp-import-flow>div{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--line)}
 .ritmo-plan-surface .rp-import-flow>div:last-child{border:0}
 .ritmo-plan-surface .rp-import-flow i{display:grid;place-items:center;flex:0 0 22px;height:22px;border-radius:6px;background:#e5edf6;color:#315e89;font-size:11px;font-weight:700;font-style:normal}
 .ritmo-plan-surface .rp-import-flow span{flex:1;display:grid;gap:2px;min-width:0}
-.ritmo-plan-surface .rp-import-flow b{font-size:12px}.ritmo-plan-surface .rp-import-flow small{font-size:10px;color:#81766b;line-height:1.4}
+.ritmo-plan-surface .rp-import-flow b{font-size:12px}.ritmo-plan-surface .rp-import-flow small{font-size:10px;color:var(--muted);line-height:1.4}
 .ritmo-plan-surface .rp-flow-feedback{grid-column:1/-1;padding:8px 10px;margin:0;border-radius:8px;background:#edf3fa;color:#315e89;font-size:11px}
-.ritmo-plan-surface .rp-selection-nav,.ritmo-plan-surface .rp-selection-main{min-width:0;background:#f1eee7;border:0;border-radius:14px;padding:13px;box-shadow:none}
+.ritmo-plan-surface .rp-selection-nav,.ritmo-plan-surface .rp-selection-main{min-width:0;background:var(--surface-recessed);border:0;border-radius:14px;padding:13px;box-shadow:none}
 .ritmo-plan-surface .rp-selection-nav{display:grid;gap:10px;position:sticky;top:10px}
 .ritmo-plan-surface .rp-selection-nav>header{display:flex;align-items:center;justify-content:space-between;gap:5px}
-.ritmo-plan-surface .rp-selection-nav>header small{font-size:10px;color:#81766b}
+.ritmo-plan-surface .rp-selection-nav>header small{font-size:10px;color:var(--muted)}
 .ritmo-plan-surface .rp-selection-category{display:grid;gap:6px}
 .ritmo-plan-surface .rp-selection-category h3{font-size:11px;color:#6e7e90;margin:0 0 2px}
-.ritmo-plan-surface .rp-select-area,.ritmo-plan-surface .rp-review-link{display:flex;align-items:center;gap:7px;text-align:left;width:100%;padding:10px 9px;border:1px solid var(--area-edge,#e1d9cd);border-radius:8px;background:var(--area-bg,#fffefa);color:var(--area-ink,#315e89);font-size:12px;font-weight:600;cursor:pointer}
+.ritmo-plan-surface .rp-select-area,.ritmo-plan-surface .rp-review-link{display:flex;align-items:center;gap:7px;text-align:left;width:100%;padding:10px 9px;border:1px solid var(--area-edge,var(--line));border-radius:8px;background:var(--area-bg,var(--surface));color:var(--area-ink,#315e89);font-size:12px;font-weight:600;cursor:pointer}
 .ritmo-plan-surface .rp-select-area i,.ritmo-plan-surface .rp-review-card header i{width:8px;height:8px;flex:none;border-radius:50%;background:var(--area-dot)}
 .ritmo-plan-surface .rp-select-area span,.ritmo-plan-surface .rp-review-link span{flex:1;min-width:0}
 .ritmo-plan-surface .rp-select-area b{font-size:11px}
 .ritmo-plan-surface .rp-select-area.active{background:var(--area-chip);border-color:var(--area-dot);box-shadow:inset 3px 0 var(--area-dot)}
 .ritmo-plan-surface .rp-review-link.active{background:#315e89;color:white;border-color:#315e89}
 .ritmo-plan-surface .rp-selection-saved{display:flex;align-items:center;gap:5px;color:#6c8978;font-size:10px}
-.ritmo-plan-surface .rp-selection-main{background:#f8f6f1}
+.ritmo-plan-surface .rp-selection-main{background:var(--surface-soft)}
 .ritmo-plan-surface .rp-selection-banner{padding:12px;border:1px solid var(--area-edge);border-radius:9px;background:var(--area-bg);color:var(--area-ink);display:grid;gap:9px}
 .ritmo-plan-surface .rp-selection-banner h2{font-size:18px;margin:4px 0}.ritmo-plan-surface .rp-selection-banner small,.ritmo-plan-surface .rp-selection-banner p{font-size:11px;margin:0}
 .ritmo-plan-surface .rp-selection-tools{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .ritmo-plan-surface .rp-selection-tools button{font-size:10px;min-height:30px}
-.ritmo-plan-surface .rp-selection-tree{margin-top:8px;background:#fffefa;border-radius:9px;padding:7px;max-height:56vh;overflow:auto;scrollbar-width:thin}
+.ritmo-plan-surface .rp-selection-tree{margin-top:8px;background:var(--surface);border-radius:9px;padding:7px;max-height:56vh;overflow:auto;scrollbar-width:thin}
 .ritmo-plan-surface .rp-selection-tree .selection-node{padding:6px 3px}
 .ritmo-plan-surface .rp-selection-tree .selection-node-main{gap:5px}
 .ritmo-plan-surface .rp-selection-tree .selection-node-main>input{accent-color:var(--area-ink)}
@@ -124,7 +124,7 @@
 .ritmo-plan-surface .rp-review-warnings summary{display:flex;align-items:center;gap:5px;cursor:pointer;list-style:none}
 .ritmo-plan-surface .rp-review-warnings p{margin:6px 0 0;line-height:1.5}
 .ritmo-plan-surface .rp-selection-footer{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:8px}
-.ritmo-plan-surface .rp-selection-footer span{font-size:11px;color:#81766b;text-align:center}
+.ritmo-plan-surface .rp-selection-footer span{font-size:11px;color:var(--muted);text-align:center}
 .ritmo-plan-surface .rp-selection-footer button{min-height:35px;white-space:nowrap}
 @media(max-width:760px){.ritmo-plan-surface .rp-source-workspace,.ritmo-plan-surface .rp-selection-workspace{grid-template-columns:1fr}.ritmo-plan-surface .rp-selection-nav{position:static}.ritmo-plan-surface .rp-review-grid{grid-template-columns:1fr}.ritmo-plan-surface .rp-selection-footer button{font-size:10px;padding:0 8px}.ritmo-plan-surface .rp-selection-tree{max-height:none}}
 @media(prefers-reduced-motion:reduce){.ritmo-plan-surface .wizard-step{transition:none}}
