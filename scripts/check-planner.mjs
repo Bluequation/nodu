@@ -160,8 +160,9 @@ try{
  await page.getByRole("button",{name:"Desmarcar Leis de Newton",exact:true}).waitFor();
  await page.goto(url+"/#/learn?plan=bound-learning&topic=ldb&date="+studyDate);await page.locator(".rl-topic").getByRole("heading",{name:"LDB",exact:true}).waitFor();assert.equal(await page.locator(".rl-mode:disabled").count(),4,"another topic retains separate materials");
  await page.goto(url+"/#/import?plan=bound-learning&topic=ldb&date="+studyDate);
- await page.getByRole("button",{name:"Importar arquivo",exact:true}).click();
- await page.locator("#import-text").fill(JSON.stringify({formato:"ritmo-flashcards-v1",familias:[{disciplina:"tae",assunto:"Princípio de teste",fonte:"Fonte de teste",cartoes:[{tipo:"Definição",formato:"basic",pergunta:"Qual princípio?",resposta:"Uma resposta",fonte:"Fonte de teste"}]}]}));
+ await page.getByRole("button",{name:"Gerar com IA",exact:true}).waitFor();assert.ok(await page.getByRole("button",{name:"Gerar com IA",exact:true}).isDisabled());
+ await page.getByRole("link",{name:"Manual",exact:true}).click();await page.getByRole("button",{name:"Manual",exact:true}).waitFor();await page.getByRole("link",{name:"Voltar",exact:true}).click();await page.locator("#import-text").waitFor();assert.match(page.url(),/plan=bound-learning.*topic=ldb/);
+ await page.locator("#import-text").fill("# RITMO-FLASHCARDS v1\n\n## Família: Princípio de teste\n**Fonte da família:** Fonte de teste\n\n### Cartão 1\n**Tipo:** Definição\n**Formato:** basic\n**Pergunta:** Qual princípio?\n**Resposta:** Uma resposta\n**Justificativa:** Justificativa de teste\n**Fonte:** Fonte de teste");
  await page.getByRole("button",{name:"Pré-visualizar e validar"}).click();
  await page.getByRole("button",{name:"Importar para Curadoria"}).click();
  await page.locator(".curation-card").filter({hasText:"Princípio de teste"}).waitFor();

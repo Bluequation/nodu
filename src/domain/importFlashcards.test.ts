@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeImport, parseFlashcardCsv } from "./importFlashcards";
+import { normalizeImport, parseFlashcardCsv, parseFlashcardMarkdown, FLASHCARD_MARKDOWN_MODEL } from "./importFlashcards";
 
 describe("importação de flashcards", () => {
   it("aceita o formato legado e mantém versões pendentes para curadoria", () => {
@@ -37,4 +37,10 @@ describe("importação de flashcards", () => {
   it("rejeita pergunta ou resposta vazia", () => {
     expect(() => normalizeImport([{ subject: "tae", topic: "Tema", variants: [{ q: "", a: "Resposta" }] }])).toThrow("pergunta ou resposta");
   });
+});
+
+describe("Markdown de flashcards",()=>{
+ it("importa modelo legível, separadores, múltiplas famílias e mantém pendentes",()=>{const fs=parseFlashcardMarkdown(FLASHCARD_MARKDOWN_MODEL,"fisica");expect(fs).toHaveLength(2);expect(fs[0].subject).toBe("fisica");expect(fs[0].variants[0].status).toBe("pending");expect(fs[0].variants[0].a).toContain("Resposta correta");});
+ it("aceita cercas e campos com várias linhas",()=>{const raw=FLASHCARD_MARKDOWN_MODEL.replace("Pergunta objetiva sobre o microconhecimento.","Pergunta?\n- Item A\n- Item B");expect(parseFlashcardMarkdown("```markdown\n"+raw+"\n```")[0].variants[0].q).toContain("- Item B");});
+ it("rejeita ausência de fonte, campos fora de ordem, questões duplicadas e formatos inválidos",()=>{expect(()=>parseFlashcardMarkdown(FLASHCARD_MARKDOWN_MODEL.replace("**Fonte:** Referência específica do cartão.",""))).toThrow();expect(()=>parseFlashcardMarkdown(FLASHCARD_MARKDOWN_MODEL.replace("**Formato:** basic","**Formato:** desconhecido"))).toThrow();expect(()=>parseFlashcardMarkdown(FLASHCARD_MARKDOWN_MODEL.replace("**Resposta:**","**Pergunta:**"))).toThrow();});
 });

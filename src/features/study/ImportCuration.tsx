@@ -3,11 +3,11 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowRight, Check, Clipboard, Download, FileJson, FileSpreadsheet, ShieldCheck, Sparkles } from "lucide-react";
 import type { Concept } from "../../domain/study";
 import type { ImportedFamily } from "../../domain/importFlashcards";
-import { normalizeImport, parseFlashcardCsv } from "../../domain/importFlashcards";
+import { normalizeImport, parseFlashcardCsv, parseFlashcardMarkdown, FLASHCARD_MARKDOWN_MODEL } from "../../domain/importFlashcards";
 import { importConceptDrafts, listConcepts, saveConcept } from "../../data/study";
 import { emptyFsrsState } from "../../domain/fsrs";
 import {useStudyContext} from "./useStudyContext";
-import {MaterialScopePicker,useMaterialPlans,materialLabel} from "./MaterialScopePicker";
+import {MaterialScopePicker,useMaterialPlans,materialLabel,materialRoute} from "./MaterialScopePicker";
 import {linkedTo,linkedToPlan,topicUrl} from "../../domain/topicContext";
 import "./materials.css";
 
@@ -17,54 +17,35 @@ function downloadFile(name: string, content: string, type: string) {
   anchor.href = url; anchor.download = name; anchor.click();
   URL.revokeObjectURL(url);
 }
-function buildCardPrompt(reference: string,context:string,amount:number) {
-  const template = `Você é especialista em elaboração de flashcards para concursos públicos. Crie famílias de cartões com alto rigor conceitual, usando SOMENTE o material de referência abaixo.
+function buildCardPrompt(reference:string,context:string,amount:number){
+ return `Você é especialista em aprendizagem ativa e elaboração de flashcards para concursos públicos.
 
-CONTEXTO: ${context}\nQUANTIDADE: até ${amount} famílias, somente se houver base suficiente.\n\nREGRAS DE QUALIDADE:
-1. Uma família deve cobrar um microconhecimento específico, não um capítulo inteiro.
-2. Crie de 2 a 10 versões por família. Cada versão deve cobrar o mesmo conhecimento por uma operação mental realmente diferente.
-3. Varie os comandos: definir, diferenciar, comparar, identificar, explicar, apontar quem faz, a quem compete, quando ocorre, condições, prazos, exceções e consequências — conforme o conteúdo permitir.
-4. Em legislação, respeite a redação literal. Explore trocas de uma única palavra que mudem o sentido, mas explique exatamente a diferença. Não invente redação, artigo, inciso ou competência.
-5. Evite perguntas triviais, vagas, ambíguas, de mera associação superficial ou cuja resposta esteja contida na própria pergunta.
-6. Respostas objetivas, mas suficientes para corrigir o raciocínio. Inclua justificativa e fonte sempre que o material permitir.
-7. Se a referência não sustentar uma resposta, não crie o cartão. Sinalize que não há base suficiente.
-8. Não repita a mesma pergunta com sinônimos. Alterne o tipo de raciocínio, não apenas a frase.
-9. Use formato "basic" normalmente; "cloze" apenas quando a lacuna testar um termo decisivo; "typed" quando exigir resposta construída. Use "image" somente se a imagem estiver presente no material.
-10. Retorne somente JSON válido, sem cercas de código e sem explicações.
+CONTEXTO: ${context}
+META: até ${amount} famílias, sem preencher quantidade artificialmente.
 
-FORMATO OBRIGATÓRIO:
-{
-  "formato": "ritmo-flashcards-v1",
-  "familias": [
-    {
-      "disciplina": "tae ou fisica",
-      "assunto": "nome do microconhecimento",
-      "fonte": "referência verificável",
-      "cartoes": [
-        {
-          "tipo": "Definição, Diferenciação, Comparação, Identificação, Competência, Condição, Exceção, Lei seca ou Aplicação",
-          "formato": "basic",
-          "pergunta": "pergunta clara e não trivial",
-          "resposta": "resposta correta",
-          "justificativa": "por que a resposta está correta e qual distinção importa",
-          "fonte": "artigo, item ou página"
-        }
-      ]
-    }
-  ]
-}
+REGRAS OBRIGATÓRIAS:
+1. Use exclusivamente o material de referência fornecido pelo estudante (inclusive anexos enviados separadamente). Não invente fatos, leis, artigos, páginas, autores, fontes ou estatísticas de incidência. Se não houver material suficiente, solicite-o antes de gerar o arquivo.
+2. Cada família representa UM microconhecimento do assunto selecionado. Não misture conteúdos de outras áreas ou extrapole o edital. Use título curto e específico.
+3. Crie de 2 a 10 cartões por família somente quando houver operações mentais genuinamente distintas; se só houver uma forma rigorosa, use uma. Não crie sinônimos da mesma pergunta.
+4. Varie conforme o material: definição, diferenciação, comparação, identificação, competência, responsável, condição, prazo, exceção, consequência, aplicação e armadilha. Adapte ao estilo da banca se houver evidência, sem inventar questões anteriores.
+5. Teste recuperação ativa: uma pergunta clara por cartão, sem pista da resposta, sem ambiguidade ou trivialidade. Resposta curta, precisa, suficiente; diferencie conceitos próximos e explique o raciocínio ou a pegadinha.
+6. Legislação: preserve a norma e a redação da fonte; considere vigência e alterações apenas quando documentadas. Não confunda paráfrase com transcrição literal. Em Física e outras áreas, confira unidades, hipóteses e cálculos. Não fabrique exemplos que alterem a regra.
+7. Inclua fonte verificável em cada família e cartão (documento + artigo, seção ou página quando disponível). Se faltar sustentação, omita o cartão. Não declare como verificada uma fonte que não consultou.
+8. Faça revisão final de consistência: pergunta/resposta/justificativa/fonte; elimine duplicatas e contradições. Não aprove automaticamente: o estudante fará a curadoria.
+9. Formatos permitidos: basic, typed, cloze (use {{c1::resposta}} apenas para termo decisivo). Sem imagens neste formato.
+10. Retorne somente o Markdown estruturado abaixo, sem comentários externos, com cabeçalhos, campos em negrito e separadores --- entre famílias. Numere Cartão 1, Cartão 2 etc. de novo a cada família. Não copie os exemplos; substitua-os por conteúdo real. Pode usar várias linhas dentro de um campo.
+
+MODELO OBRIGATÓRIO:
+${FLASHCARD_MARKDOWN_MODEL}
 
 MATERIAL DE REFERÊNCIA:
-__MATERIAL__
-
-Se o material estiver incompleto, não complete com conhecimento externo. Priorize a precisão à quantidade de cartões.`;
-  return template.replace("__MATERIAL__", reference.slice(0, 100000));
+${reference||"O estudante anexará ou colará o material junto com esta solicitação."}`;
 }
 
 export function ImportPage() {
   const navigate = useNavigate();
   const context=useStudyContext(),plans=useMaterialPlans(),[params]=useSearchParams();
-  const [method,setMethod]=useState<"ai"|"file">("ai"),[amount,setAmount]=useState(20);
+  const [amount,setAmount]=useState(20);
   const [reference, setReference] = useState("");
   const [input, setInput] = useState("");
   const [fileName, setFileName] = useState("");
@@ -79,18 +60,18 @@ export function ImportPage() {
     const file = event.target.files?.[0];
     if (!file) return;
     if (file.size > 12_000_000) { setError("O arquivo ultrapassa 12 MB."); return; }
-    if (!/\.(json|csv)$/i.test(file.name)) { setError("Use um arquivo JSON ou CSV."); return; }
+    if (!/\.(md|markdown|txt|json|csv)$/i.test(file.name)) { setError("Use Markdown (.md), TXT, JSON ou CSV."); return; }
     setFileName(file.name);
-    setInput(await file.text());
+    try{setInput(await file.text());}catch{setError("Não foi possível ler o arquivo.");return;}
     setFamilies([]); setError(""); setFeedback("Arquivo carregado. Clique em pré-visualizar para validar.");
     event.target.value = "";
   }
   async function copyPrompt() {
     if(params.get("plan")&&!context.valid){setError("Selecione o assunto do plano.");return;}
-    const prompt = buildCardPrompt(reference,context.valid?`${context.plan?.title} · cargo ${context.plan?.position} · banca ${context.plan?.organizer||"não informada"} · ${context.area} · ${context.title}. Use disciplina "${/f[ií]sica/i.test(context.plan?.area||"")?"fisica":"tae"}" apenas como código interno; o assunto de cada família é o microconhecimento.`:"Estudo livre; use apenas o material fornecido.",amount);
+    const prompt = buildCardPrompt(reference,context.valid?`${context.plan?.title} · cargo ${context.plan?.position} · banca ${context.plan?.organizer||"não informada"} · ${context.area} · ${context.title}. Restrinja todas as famílias a este assunto do plano.`:"Estudo livre; use apenas o material fornecido.",amount);
     try {
       await navigator.clipboard.writeText(prompt);
-      setFeedback("Solicitação copiada. Cole no ChatGPT e depois traga o JSON de volta.");
+      setFeedback("Solicitação copiada. Cole na IA externa e depois traga o Markdown de volta.");
     } catch {
       downloadFile("solicitacao-flashcards-ritmo.txt", prompt, "text/plain;charset=utf-8");
       setFeedback("Não foi possível copiar; a solicitação foi baixada em TXT.");
@@ -100,10 +81,9 @@ export function ImportPage() {
     setError(""); setFeedback("");
     try {
       const trimmed = input.trim();
-      if (!trimmed) throw new Error("Escolha um arquivo ou cole o conteúdo JSON/CSV.");
-      const parsed = trimmed.startsWith("{") || trimmed.startsWith("[")
-        ? normalizeImport(JSON.parse(trimmed))
-        : parseFlashcardCsv(trimmed);
+      if(params.get("plan")&&!context.valid)throw Error("Selecione um assunto válido do plano.");
+      if (!trimmed) throw new Error("Escolha um arquivo ou cole o conteúdo Markdown.");
+      const parsed = /^(?:#|```)/.test(trimmed)?parseFlashcardMarkdown(trimmed,/f[ií]sica/i.test(context.plan?.area||"")?"fisica":"tae"):trimmed.startsWith("{") || trimmed.startsWith("[")?normalizeImport(JSON.parse(trimmed)):parseFlashcardCsv(trimmed);
       setFamilies(parsed);
       const duplicateCount = parsed.filter(family => existing.some(item => item.subject === family.subject && item.topic.toLocaleLowerCase() === family.topic.toLocaleLowerCase())).length;
       setFeedback(`${parsed.length} família(s) validadas. ${duplicateCount ? `${duplicateCount} possível(is) duplicata(s) encontrada(s). Confira antes de importar.` : "Nenhuma duplicata exata encontrada."}`);
@@ -128,31 +108,26 @@ export function ImportPage() {
     }
   }
 
+  const invalid=!!params.get("plan")&&!context.valid;
   return <div className="stack ritmo-materials rm-import">
-    <header className="heading"><div><small>RITMO / FLASHCARDS</small><h1>Adicionar flashcards</h1></div><Link className="secondary-button" to={context.valid?topicUrl("/flashcards",context.ref,context.date):"/flashcards"}>Voltar</Link></header>
-    <div className="rm-toolbar"><div className="rm-tabs"><button type="button" aria-pressed={method==="ai"} onClick={()=>setMethod("ai")}>Gerar com IA</button><button type="button" aria-pressed={method==="file"} onClick={()=>setMethod("file")}>Importar arquivo</button><Link to={context.valid?topicUrl("/flashcards/new",context.ref,context.date):params.get("plan")?"/flashcards/new?plan="+encodeURIComponent(params.get("plan")!):"/flashcards/new"}>Manual</Link></div><MaterialScopePicker plans={plans} disabled={busy} onChange={()=>{setFamilies([]);setFeedback("");}}/></div>
-    {params.get("plan")&&!context.valid&&<p className="inline-feedback">Escolha um assunto para vincular os cartões.</p>}
-    <div className={"rm-import-layout "+(method==="file"?"file-only":"")}>
-    {method==="ai"&&<section className="panel wizard-panel">
-      <div className="panel-title-row"><div><span className="step-kicker">ETAPA 1 · MATERIAL</span><h2>Prepare uma boa solicitação</h2><p>Forneça o texto que será a única base factual para a criação dos cartões.</p></div><span className="soft-tag"><ShieldCheck size={14}/> Sem API</span></div>
-      <div className="field-block"><label>Quantidade de famílias</label><select aria-label="Quantidade de famílias" value={amount} onChange={e=>setAmount(Number(e.target.value))}>{[10,20,30,50].map(n=><option key={n} value={n}>{n}</option>)}</select></div>
-      <div className="field-block"><label htmlFor="flashcard-reference">Material de referência (opcional)</label><textarea id="flashcard-reference" rows={7} value={reference} onChange={event => setReference(event.target.value)} placeholder="Cole um trecho de lei, resumo, material de aula ou conteúdo que você já estudou. Você também pode deixar em branco e enviar o material separadamente à IA."/></div>
-      <div className="ai-instructions"><div className="ai-instruction-heading"><Sparkles size={17}/> Prompt com critérios de qualidade</div><p>O pedido orienta a IA a criar famílias pequenas, variar operações mentais, respeitar a lei seca e não inventar informações. Você continua responsável por conferir as fontes e respostas.</p><button className="primary-button" type="button" onClick={copyPrompt}><Clipboard size={15}/>Copiar solicitação para IA</button></div>
-    </section>}
-    <section className="panel wizard-panel">
-      <div className="panel-title-row"><div><span className="step-kicker">ETAPA 2 · IMPORTAÇÃO</span><h2>Traga as famílias para o Ritmo</h2><p>O importador aceita JSON no formato Ritmo e CSV com uma linha por versão.</p></div><span className="soft-tag">Até 250 famílias · 10 versões cada</span></div>
-      <div className="field-block"><label htmlFor="import-file">Arquivo JSON ou CSV</label><div className="file-picker"><FileJson size={18}/><span>{fileName || "Escolha o arquivo gerado pela IA"}</span><label className="secondary-button" htmlFor="import-file">Procurar</label><input id="import-file" type="file" accept=".json,.csv,application/json,text/csv" onChange={handleFile}/></div></div>
-      <div className="field-block"><label htmlFor="import-text">Ou cole o JSON / CSV</label><textarea id="import-text" rows={9} value={input} onChange={event => { setInput(event.target.value); setFamilies([]); }} placeholder='Cole o JSON com "formato": "ritmo-flashcards-v1" e a lista "familias".'/></div>
-      <div className="button-row"><button className="primary-button" type="button" onClick={preview}>Pré-visualizar e validar <ArrowRight size={15}/></button><button className="secondary-button" type="button" onClick={() => downloadFile("modelo-flashcards-ritmo.json", JSON.stringify({ formato: "ritmo-flashcards-v1", familias: [{ disciplina: "tae", assunto: "Nome do microconhecimento", fonte: "Lei/artigo/página", cartoes: [{ tipo: "Diferenciação", formato: "basic", pergunta: "Qual é a diferença entre X e Y?", resposta: "…", justificativa: "…", fonte: "…" }] }] }, null, 2), "application/json")}><Download size={14}/>Baixar modelo JSON</button><button className="text-button" type="button" onClick={() => downloadFile("modelo-flashcards-ritmo.csv", "disciplina,assunto,tipo,formato,pergunta,resposta,justificativa,fonte\ntae,Nome do assunto,Comparação,basic,Compare X e Y.,Resposta objetiva.,Explique a distinção.,Lei ou página\n", "text/csv;charset=utf-8")}><FileSpreadsheet size={14}/>Modelo CSV</button></div>
-      {error && <p className="inline-feedback" role="alert">{error}</p>}
-      {feedback && <p className="inline-feedback" role="status">{feedback}</p>}
-      {families.length > 0 && <div className="import-preview">
-        <div className="panel-head"><h2>Pré-visualização</h2><span className="soft-tag">{families.length} família(s)</span></div>
-        {families.map((family, index) => <article className="import-preview-row" key={`${family.subject}-${family.topic}-${index}`}><div><span className="subject-pill">{context.valid?context.area:"Estudo livre"}</span><strong>{family.topic}</strong><small>{family.source || "Fonte não informada"}</small></div><span>{family.variants.length} versão(ões)</span></article>)}
-        <div className="note-strip">As famílias serão importadas como rascunhos. Nenhuma entra na fila FSRS antes de ser conferida e publicada na Curadoria.</div>
-        <div className="form-actions"><button className="secondary-button" type="button" onClick={() => setFamilies([])}>Descartar prévia</button><button className="primary-button" type="button" disabled={busy} onClick={importDrafts}>{busy ? "Importando…" : "Importar para Curadoria"} <ArrowRight size={15}/></button></div>
-      </div>}
-    </section></div>
+    <header className="heading"><div><small>RITMO / FLASHCARDS</small><h1>Adicionar flashcards</h1></div><Link className="secondary-button" to={materialRoute("/flashcards",params)}>Voltar</Link></header>
+    <div className="rm-toolbar"><div className="rm-tabs"><button type="button" aria-pressed="true">Importar</button><Link to={materialRoute("/flashcards/new",params)+(params.get("plan")||params.get("date")?"&":"?")+"return=import"}>Manual</Link><button type="button" disabled title="Disponível quando houver integração com API"><Sparkles size={13}/> Gerar com IA</button></div><MaterialScopePicker plans={plans} creation disabled={busy} onChange={()=>{setFamilies([]);setFeedback("");setError("");}}/></div>
+    <p className="rm-scope-hint">{invalid?"Escolha um assunto para vincular os cartões.":context.valid?"Destino do lote: "+context.plan?.title+" · "+context.title+". Todas as famílias serão vinculadas a este assunto.":"Destino: estudo livre, sem vínculo com um plano."} Importe um assunto por lote.</p>
+    <div className="rm-import-layout">
+      <section className="panel wizard-panel"><div className="panel-title-row"><div><span className="step-kicker">1 · IA EXTERNA</span><h2>Preparar solicitação</h2><p>Copie o prompt e envie junto com seu material de referência.</p></div></div>
+        <div className="field-block"><label>Quantidade de famílias (até)</label><select aria-label="Quantidade de famílias" value={amount} onChange={e=>setAmount(Number(e.target.value))}>{[10,20,30,50].map(n=><option key={n} value={n}>{n}</option>)}</select></div>
+        <div className="field-block"><label htmlFor="flashcard-reference">Material de referência (opcional)</label><textarea id="flashcard-reference" rows={3} value={reference} onChange={e=>setReference(e.target.value)} placeholder="Cole aqui ou envie o material diretamente à IA externa."/></div>
+        <button className="primary-button compact" type="button" disabled={invalid} onClick={copyPrompt}><Clipboard size={15}/>Copiar solicitação</button>
+        <details className="rm-prompt-details"><summary>Critérios e formato do prompt</summary><pre>{buildCardPrompt("",context.valid?(context.plan?.title+" · "+context.title):"Estudo livre",amount)}</pre></details>
+      </section>
+      <section className="panel wizard-panel"><div className="panel-title-row"><div><span className="step-kicker">2 · IMPORTAR</span><h2>Adicionar arquivo ou texto</h2><p>Markdown é o formato principal. JSON e CSV continuam compatíveis.</p></div></div>
+        <div className="field-block"><label htmlFor="import-file">Arquivo Markdown</label><div className="file-picker"><FileJson size={18}/><span>{fileName||"Selecione um arquivo .md ou .txt"}</span><label className="secondary-button compact" htmlFor="import-file">Procurar</label><input id="import-file" type="file" accept=".md,.markdown,.txt,.json,.csv,text/markdown,text/plain,application/json,text/csv" disabled={busy} onChange={handleFile}/></div></div>
+        <div className="field-block"><label htmlFor="import-text">Ou cole a resposta da IA</label><textarea id="import-text" rows={5} value={input} disabled={busy} onChange={e=>{setInput(e.target.value);setFamilies([]);setError("");setFeedback("");}} placeholder="# RITMO-FLASHCARDS v1"/></div>
+        <div className="button-row"><button className="primary-button compact" type="button" disabled={invalid||busy} onClick={preview}>Pré-visualizar e validar <ArrowRight size={15}/></button><button className="text-button" type="button" onClick={()=>downloadFile("modelo-flashcards-ritmo.md",FLASHCARD_MARKDOWN_MODEL,"text/markdown;charset=utf-8")}><Download size={14}/>Modelo Markdown</button></div>
+      </section>
+    </div>
+    {error&&<p className="inline-feedback" role="alert">{error}</p>}{feedback&&<p className="inline-feedback" role="status">{feedback}</p>}
+    {families.length>0&&<section className="panel import-preview"><div className="panel-head"><h2>Pré-visualização</h2><span>{families.length} famílias · {families.reduce((n,f)=>n+f.variants.length,0)} cartões</span></div><p className="rm-scope-hint">Destino: {context.valid?context.plan?.title+" · "+context.title:"Estudo livre"}. Confira antes de importar.</p>{families.map((family,index)=><article className="import-preview-row" key={index}><div><strong>{family.topic}</strong><small>{family.source||"Fonte não informada"}</small></div><span>{family.variants.length} versões</span></article>)}<p className="rm-scope-hint">Validação de estrutura não verifica a exatidão factual. Os cartões entram como rascunhos para curadoria.</p><div className="form-actions"><button className="secondary-button compact" type="button" disabled={busy} onClick={()=>setFamilies([])}>Descartar prévia</button><button className="primary-button compact" type="button" disabled={busy||invalid} onClick={importDrafts}>{busy?"Importando…":"Importar para Curadoria"} <ArrowRight size={15}/></button></div></section>}
   </div>;
 }
 

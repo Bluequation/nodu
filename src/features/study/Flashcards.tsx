@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { ArrowLeft, ArrowRight, BookOpen, Check, Clock3, Layers3, Plus, RotateCcw, Sparkles, Upload, ShieldCheck } from "lucide-react";
 import type { Concept, FlashcardVariant, ReviewLog, StudySettings, StudySubject } from "../../domain/study";
 import {useStudyContext} from "./useStudyContext";
-import {MaterialScopePicker,useMaterialPlans,materialLabel} from "./MaterialScopePicker";
+import {MaterialScopePicker,useMaterialPlans,materialLabel,materialRoute} from "./MaterialScopePicker";
 import "./materials.css";
 import {addTopicLink,linkedTo,linkedToPlan,topicUrl} from "../../domain/topicContext";
 import { emptyFsrsState, rateFsrs, type FsrsGrade } from "../../domain/fsrs";
@@ -65,8 +65,9 @@ function FlashcardEditor() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const context=useStudyContext(),plans=useMaterialPlans();
-  const destination=searchParams.get("return")==="curation"?"/curation":"/flashcards";
-  const returnTo=context.requested?topicUrl(destination,context.ref,context.date):destination;
+  const editingReturn=searchParams.get("return");
+  const destination=editingReturn==="curation"?"/curation":editingReturn==="import"?"/import":"/flashcards";
+  const returnTo=materialRoute(destination,searchParams);
   const editing = !!id;
   const [subject, setSubject] = useState<StudySubject>("tae");
   const [topic, setTopic] = useState("");
@@ -89,7 +90,7 @@ function FlashcardEditor() {
     }).finally(() => setLoading(false));
   }, [id]);
 
-  useEffect(()=>{if(!editing&&context.valid){if(/f[ií]sica/i.test(context.plan?.area||""))setSubject("fisica");}},[editing,context.valid,context.title,context.plan?.area]);
+  useEffect(()=>{if(!editing&&context.valid)setSubject(/f[ií]sica/i.test(context.plan?.area||"")?"fisica":"tae");},[editing,context.valid,context.title,context.plan?.area]);
   function updateVariant(index: number, patch: Partial<FlashcardVariant>) {
     setVariants(current => current.map((variant, i) => i === index ? { ...variant, ...patch } : variant));
   }
@@ -118,7 +119,7 @@ function FlashcardEditor() {
       } else {
         await createConcept({ subject, topic, source,...(context.valid?{planTopics:[context.ref]}:{}) }, clean, "draft");
       }
-      navigate(returnTo);
+      navigate(!editing&&editingReturn==="import"?materialRoute("/curation",searchParams):returnTo);
     } catch {
       setError("Não foi possível salvar. Seus dados anteriores permanecem preservados.");
       setSaving(false);
@@ -126,35 +127,35 @@ function FlashcardEditor() {
   }
   if (loading) return <div className="loading-panel">Carregando família…</div>;
   return <div className="stack ritmo-materials rm-editor">
-    <header className="heading"><div><small>RITMO / FLASHCARDS</small><h1>{editing ? "Editar família" : "Nova família"}</h1><p>O conteúdo central permanece o mesmo; cada versão muda a forma de recuperação.</p></div><Link className="secondary-button" to={returnTo}><ArrowLeft size={15}/>Voltar</Link></header>
-    {!editing&&<div className="rm-toolbar"><MaterialScopePicker plans={plans} disabled={saving}/></div>}
+    <header className="heading"><div><small>RITMO / FLASHCARDS</small><h1>{editing ? "Editar família" : "Adicionar flashcards"}</h1></div><Link className="secondary-button" to={returnTo}><ArrowLeft size={15}/>Voltar</Link></header>
+    {!editing&&<div className="rm-toolbar"><div className="rm-tabs"><Link to={materialRoute("/import",searchParams)}>Importar</Link><button type="button" aria-pressed="true">Manual</button><button type="button" disabled title="Disponível quando houver integração com API"><Sparkles size={13}/> Gerar com IA</button></div><MaterialScopePicker plans={plans} creation disabled={saving}/></div>}
     {context.requested&&<p className="inline-feedback">{context.loading?"Carregando assunto…":context.valid?context.plan?.title+" · "+context.title+" · Família será salva como rascunho.":"Assunto indisponível."}</p>}
     <form className="stack" onSubmit={submit}>
       <section className="panel wizard-panel">
-        <div className="panel-title-row"><div><span className="step-kicker">CONHECIMENTO</span><h2>Defina o que precisa ser lembrado</h2><p>Uma família deve representar um microconhecimento específico, não um capítulo inteiro.</p></div><span className="soft-tag">{variants.length}/10 versões</span></div>
+        <div className="panel-title-row"><h2>Microconhecimento</h2><small>{variants.length}/10 versões</small></div>
         <div className="form-grid">
-          <div className="field-block"><label>Área de estudo</label><select value={subject} onChange={event => setSubject(event.target.value as StudySubject)}><option value="tae">Geral</option><option value="fisica">Física</option></select></div>
+          {!context.valid&&<div className="field-block"><label>Área de estudo</label><select value={subject} onChange={event => setSubject(event.target.value as StudySubject)}><option value="tae">Geral</option><option value="fisica">Física</option></select></div>}
           <div className="field-block"><label>Conhecimento / tópico *</label><input required maxLength={180} value={topic} onChange={event => setTopic(event.target.value)} placeholder="Ex.: Competências do SINAES"/></div>
-          <div className="field-block field-span"><label>Fonte ou referência (opcional)</label><input value={source} onChange={event => setSource(event.target.value)} placeholder="Ex.: Lei nº 10.861/2004, art. 3º"/></div>
+          <div className="field-block"><label>Fonte ou referência (opcional)</label><input value={source} onChange={event => setSource(event.target.value)} placeholder="Ex.: Lei nº 10.861/2004, art. 3º"/></div>
         </div>
       </section>
       <section className="panel wizard-panel">
-        <div className="panel-title-row"><div><span className="step-kicker">VERSÕES DO CARTÃO</span><h2>Varie a forma de cobrança</h2><p>Evite repetir a mesma pergunta com palavras trocadas. Cada versão deve exigir uma operação mental diferente.</p></div><button type="button" className="secondary-button compact" onClick={addVariant} disabled={variants.length >= 10}><Plus size={14}/>Adicionar versão</button></div>
+        <div className="panel-title-row"><h2>Versões do cartão</h2><button type="button" className="secondary-button compact" onClick={addVariant} disabled={variants.length >= 10}><Plus size={14}/>Adicionar versão</button></div>
         <div className="variant-editor-list">
           {variants.map((variant, index) => <article className="variant-editor" key={variant.id}>
             <div className="variant-editor-heading"><div><span>VERSÃO {index + 1}</span><strong>{variant.kind}</strong></div>{variants.length > 1 && <button type="button" className="icon-button" aria-label={`Remover versão ${index + 1}`} onClick={() => removeVariant(index)}>×</button>}</div>
             <div className="form-grid">
               <div className="field-block"><label>Operação mental</label><select value={variant.kind} onChange={event => updateVariant(index, { kind: event.target.value })}>{KINDS.map(kind => <option key={kind}>{kind}</option>)}</select></div>
               <div className="field-block"><label>Formato</label><select value={variant.format} onChange={event => updateVariant(index, { format: event.target.value })}>{FORMATS.map(format => <option key={format.value} value={format.value}>{format.label}</option>)}</select></div>
-              <div className="field-block field-span"><label>Pergunta / comando *</label><textarea rows={3} value={variant.q} onChange={event => updateVariant(index, { q: event.target.value })} placeholder="Ex.: Diferencie avaliação institucional e avaliação de cursos no SINAES."/></div>
-              <div className="field-block field-span"><label>Resposta esperada *</label><textarea rows={3} value={variant.a} onChange={event => updateVariant(index, { a: event.target.value })} placeholder="Resposta objetiva, precisa e verificável."/></div>
+              <div className="field-block"><label>Pergunta / comando *</label><textarea rows={2} value={variant.q} onChange={event => updateVariant(index, { q: event.target.value })} placeholder="Ex.: Diferencie avaliação institucional e avaliação de cursos no SINAES."/></div>
+              <div className="field-block"><label>Resposta esperada *</label><textarea rows={2} value={variant.a} onChange={event => updateVariant(index, { a: event.target.value })} placeholder="Resposta objetiva, precisa e verificável."/></div>
               {variant.format === "image" && <div className="field-block field-span"><label>URL ou data URL da imagem</label><input value={variant.image} onChange={event => updateVariant(index, { image: event.target.value })} placeholder="https://… ou data:image/…"/><small>O editor visual de máscaras de imagem será integrado em uma etapa posterior.</small></div>}
-              <div className="field-block field-span"><label>Justificativa / explicação (opcional)</label><textarea rows={2} value={variant.reason} onChange={event => updateVariant(index, { reason: event.target.value })} placeholder="Explique por que a resposta está correta ou onde está a pegadinha."/></div>
-              <div className="field-block field-span"><label>Fonte específica desta versão (opcional)</label><input value={variant.source} onChange={event => updateVariant(index, { source: event.target.value })} placeholder="Artigo, inciso, página ou referência"/></div>
+              <details className="rm-optional field-span"><summary>Justificativa e fonte específica (opcional)</summary><div className="form-grid"><div className="field-block"><label>Justificativa / explicação (opcional)</label><textarea rows={2} value={variant.reason} onChange={event => updateVariant(index, { reason: event.target.value })} placeholder="Explique por que a resposta está correta ou onde está a pegadinha."/></div>
+              <div className="field-block"><label>Fonte específica desta versão (opcional)</label><input value={variant.source} onChange={event => updateVariant(index, { source: event.target.value })} placeholder="Artigo, inciso, página ou referência"/></div></div></details>
             </div>
           </article>)}
         </div>
-        <div className="note-strip"><strong>Controle de qualidade</strong>Prefira perguntas que peçam definição, diferença, comparação, competência, responsável, prazo, condição ou exceção. Em lei seca, teste a precisão da redação e a troca de uma palavra que altere o sentido. Não transforme uma informação não conferida em resposta.</div>
+        <details className="rm-optional"><summary>Critérios de qualidade</summary><p>Uma pergunta por microconhecimento. Varie a operação mental, preserve a redação legal quando citada e confira fontes.</p></details>
         {error && <p className="inline-feedback" role="alert">{error}</p>}
         <div className="form-actions"><Link to={returnTo}>Cancelar</Link><button className="primary-button" disabled={saving}>{saving ? "Salvando…" : "Salvar família"} <Check size={15}/></button></div>
       </section>
