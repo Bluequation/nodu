@@ -380,6 +380,15 @@ function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyP
     setConfig(next);
     void onSave({ ...plan, scheduleConfig: next, updatedAt: Date.now() });
   }
+  function changeDays(days: number[]) {
+    const nextConfig = { ...config, days };
+    const nextAssignments = days.length
+      ? assignments.map((item, index) => days.includes(item.day) ? item : { ...item, day: days[index % days.length] })
+      : assignments;
+    setConfig(nextConfig);
+    setAssignments(nextAssignments);
+    void onSave({ ...plan, scheduleConfig: nextConfig, assignments: nextAssignments, updatedAt: Date.now() });
+  }
   function generate() {
     const next = distribute(plan, config);
     setAssignments(next);
@@ -407,7 +416,7 @@ function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyP
         <div className="field-block"><label htmlFor="schedule-exam">Data da prova (opcional)</label><input id="schedule-exam" type="date" value={config.examDate} onChange={event => changeConfig({ examDate: event.target.value })}/></div>
       </div>
       <div className="field-block"><label>Em quais dias você pode estudar?</label><div className="weekday-grid">
-        {WEEKDAYS.map(day => <label className={config.days.includes(day.id) ? "weekday-choice selected" : "weekday-choice"} key={day.id}><input type="checkbox" checked={config.days.includes(day.id)} onChange={event => changeConfig({ days: event.target.checked ? [...config.days, day.id] : config.days.filter(id => id !== day.id) })}/><span>{day.short}</span></label>)}
+        {WEEKDAYS.map(day => <label className={config.days.includes(day.id) ? "weekday-choice selected" : "weekday-choice"} key={day.id}><input type="checkbox" checked={config.days.includes(day.id)} onChange={event => changeDays(event.target.checked ? [...config.days, day.id] : config.days.filter(id => id !== day.id))}/><span>{day.short}</span></label>)}
       </div></div>
       <div className="form-grid">
         <div className="field-block"><label htmlFor="schedule-minutes">Tempo disponível por dia</label><select id="schedule-minutes" value={config.minutes} onChange={event => changeConfig({ minutes: Number(event.target.value) })}>{MINUTES.map(minutes => <option key={minutes} value={minutes}>{minutes} minutos</option>)}</select></div>
@@ -415,6 +424,7 @@ function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyP
       </div>
       <button className="primary-button" type="button" disabled={!config.days.length || !leaves.length} onClick={generate}>Distribuir conteúdos na semana <ArrowRight size={16}/></button>
       <p className="field-hint">{leaves.length} tópico(s) selecionado(s). O tempo diário é sua disponibilidade; o Ritmo não presume a duração necessária para dominar cada assunto.</p>
+      {!config.days.length && <p className="inline-feedback">Selecione pelo menos um dia para organizar a distribuição.</p>}
     </section>
 
     <section className="panel wizard-panel">
@@ -424,7 +434,7 @@ function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyP
         : <div className="assignment-groups">{grouped.map(day => <section className="assignment-day" key={day.id}><div className="assignment-day-heading"><strong>{day.label}</strong><span>{day.items.length} tópico(s)</span></div>{day.items.length ? day.items.map(item => <div className="assignment-row" key={item.nodeId}><div><strong>{item.name}</strong><small>{item.path.join(" / ")}</small></div><select aria-label={`Dia de estudo para ${item.name}`} value={item.day} onChange={event => moveAssignment(item.nodeId, Number(event.target.value))}>{WEEKDAYS.filter(option => config.days.includes(option.id)).map(option => <option key={option.id} value={option.id}>{option.label}</option>)}</select></div>) : <p className="empty-day">Nenhum tópico neste dia.</p>}</section>)}</div>}
       <div className="wizard-navigation">
         <button className="secondary-button" type="button" onClick={() => onSave({ ...plan, stage: "selection" })}><ArrowLeft size={16}/>Voltar à seleção</button>
-        <button className="primary-button" type="button" disabled={!assignments.length} onClick={finish}>Salvar meu plano <Check size={16}/></button>
+        <button className="primary-button" type="button" disabled={!assignments.length || !config.days.length || assignments.some(item => !config.days.includes(item.day))} onClick={finish}>Salvar meu plano <Check size={16}/></button>
       </div>
     </section>
   </div>;
