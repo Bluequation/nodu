@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { migrateLegacy, migrateLegacyPlan, validateLegacy } from "./migration";
+import { migrateLegacy, migrateLegacyPlan, normalizeLegacyConcept, normalizeLegacyError, validateLegacy } from "./migration";
 
 const fixture = (version = 7) => ({
   version,
@@ -57,6 +57,26 @@ describe("migração legada", () => {
     expect(plan?.scheduleConfig?.mode).toBe("alternate");
     expect(plan?.assignments).toHaveLength(1);
     expect(plan?.status).toBe("active");
+  });
+
+  it("normaliza flashcards preservando FSRS e versões", () => {
+    const concept = normalizeLegacyConcept({
+      id: "concept-1", subject: "fisica", topic: "Energia", source: "Livro",
+      fsrs: { s: 12.5, d: 4.2, last: 100, due: 200, reps: 3, lapses: 1, interval: 7 },
+      variants: [{ id: "variant-1", kind: "Comparação", q: "Compare", a: "Resposta", uses: 4, passes: 3, failures: 1 }],
+    });
+    expect(concept.id).toBe("concept-1");
+    expect(concept.fsrs.s).toBe(12.5);
+    expect(concept.fsrs.reps).toBe(3);
+    expect(concept.variants[0].uses).toBe(4);
+    expect(concept.variants[0].kind).toBe("Comparação");
+  });
+  it("completa campos opcionais do caderno sem perder o registro", () => {
+    const error = normalizeLegacyError({ id: "error-1", subject: "tae", topic: "SINAES", mistake: "Erro", fix: "Correção" });
+    expect(error.id).toBe("error-1");
+    expect(error.history).toEqual([]);
+    expect(error.questionText).toBe("");
+    expect(error.reviewDays).toBe(15);
   });
   it("rejeita dados inválidos", () => {
     expect(validateLegacy({ version: 7, concepts: [] })).toBe(false);
