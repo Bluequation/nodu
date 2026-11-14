@@ -75,3 +75,5 @@
 .ritmo-learning .rl-linked-tools details{margin-top:8px;color:var(--muted);font-size:11px}.ritmo-learning .rl-linked-tools summary{cursor:pointer}
 .ritmo-learning .rl-link-form{display:flex;gap:5px;margin-top:7px}.ritmo-learning .rl-link-form select{flex:1}
 @media(max-width:650px){.ritmo-learning .rl-context-selects,.ritmo-learning .rl-topic-tools{grid-template-columns:1fr}.ritmo-learning .rl-topic{align-items:flex-start;flex-direction:column}}
+
+.ritmo-learning .rl-notes summary{display:flex;align-items:center;gap:7px;font-weight:650;font-size:13px;cursor:pointer}.ritmo-learning .rl-notes[open] summary{margin-bottom:12px}.ritmo-learning .rl-empty-material{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin-bottom:9px;padding:8px 10px;background:var(--surface);border:1px solid var(--line);border-radius:8px;font-size:12px;color:var(--muted)}.ritmo-learning .rl-empty-material a{display:flex;gap:3px;align-items:center;color:var(--blue);font-weight:600}

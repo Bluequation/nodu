@@ -122,3 +122,5 @@ export async function finishTopicStudy(ref:PlanTopicRef,key:string){
  if(next!==plan)await tx.store.put({...next,updatedAt:Date.now()});
  await tx.done;return next;
 }
+
+export async function importConceptDrafts(families: Pick<Concept,"subject"|"topic"|"source"|"variants">[],ref?:PlanTopicRef){const tx=(await database()).transaction(["plans","concepts"],"readwrite");if(ref&&!resolveTopic(await tx.objectStore("plans").get(ref.planId),ref)){await tx.done;throw Error("Assunto indisponível.");}const now=Date.now();for(const f of families)await tx.objectStore("concepts").add({id:newId(),subject:f.subject,topic:f.topic,source:f.source,variants:f.variants,status:"draft",createdAt:now,fsrs:emptyFsrsState(now),lastVariant:"",suspended:false,...(ref?{planTopics:[ref]}:{})});await tx.done;}

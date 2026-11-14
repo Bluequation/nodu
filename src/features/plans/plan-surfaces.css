@@ -1,12 +1,12 @@
 
 /* Shared plan palette and visual surfaces. */
-:is(.ritmo-planner,.ritmo-plan-surface,.ritmo-agenda,.ritmo-learning) [data-tone]{--area-bg:#f1f4f8;--area-chip:#e4e9f0;--area-ink:#475569;--area-edge:#dfe5ec;--area-dot:#8493a6}
-:is(.ritmo-planner,.ritmo-plan-surface,.ritmo-agenda,.ritmo-learning) [data-tone="law"]{--area-bg:#edf3fa;--area-chip:#dbe8f6;--area-ink:#315c84;--area-edge:#d5e3f1;--area-dot:#6d9ac5}
-:is(.ritmo-planner,.ritmo-plan-surface,.ritmo-agenda,.ritmo-learning) [data-tone="pedagogy"]{--area-bg:#f3eef8;--area-chip:#e8ddf2;--area-ink:#70558c;--area-edge:#e7dcef;--area-dot:#a08ab9}
-:is(.ritmo-planner,.ritmo-plan-surface,.ritmo-agenda,.ritmo-learning) [data-tone="administration"]{--area-bg:#faf4e7;--area-chip:#f0e2c4;--area-ink:#85622e;--area-edge:#eee2c9;--area-dot:#c29b58}
-:is(.ritmo-planner,.ritmo-plan-surface,.ritmo-agenda,.ritmo-learning) [data-tone="language"]{--area-bg:#edf4ee;--area-chip:#dceadf;--area-ink:#486d57;--area-edge:#dbe9df;--area-dot:#7ba58b}
-:is(.ritmo-planner,.ritmo-plan-surface,.ritmo-agenda,.ritmo-learning) [data-tone="data"]{--area-bg:#eaf3f3;--area-chip:#d6e8e9;--area-ink:#38696e;--area-edge:#d7e7e8;--area-dot:#6ca0a4}
-:is(.ritmo-planner,.ritmo-plan-surface,.ritmo-agenda,.ritmo-learning) [data-tone="specific"]{--area-bg:#eeeffa;--area-chip:#dfe1f5;--area-ink:#585b96;--area-edge:#dfe2f3;--area-dot:#8b90c5}
+:is(.ritmo-planner,.ritmo-plan-surface,.ritmo-agenda,.ritmo-learning,.ritmo-materials) [data-tone]{--area-bg:#f1f4f8;--area-chip:#e4e9f0;--area-ink:#475569;--area-edge:#dfe5ec;--area-dot:#8493a6}
+:is(.ritmo-planner,.ritmo-plan-surface,.ritmo-agenda,.ritmo-learning,.ritmo-materials) [data-tone="law"]{--area-bg:#edf3fa;--area-chip:#dbe8f6;--area-ink:#315c84;--area-edge:#d5e3f1;--area-dot:#6d9ac5}
+:is(.ritmo-planner,.ritmo-plan-surface,.ritmo-agenda,.ritmo-learning,.ritmo-materials) [data-tone="pedagogy"]{--area-bg:#f3eef8;--area-chip:#e8ddf2;--area-ink:#70558c;--area-edge:#e7dcef;--area-dot:#a08ab9}
+:is(.ritmo-planner,.ritmo-plan-surface,.ritmo-agenda,.ritmo-learning,.ritmo-materials) [data-tone="administration"]{--area-bg:#faf4e7;--area-chip:#f0e2c4;--area-ink:#85622e;--area-edge:#eee2c9;--area-dot:#c29b58}
+:is(.ritmo-planner,.ritmo-plan-surface,.ritmo-agenda,.ritmo-learning,.ritmo-materials) [data-tone="language"]{--area-bg:#edf4ee;--area-chip:#dceadf;--area-ink:#486d57;--area-edge:#dbe9df;--area-dot:#7ba58b}
+:is(.ritmo-planner,.ritmo-plan-surface,.ritmo-agenda,.ritmo-learning,.ritmo-materials) [data-tone="data"]{--area-bg:#eaf3f3;--area-chip:#d6e8e9;--area-ink:#38696e;--area-edge:#d7e7e8;--area-dot:#6ca0a4}
+:is(.ritmo-planner,.ritmo-plan-surface,.ritmo-agenda,.ritmo-learning,.ritmo-materials) [data-tone="specific"]{--area-bg:#eeeffa;--area-chip:#dfe1f5;--area-ink:#585b96;--area-edge:#dfe2f3;--area-dot:#8b90c5}
 .ritmo-plan-surface .wizard-heading,.ritmo-plan-surface .plan-detail-header{padding-bottom:12px}
 
 .ritmo-plan-surface .wizard-stepper{padding:4px;background:var(--surface-recessed);gap:5px;border:1px solid var(--line);border-radius:11px}

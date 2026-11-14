@@ -8,6 +8,7 @@ import {dateKey,linkedTo,sameTopic,topicScheduled,topicUrl} from "../../domain/t
 import {pieceTitle,topicTone,topicPlacement,areaDisplayName,displayNodeName} from "../plans/planner/plannerModel";
 import type {QuestionBlock,PlanTopicRef} from "../../domain/study";
 import "./learning.css";
+import {learningQueue} from "../../domain/learningQueue";
 import type { Concept, ErrorRecord, LearningSession, StudySubject } from "../../domain/study";
 import { listConcepts, listErrors, listLearningSessions, saveLearningSession,listQuestionBlocks,linkStudyMaterial,readTopicNote,saveTopicNote,finishTopicStudy,type MaterialKind } from "../../data/study";
 
@@ -45,11 +46,11 @@ function buildConceptItem(concept: Concept, mode: LearningMode): LearningItem | 
     context: variant.source || concept.source,
   };
 }
-function buildErrorItem(error: ErrorRecord): LearningItem {
+function buildErrorItem(error: ErrorRecord,mode:LearningMode): LearningItem {
   return {
     sourceType: "error-notebook", sourceId: error.id, subject: error.subject, topic: error.topic,
-    prompt: `Dificuldade registrada:\n${error.mistake}\n\nComo você explicaria a correção e resolveria uma nova questão sobre esse assunto?`,
-    reference: error.fix,
+    prompt: mode==="recall"?`Sem consultar a correção, recupere a regra ou conceito de ${error.topic} que você precisa lembrar.`:mode==="explain"?`Explique por que o raciocínio registrado estava incorreto:\n${error.mistake}`:`Dificuldade registrada:\n${error.mistake}\n\nReconstrua a correção.`+(error.questionText?"\n\n"+error.questionText+(error.optionsText?"\n"+error.optionsText:""):""),
+    reference: error.fix+(error.correctAnswer?"\n\nGabarito original: "+error.correctAnswer:""),
     context: [error.discipline, error.area].filter(Boolean).join(" / "),
   };
 }
@@ -125,14 +126,13 @@ export function LearningPage() {
   const inScope=(item:{planTopics?:PlanTopicRef[];subject:StudySubject})=>scope?linkedTo(item,scope):planId&&planId!=="free"?false:subject==="all"||item.subject===subject;
   const eligibleConcepts = concepts.filter(concept => concept.status === "published" && !concept.suspended && concept.variants.some(variant => variant.status === "approved") && inScope(concept));
   const eligibleErrors = errors.filter(error => error.status !== "dominado" && inScope(error));
-  const available = (type: LearningMode) => type === "errors" ? eligibleErrors.length : type === "interleave" ? eligibleConcepts.length + eligibleErrors.length : eligibleConcepts.length;
+  const available = (type: LearningMode) => type === "errors" ? eligibleErrors.length : eligibleConcepts.length + eligibleErrors.length;
 
   function start(selectedMode: LearningMode) {
     const conceptItems = eligibleConcepts.map(concept => buildConceptItem(concept, selectedMode)).filter((item): item is LearningItem => !!item);
-    const errorItems = eligibleErrors.map(buildErrorItem);
-    let items = selectedMode === "errors" ? errorItems : selectedMode === "interleave" ? interleave(conceptItems, errorItems) : conceptItems;
-    items = items.slice(0, 12);
-    if (!items.length) { setFeedback(selectedMode === "errors" ? "Registre erros no caderno para usar esta técnica." : "Cadastre famílias de flashcards para construir esta atividade."); return; }
+    const errorItems = eligibleErrors.map(error=>buildErrorItem(error,selectedMode));
+    const items = learningQueue(selectedMode,conceptItems,errorItems);
+    if (!items.length) { setFeedback(selectedMode === "errors" ? "Registre erros no caderno para usar esta técnica." : "Importe flashcards ou registre erros para construir esta atividade."); return; }
     setSessionScope(scope?{ref:scope,date:sessionDate}:null);setMode(selectedMode); setQueue(items); setIndex(0); setResponse(""); setRevealed(false); setStartedAt(Date.now()); setComplete(false); setFeedback("");
   }
 
@@ -184,7 +184,7 @@ export function LearningPage() {
           <div className="rl-response"><label htmlFor="learning-response">{mode==="explain"?"Explique com suas palavras":mode==="errors"?"Como corrigiria o raciocínio?":"O que você conseguiu recuperar?"}</label><textarea id="learning-response" rows={5} value={response} onChange={event=>setResponse(event.target.value)} disabled={saving} placeholder="Registre sua tentativa…"/>{!revealed&&<button className="primary-button" disabled={!response.trim()} onClick={()=>setRevealed(true)}>Comparar com a referência <ArrowRight size={15}/></button>}</div>
           {revealed&&<div className="rl-reference"><h3>Referência do seu material</h3><p>{current.reference}</p></div>}
         </div>
-        {revealed&&<div className="rl-grade"><div><b>Como foi sua tentativa?</b><small>Autoavaliação</small></div><div className="rl-grade-actions"><button type="button" data-grade="retry" disabled={saving||!response.trim()} onClick={()=>grade("retry")}>Preciso retomar</button><button type="button" data-grade="partial" disabled={saving||!response.trim()} onClick={()=>grade("partial")}>Parcialmente</button><button type="button" data-grade="complete" disabled={saving||!response.trim()} onClick={()=>grade("complete")}>Consegui explicar <Check size={13}/></button></div></div>}
+        {revealed&&<div className="rl-grade"><div><b>Como foi sua tentativa?</b><small>{current.sourceType==="error-notebook"?"Autoavaliação · não substitui nova aplicação":"Autoavaliação"}</small></div><div className="rl-grade-actions"><button type="button" data-grade="retry" disabled={saving||!response.trim()} onClick={()=>grade("retry")}>Preciso retomar</button><button type="button" data-grade="partial" disabled={saving||!response.trim()} onClick={()=>grade("partial")}>Parcialmente</button><button type="button" data-grade="complete" disabled={saving||!response.trim()} onClick={()=>grade("complete")}>Consegui explicar <Check size={13}/></button></div></div>}
         {feedback&&<p className="rl-feedback" role="alert">{feedback}</p>}
       </section>
     </div>;
@@ -197,10 +197,11 @@ export function LearningPage() {
       {scope&&leaf&&plan?<div className="rl-topic" data-tone={topicTone(leaf,plan.area)}><div><small>{areaDisplayName(topicPlacement(leaf,plan.area).groups[0]||"Assunto")} · {isScheduled?(studied?"Sessão concluída":"Previsto no cronograma"):"Estudo extra"}</small><h2>{pieceTitle(leaf.name)}</h2><details><summary>Conteúdo original do edital</summary><p>{displayNodeName(leaf.name)}{leaf.sourceRef?" · "+leaf.sourceRef:""}</p></details></div>{isScheduled&&<button className="primary-button compact" disabled={studied||contextBusy||sessionDate>today} onClick={finish}><Check size={14}/>{studied?"Concluído":sessionDate>today?"Sessão futura":"Concluir sessão"}</button>}</div>:planId&&planId!=="free"?<p className="rl-feedback">Selecione um assunto válido para acessar seus materiais.</p>:<small className="rl-free-hint">Estudo livre, sem vincular ao cronograma.</small>}
       {contextFeedback&&<p className="rl-feedback" role="status">{contextFeedback}</p>}
     </section>
-    {scope&&<section className="rl-topic-tools"><div className="rl-panel"><header className="rl-section-head"><h2><BookOpen size={16}/> Teoria e anotações</h2><button className="secondary-button compact" disabled={!noteDirty||contextBusy||noteReady!==scopeKey} onClick={saveNotes}>Salvar</button></header><textarea key={scopeKey} aria-label="Anotações do assunto" rows={4} value={note} disabled={noteReady!==scopeKey||contextBusy} onChange={e=>{setNote(e.target.value);setNoteDirty(true);}} placeholder="Cole sua teoria, escreva um resumo ou registre referências. O Ritmo não gera teoria automaticamente."/></div><div className="rl-panel rl-linked-tools"><header className="rl-section-head"><h2>Materiais do assunto</h2></header>
-     <Link to={topicUrl("/flashcards",scope,sessionDate)}><Layers3 size={16}/> Flashcards · {concepts.filter(c=>linkedTo(c,scope)).length} famílias <ArrowRight size={13}/></Link><Link to={topicUrl("/reviews",scope,sessionDate)}><History size={16}/> Revisões do assunto <ArrowRight size={13}/></Link><Link to={topicUrl("/questions",scope,sessionDate)}><Check size={16}/> Questões · {blocks.filter(b=>linkedTo(b,scope)).reduce((n,b)=>n+b.total,0)} resolvidas <ArrowRight size={13}/></Link><Link to={topicUrl("/errors",scope,sessionDate)}><NotebookPen size={16}/> Caderno de erros <ArrowRight size={13}/></Link>
+    {scope&&<section className="rl-topic-tools"><details className="rl-panel rl-notes"><summary><BookOpen size={16}/> Anotações do assunto</summary><header className="rl-section-head"><h2>Seu registro</h2><button className="secondary-button compact" disabled={!noteDirty||contextBusy||noteReady!==scopeKey} onClick={saveNotes}>Salvar</button></header><textarea key={scopeKey} aria-label="Anotações do assunto" rows={4} value={note} disabled={noteReady!==scopeKey||contextBusy} onChange={e=>{setNote(e.target.value);setNoteDirty(true);}} placeholder="Escreva seu resumo ou registre referências."/></details><div className="rl-panel rl-linked-tools"><header className="rl-section-head"><h2>Materiais do assunto</h2></header>
+     <Link to={topicUrl("/flashcards",scope,sessionDate)}><Layers3 size={16}/> Flashcards · {concepts.filter(c=>linkedTo(c,scope)).length} famílias <ArrowRight size={13}/></Link><Link to={topicUrl("/reviews",scope,sessionDate)}><History size={16}/> Revisões do assunto <ArrowRight size={13}/></Link><Link to={topicUrl("/questions",scope,sessionDate)}><Check size={16}/> Questões · {blocks.filter(b=>linkedTo(b,scope)).reduce((n,b)=>n+b.total,0)} resolvidas <ArrowRight size={13}/></Link><Link to={topicUrl("/errors",scope,sessionDate)}><NotebookPen size={16}/> Caderno de erros · {eligibleErrors.length} para retomar <ArrowRight size={13}/></Link>
      <details><summary>Vincular material já cadastrado</summary><div className="rl-link-form"><select aria-label="Material existente" value={materialChoice} onChange={e=>setMaterialChoice(e.target.value)}><option value="">Selecione um material</option><optgroup label="Flashcards">{concepts.filter(c=>!linkedTo(c,scope)).map(c=><option value={"concepts:"+c.id} key={c.id}>{c.topic}</option>)}</optgroup><optgroup label="Erros">{errors.filter(c=>!linkedTo(c,scope)).map(c=><option value={"errors:"+c.id} key={c.id}>{c.topic}</option>)}</optgroup><optgroup label="Questões">{blocks.filter(c=>!linkedTo(c,scope)).map(c=><option value={"blocks:"+c.id} key={c.id}>{c.topic} · {c.total} questões · {new Date(c.at).toLocaleDateString("pt-BR")}</option>)}</optgroup></select><button className="secondary-button compact" disabled={!materialChoice||contextBusy} onClick={attachMaterial}>Vincular</button></div></details></div></section>}
     <section className="rl-strategies" aria-label="Estratégias de estudo">
+      {!eligibleConcepts.length&&!eligibleErrors.length&&<div className="rl-empty-material"><span>Comece pelos seus materiais.</span><Link to={scope?topicUrl("/import",scope,sessionDate):"/import"}>Importar flashcards <ArrowRight size={12}/></Link><Link to={scope?topicUrl("/errors",scope,sessionDate):"/errors"}>Registrar erro <ArrowRight size={12}/></Link></div>}
       <div className="rl-section-head"><h2>Escolha uma estratégia</h2><small>Até 12 itens por atividade</small></div>
       <div className="rl-mode-grid">{MODES.map(item=>{
         const Icon=item.icon,count=available(item.id);

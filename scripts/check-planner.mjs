@@ -149,11 +149,11 @@ try{
  await page.locator(".ra-event").filter({hasText:"Leis de Newton"}).getByRole("link",{name:"Estudar"}).click();
  await page.locator(".rl-topic").getByRole("heading",{name:"Leis de Newton"}).waitFor();
  assert.equal(await page.locator(".rl-mode:disabled").count(),4,"unlinked material must not leak into scoped study");
- await page.getByRole("textbox",{name:"Anotações do assunto"}).fill("Estudo da inércia.");
+ await page.locator(".rl-notes summary").click();await page.getByRole("textbox",{name:"Anotações do assunto"}).fill("Estudo da inércia.");
  await page.locator(".rl-topic-tools").getByRole("button",{name:"Salvar",exact:true}).click();await page.getByText("Anotações salvas.",{exact:true}).waitFor();
  await page.getByText("Vincular material já cadastrado",{exact:true}).click();await page.getByRole("combobox",{name:"Material existente"}).selectOption("concepts:learning-test");
  await page.getByRole("button",{name:"Vincular",exact:true}).click();await page.locator('.rl-mode[data-mode="recall"]:not(:disabled)').waitFor();
- await page.reload();await page.getByRole("textbox",{name:"Anotações do assunto"}).waitFor();await page.waitForFunction(()=>document.querySelector('[aria-label="Anotações do assunto"]')?.value==="Estudo da inércia.");
+ await page.reload();await page.locator(".rl-notes summary").click();await page.getByRole("textbox",{name:"Anotações do assunto"}).waitFor();await page.waitForFunction(()=>document.querySelector('[aria-label="Anotações do assunto"]')?.value==="Estudo da inércia.");
  await page.screenshot({path:"planner-screenshots/14-aprender-integrado.png",fullPage:true});
  await page.getByRole("button",{name:"Concluir sessão",exact:true}).click();await page.getByRole("button",{name:"Concluído",exact:true}).waitFor();
  await page.goto(url+"/#/agenda");await page.getByRole("combobox",{name:"Filtrar agenda por plano"}).locator('option[value="bound-learning"]').waitFor({state:"attached"});await page.getByRole("combobox",{name:"Filtrar agenda por plano"}).selectOption("bound-learning");

@@ -1,11 +1,15 @@
 import { useEffect, useState, type ChangeEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowRight, Check, Clipboard, Download, FileJson, FileSpreadsheet, ShieldCheck, Sparkles } from "lucide-react";
 import type { Concept } from "../../domain/study";
 import type { ImportedFamily } from "../../domain/importFlashcards";
 import { normalizeImport, parseFlashcardCsv } from "../../domain/importFlashcards";
-import { createConcept, listConcepts, saveConcept } from "../../data/study";
+import { importConceptDrafts, listConcepts, saveConcept } from "../../data/study";
 import { emptyFsrsState } from "../../domain/fsrs";
+import {useStudyContext} from "./useStudyContext";
+import {MaterialScopePicker,useMaterialPlans,materialLabel} from "./MaterialScopePicker";
+import {linkedTo,linkedToPlan,topicUrl} from "../../domain/topicContext";
+import "./materials.css";
 
 function downloadFile(name: string, content: string, type: string) {
   const url = URL.createObjectURL(new Blob([content], { type }));
@@ -13,10 +17,10 @@ function downloadFile(name: string, content: string, type: string) {
   anchor.href = url; anchor.download = name; anchor.click();
   URL.revokeObjectURL(url);
 }
-function buildCardPrompt(reference: string) {
+function buildCardPrompt(reference: string,context:string,amount:number) {
   const template = `Você é especialista em elaboração de flashcards para concursos públicos. Crie famílias de cartões com alto rigor conceitual, usando SOMENTE o material de referência abaixo.
 
-REGRAS DE QUALIDADE:
+CONTEXTO: ${context}\nQUANTIDADE: até ${amount} famílias, somente se houver base suficiente.\n\nREGRAS DE QUALIDADE:
 1. Uma família deve cobrar um microconhecimento específico, não um capítulo inteiro.
 2. Crie de 2 a 10 versões por família. Cada versão deve cobrar o mesmo conhecimento por uma operação mental realmente diferente.
 3. Varie os comandos: definir, diferenciar, comparar, identificar, explicar, apontar quem faz, a quem compete, quando ocorre, condições, prazos, exceções e consequências — conforme o conteúdo permitir.
@@ -59,6 +63,8 @@ Se o material estiver incompleto, não complete com conhecimento externo. Priori
 
 export function ImportPage() {
   const navigate = useNavigate();
+  const context=useStudyContext(),plans=useMaterialPlans(),[params]=useSearchParams();
+  const [method,setMethod]=useState<"ai"|"file">("ai"),[amount,setAmount]=useState(20);
   const [reference, setReference] = useState("");
   const [input, setInput] = useState("");
   const [fileName, setFileName] = useState("");
@@ -80,7 +86,8 @@ export function ImportPage() {
     event.target.value = "";
   }
   async function copyPrompt() {
-    const prompt = buildCardPrompt(reference);
+    if(params.get("plan")&&!context.valid){setError("Selecione o assunto do plano.");return;}
+    const prompt = buildCardPrompt(reference,context.valid?`${context.plan?.title} · cargo ${context.plan?.position} · banca ${context.plan?.organizer||"não informada"} · ${context.area} · ${context.title}. Use disciplina "${/f[ií]sica/i.test(context.plan?.area||"")?"fisica":"tae"}" apenas como código interno; o assunto de cada família é o microconhecimento.`:"Estudo livre; use apenas o material fornecido.",amount);
     try {
       await navigator.clipboard.writeText(prompt);
       setFeedback("Solicitação copiada. Cole no ChatGPT e depois traga o JSON de volta.");
@@ -107,27 +114,31 @@ export function ImportPage() {
   }
   async function importDrafts() {
     if (!families.length || busy) return;
+    if(params.get("plan")&&!context.valid){setError("Selecione um assunto válido.");return;}
+    if(families.some(f=>existing.some(c=>c.topic.toLocaleLowerCase()===f.topic.toLocaleLowerCase()&&(context.valid?linkedTo(c,context.ref):!c.planTopics?.length)))&&!window.confirm("Há famílias com o mesmo nome. Importar mesmo assim?"))return;
     setBusy(true); setError("");
     try {
-      for (const family of families) {
-        await createConcept({ subject: family.subject, topic: family.topic, source: family.source }, family.variants, "draft");
-      }
+      await importConceptDrafts(families,context.valid?context.ref:undefined);
       setFamilies([]);
       setInput("");
-      navigate("/curation");
+      navigate(context.valid?topicUrl("/curation",context.ref,context.date):"/curation");
     } catch {
-      setError("A importação foi interrompida. As famílias já salvas continuam como rascunhos na Curadoria.");
+      setError("Não foi possível importar o lote. Tente novamente.");
       setBusy(false);
     }
   }
 
-  return <div className="stack">
-    <header className="heading"><div><small>RITMO / CONTEÚDOS</small><h1>Importar flashcards</h1><p>Crie cartões com IA fora do app ou importe arquivos. Tudo entra como rascunho para sua conferência.</p></div><Link className="secondary-button" to="/flashcards">Flashcards</Link></header>
-    <section className="panel wizard-panel">
+  return <div className="stack ritmo-materials rm-import">
+    <header className="heading"><div><small>RITMO / FLASHCARDS</small><h1>Adicionar flashcards</h1></div><Link className="secondary-button" to={context.valid?topicUrl("/flashcards",context.ref,context.date):"/flashcards"}>Voltar</Link></header>
+    <div className="rm-toolbar"><div className="rm-tabs"><button type="button" aria-pressed={method==="ai"} onClick={()=>setMethod("ai")}>Gerar com IA</button><button type="button" aria-pressed={method==="file"} onClick={()=>setMethod("file")}>Importar arquivo</button><Link to={context.valid?topicUrl("/flashcards/new",context.ref,context.date):"/flashcards/new"}>Manual</Link></div><MaterialScopePicker plans={plans} disabled={busy} onChange={()=>{setFamilies([]);setFeedback("");}}/></div>
+    {params.get("plan")&&!context.valid&&<p className="inline-feedback">Escolha um assunto para vincular os cartões.</p>}
+    <div className={"rm-import-layout "+(method==="file"?"file-only":"")}>
+    {method==="ai"&&<section className="panel wizard-panel">
       <div className="panel-title-row"><div><span className="step-kicker">ETAPA 1 · MATERIAL</span><h2>Prepare uma boa solicitação</h2><p>Forneça o texto que será a única base factual para a criação dos cartões.</p></div><span className="soft-tag"><ShieldCheck size={14}/> Sem API</span></div>
+      <div className="field-block"><label>Quantidade de famílias</label><select aria-label="Quantidade de famílias" value={amount} onChange={e=>setAmount(Number(e.target.value))}>{[10,20,30,50].map(n=><option key={n} value={n}>{n}</option>)}</select></div>
       <div className="field-block"><label htmlFor="flashcard-reference">Material de referência (opcional)</label><textarea id="flashcard-reference" rows={7} value={reference} onChange={event => setReference(event.target.value)} placeholder="Cole um trecho de lei, resumo, material de aula ou conteúdo que você já estudou. Você também pode deixar em branco e enviar o material separadamente à IA."/></div>
       <div className="ai-instructions"><div className="ai-instruction-heading"><Sparkles size={17}/> Prompt com critérios de qualidade</div><p>O pedido orienta a IA a criar famílias pequenas, variar operações mentais, respeitar a lei seca e não inventar informações. Você continua responsável por conferir as fontes e respostas.</p><button className="primary-button" type="button" onClick={copyPrompt}><Clipboard size={15}/>Copiar solicitação para IA</button></div>
-    </section>
+    </section>}
     <section className="panel wizard-panel">
       <div className="panel-title-row"><div><span className="step-kicker">ETAPA 2 · IMPORTAÇÃO</span><h2>Traga as famílias para o Ritmo</h2><p>O importador aceita JSON no formato Ritmo e CSV com uma linha por versão.</p></div><span className="soft-tag">Até 250 famílias · 10 versões cada</span></div>
       <div className="field-block"><label htmlFor="import-file">Arquivo JSON ou CSV</label><div className="file-picker"><FileJson size={18}/><span>{fileName || "Escolha o arquivo gerado pela IA"}</span><label className="secondary-button" htmlFor="import-file">Procurar</label><input id="import-file" type="file" accept=".json,.csv,application/json,text/csv" onChange={handleFile}/></div></div>
@@ -137,22 +148,25 @@ export function ImportPage() {
       {feedback && <p className="inline-feedback" role="status">{feedback}</p>}
       {families.length > 0 && <div className="import-preview">
         <div className="panel-head"><h2>Pré-visualização</h2><span className="soft-tag">{families.length} família(s)</span></div>
-        {families.map((family, index) => <article className="import-preview-row" key={`${family.subject}-${family.topic}-${index}`}><div><span className="subject-pill">{family.subject === "tae" ? "TAE" : "Física"}</span><strong>{family.topic}</strong><small>{family.source || "Fonte não informada"}</small></div><span>{family.variants.length} versão(ões)</span></article>)}
+        {families.map((family, index) => <article className="import-preview-row" key={`${family.subject}-${family.topic}-${index}`}><div><span className="subject-pill">{context.valid?context.area:"Estudo livre"}</span><strong>{family.topic}</strong><small>{family.source || "Fonte não informada"}</small></div><span>{family.variants.length} versão(ões)</span></article>)}
         <div className="note-strip">As famílias serão importadas como rascunhos. Nenhuma entra na fila FSRS antes de ser conferida e publicada na Curadoria.</div>
         <div className="form-actions"><button className="secondary-button" type="button" onClick={() => setFamilies([])}>Descartar prévia</button><button className="primary-button" type="button" disabled={busy} onClick={importDrafts}>{busy ? "Importando…" : "Importar para Curadoria"} <ArrowRight size={15}/></button></div>
       </div>}
-    </section>
+    </section></div>
   </div>;
 }
 
 export function CurationPage() {
+  const context=useStudyContext(),plans=useMaterialPlans(),[params]=useSearchParams();
+  const route=(path:string)=>context.valid?topicUrl(path,context.ref,context.date):path;
   const [concepts, setConcepts] = useState<Concept[]>([]);
   const [expanded, setExpanded] = useState("");
   const [feedback, setFeedback] = useState("");
   const navigate = useNavigate();
   async function reload() { setConcepts(await listConcepts()); }
   useEffect(() => { reload(); }, []);
-  const drafts = concepts.filter(concept => concept.status === "draft");
+  const selectedPlan=plans.find(p=>p.id===params.get("plan"));
+  const drafts = concepts.filter(concept => concept.status === "draft"&&(context.requested?context.valid&&linkedTo(concept,context.ref):params.get("plan")?!!selectedPlan&&linkedToPlan(concept,selectedPlan):true));
   async function changeVariant(concept: Concept, index: number, status: "approved" | "rejected") {
     const variants = concept.variants.map((variant, variantIndex) => variantIndex === index ? { ...variant, status } : variant);
     await saveConcept({ ...concept, variants });
@@ -170,20 +184,21 @@ export function CurationPage() {
     setFeedback(`Família “${concept.topic}” publicada e pronta para revisão.`);
     await reload();
   }
-  return <div className="stack">
-    <header className="heading"><div><small>RITMO / CONTEÚDOS</small><h1>Curadoria</h1><p>Confira cada versão, fonte e justificativa. Só famílias aprovadas entram na revisão espaçada.</p></div><Link className="primary-button" to="/import"><Sparkles size={15}/>Importar cartões</Link></header>
+  return <div className="stack ritmo-materials">
+    <header className="heading"><div><small>RITMO / CONTEÚDOS</small><h1>Curadoria</h1><p>Confira cada versão, fonte e justificativa. Só famílias aprovadas entram na revisão espaçada.</p></div><Link className="primary-button" to={route("/import")}><Sparkles size={15}/>Importar cartões</Link></header>
+    <div className="rm-toolbar"><MaterialScopePicker plans={plans}/><Link className="secondary-button compact" to={route("/flashcards")}>Minha coleção</Link>{context.valid&&<Link to={context.returnTo}>Voltar a Aprender</Link>}</div>
     {feedback && <p className="inline-feedback" role="status">{feedback}</p>}
     <section className="panel">
       <div className="panel-head"><h2>Aguardando conferência</h2><span className="soft-tag">{drafts.length} família(s)</span></div>
       {drafts.length ? <div className="curation-list">{drafts.map(concept => <article className="curation-card" key={concept.id}>
-        <div className="curation-card-head"><div><span className="subject-pill">{concept.subject === "tae" ? "TAE" : "Física"}</span><h3>{concept.topic}</h3><p>{concept.source || "Fonte da família não informada"}</p></div><div className="curation-actions"><span className="soft-tag">{concept.variants.filter(variant => variant.status === "approved").length}/{concept.variants.length} aprovadas</span><button className="secondary-button compact" onClick={() => navigate(`/flashcards/${concept.id}/edit?return=curation`)}>Editar família</button><button className="primary-button compact" onClick={() => publish(concept)}>Publicar</button></div></div>
+        <div className="curation-card-head"><div><span className="subject-pill">{concept.planTopics?.map(ref=>materialLabel(plans,ref)).filter(Boolean).map(label=>label!.title).join(" · ")||"Estudo livre"}</span><h3>{concept.topic}</h3><p>{concept.source || "Fonte da família não informada"}</p></div><div className="curation-actions"><span className="soft-tag">{concept.variants.filter(variant => variant.status === "approved").length}/{concept.variants.length} aprovadas</span><button className="secondary-button compact" onClick={() => navigate(route(`/flashcards/${concept.id}/edit`)+(context.valid?"&":"?")+"return=curation")}>Editar família</button><button className="primary-button compact" onClick={() => publish(concept)}>Publicar</button></div></div>
         <button className="text-button" type="button" onClick={() => setExpanded(expanded === concept.id ? "" : concept.id)}>{expanded === concept.id ? "Recolher versões" : "Conferir versões"}</button>
         {expanded === concept.id && <div className="curation-variants">{concept.variants.map((variant, index) => <article className="curation-variant" key={variant.id}>
           <div className="curation-variant-head"><span>VERSÃO {index + 1} · {variant.kind} · {variant.format}</span><span className={`status-pill ${variant.status === "approved" ? "active" : variant.status === "rejected" ? "due" : "draft"}`}>{variant.status === "approved" ? "Aprovada" : variant.status === "rejected" ? "Rejeitada" : "Pendente"}</span></div>
           <strong>{variant.q}</strong><p>Resposta: {variant.a}</p>{variant.reason && <small>Justificativa: {variant.reason}</small>}<small>Fonte: {variant.source || concept.source || "Não informada"}</small>
-          <div className="button-row"><button className="secondary-button compact" onClick={() => navigate(`/flashcards/${concept.id}/edit?return=curation`)}>Editar</button><button className="secondary-button compact" onClick={() => changeVariant(concept, index, "approved")}><Check size={13}/>Aprovar</button><button className="text-button" onClick={() => changeVariant(concept, index, "rejected")}>Rejeitar</button></div>
+          <div className="button-row"><button className="secondary-button compact" onClick={() => navigate(route(`/flashcards/${concept.id}/edit`)+(context.valid?"&":"?")+"return=curation")}>Editar</button><button className="secondary-button compact" onClick={() => changeVariant(concept, index, "approved")}><Check size={13}/>Aprovar</button><button className="text-button" onClick={() => changeVariant(concept, index, "rejected")}>Rejeitar</button></div>
         </article>)}</div>}
-      </article>)}</div> : <div className="empty-state"><ShieldCheck size={28}/><strong>Nenhuma família aguardando curadoria</strong><span>Cartões importados ou criados como rascunho aparecerão aqui para conferência.</span><Link className="primary-button" to="/import">Importar cartões</Link></div>}
+      </article>)}</div> : <div className="empty-state"><ShieldCheck size={28}/><strong>Nenhuma família aguardando curadoria</strong><span>Cartões importados ou criados como rascunho aparecerão aqui para conferência.</span><Link className="primary-button" to={route("/import")}>Importar cartões</Link></div>}
     </section>
   </div>;
 }
