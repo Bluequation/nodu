@@ -257,13 +257,14 @@ function Agenda() {
   const selectedReviews = reviewsForDate(selected);
   const selectedScheduleSlots = active.filter(plan => plan.scheduleConfig?.days.includes(selected.getDay()) && (
     plan.assignments.some(item => item.day === selected.getDay()) || plan.scheduleConfig.daySchedules?.[selected.getDay()]?.simulation
-  )).map(plan => ({
-    title: plan.title,
-    timeRange: plan.scheduleConfig?.daySchedules?.[selected.getDay()]?.startTime && plan.scheduleConfig?.daySchedules?.[selected.getDay()]?.endTime
-      ? `${plan.scheduleConfig.daySchedules[selected.getDay()].startTime}–${plan.scheduleConfig.daySchedules[selected.getDay()].endTime}`
-      : "",
-    minutes: planMinutesForDay(plan, selected.getDay()),
-  }));
+  )).map(plan => {
+    const slot = plan.scheduleConfig?.daySchedules?.[selected.getDay()];
+    return {
+      title: plan.title,
+      timeRange: slot?.startTime && slot?.endTime ? `${slot.startTime}–${slot.endTime}` : "",
+      minutes: planMinutesForDay(plan, selected.getDay()),
+    };
+  });
   const minutes = selectedScheduleSlots.reduce((sum, item) => sum + item.minutes, 0);
   const monthLabel = month.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
   const todayKey = dateKey(new Date());
