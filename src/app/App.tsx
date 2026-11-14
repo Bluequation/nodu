@@ -214,9 +214,11 @@ function Agenda() {
       if (!config || !config.days.includes(weekday)) return [];
       if (config.startDate && key < config.startDate) return [];
       if (config.examDate && key > config.examDate) return [];
+      const slot = config.daySchedules?.[weekday];
+      const timeRange = slot?.startTime && slot?.endTime ? `${slot.startTime}–${slot.endTime}` : "";
       return plan.assignments.filter(item => item.day === weekday).map(item => ({
         id: item.nodeId, name: displayTopicName(item.name), planTitle: plan.title,
-        planArea: [plan.position, plan.area].filter(Boolean).join(" · "),
+        planArea: [plan.position, plan.area].filter(Boolean).join(" · "), timeRange,
       }));
     });
   }
@@ -229,11 +231,15 @@ function Agenda() {
       if (config.startDate && key < config.startDate) return false;
       if (config.examDate && key > config.examDate) return false;
       return true;
-    }).map(plan => ({
-      id: plan.id,
-      title: plan.title,
-      area: [plan.position, plan.area].filter(Boolean).join(" · "),
-    }));
+    }).map(plan => {
+      const slot = plan.scheduleConfig?.daySchedules?.[weekday];
+      return {
+        id: plan.id,
+        title: plan.title,
+        area: [plan.position, plan.area].filter(Boolean).join(" · "),
+        timeRange: slot?.startTime && slot?.endTime ? `${slot.startTime}–${slot.endTime}` : "",
+      };
+    });
   }
   function reviewsForDate(date: Date) {
     const key = dateKey(date);
@@ -249,9 +255,16 @@ function Agenda() {
   const selectedTopics = topicsForDate(selected);
   const selectedSimulations = simulationsForDate(selected);
   const selectedReviews = reviewsForDate(selected);
-  const minutes = active.filter(plan => plan.scheduleConfig?.days.includes(selected.getDay()) && (
+  const selectedScheduleSlots = active.filter(plan => plan.scheduleConfig?.days.includes(selected.getDay()) && (
     plan.assignments.some(item => item.day === selected.getDay()) || plan.scheduleConfig.daySchedules?.[selected.getDay()]?.simulation
-  )).reduce((sum, plan) => sum + planMinutesForDay(plan, selected.getDay()), 0);
+  )).map(plan => ({
+    title: plan.title,
+    timeRange: plan.scheduleConfig?.daySchedules?.[selected.getDay()]?.startTime && plan.scheduleConfig?.daySchedules?.[selected.getDay()]?.endTime
+      ? `${plan.scheduleConfig.daySchedules[selected.getDay()].startTime}–${plan.scheduleConfig.daySchedules[selected.getDay()].endTime}`
+      : "",
+    minutes: planMinutesForDay(plan, selected.getDay()),
+  }));
+  const minutes = selectedScheduleSlots.reduce((sum, item) => sum + item.minutes, 0);
   const monthLabel = month.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
   const todayKey = dateKey(new Date());
 
@@ -290,9 +303,9 @@ function Agenda() {
           <div className="agenda-legend"><span><i className="study-marker"/> Conteúdos</span><span><i className="simulation-marker"/> Simulado</span><span><i className="review-marker"/> Revisões</span></div>
         </div>
         <aside className="agenda-day-detail">
-          <div className="agenda-detail-head"><small>RESUMO DO DIA</small><h3>{selected.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}</h3>{minutes > 0 && <span>{minutes} min disponíveis</span>}</div>
-          {selectedTopics.length > 0 && <section className="agenda-detail-section"><strong>Conteúdos <span>{selectedTopics.length}</span></strong>{selectedTopics.map((item, index) => <article className="agenda-event study" key={`${item.id}-${index}`}><b>{item.name}</b><small>{item.planTitle} · {item.planArea}</small></article>)}</section>}
-          {selectedSimulations.length > 0 && <section className="agenda-detail-section"><strong>Simulados <span>{selectedSimulations.length}</span></strong>{selectedSimulations.map(item => <article className="agenda-event simulation" key={item.id}><b>Dia reservado para simulado</b><small>{item.title} · {item.area}</small><Link to="/questions">Registrar resultado <ArrowRight size={12}/></Link></article>)}</section>}
+          <div className="agenda-detail-head"><small>RESUMO DO DIA</small><h3>{selected.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}</h3>{selectedScheduleSlots.some(item => item.timeRange) ? <span>{selectedScheduleSlots.filter(item => item.timeRange).map(item => `${item.title}: ${item.timeRange}`).join(" · ")}</span> : minutes > 0 && <span>{minutes} min disponíveis</span>}</div>
+          {selectedTopics.length > 0 && <section className="agenda-detail-section"><strong>Conteúdos <span>{selectedTopics.length}</span></strong>{selectedTopics.map((item, index) => <article className="agenda-event study" key={`${item.id}-${index}`}><b>{item.name}</b><small>{item.planTitle} · {item.planArea}{item.timeRange ? ` · ${item.timeRange}` : ""}</small></article>)}</section>}
+          {selectedSimulations.length > 0 && <section className="agenda-detail-section"><strong>Simulados <span>{selectedSimulations.length}</span></strong>{selectedSimulations.map(item => <article className="agenda-event simulation" key={item.id}><b>Dia reservado para simulado</b><small>{item.title} · {item.area}{item.timeRange ? ` · ${item.timeRange}` : ""}</small><Link to="/questions">Registrar resultado <ArrowRight size={12}/></Link></article>)}</section>}
           {selectedReviews.length > 0 && <section className="agenda-detail-section"><strong>Revisões <span>{selectedReviews.length}</span></strong>{selectedReviews.map(item => <article className="agenda-event review" key={`${item.type}-${item.id}`}><b>{item.topic}</b><small>{item.type} · {item.subject}</small><Link to={item.type === "Flashcards" ? "/reviews" : "/errors"}>Abrir <ArrowRight size={12}/></Link></article>)}</section>}
           {selectedTopics.length === 0 && selectedSimulations.length === 0 && selectedReviews.length === 0 && <div className="agenda-day-empty"><CalendarDays size={23}/><span>Nenhuma atividade marcada para este dia.</span></div>}
         </aside>
