@@ -121,6 +121,7 @@ export function migrateLegacyPlan(value: unknown, index = 0): StudyPlan | null {
       origin: mapOrigin(assignment.origin),
       sourceRef: String(assignment.sourceRef ?? ""),
       day: Number(assignment.day ?? 1),
+      done: Boolean(assignment.done),
     };
   });
   const title = String(meta.title ?? raw.title ?? "Plano de estudos");
