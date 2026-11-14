@@ -9,6 +9,11 @@ export interface PlanNode {
   selected: boolean;
   children: PlanNode[];
 }
+export interface DaySchedule {
+  startTime: string;
+  endTime: string;
+  simulation: boolean;
+}
 export interface ScheduleConfig {
   startDate: string;
   examDate: string;
@@ -18,6 +23,7 @@ export interface ScheduleConfig {
   sameMinutes?: boolean;
   dayMinutes?: Record<number, number>;
   priorityOrder?: string[];
+  daySchedules?: Record<number, DaySchedule>;
 }
 export interface PlanAssignment {
   nodeId: string;
