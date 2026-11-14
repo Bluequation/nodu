@@ -75,7 +75,7 @@ function formatDuration(minutes: number) {
 function emptyDaySchedule(): DaySchedule {
   return { startTime: "", endTime: "", simulation: false };
 }
-function assignmentFromLeaf(leaf: SelectedPlanLeaf, day = 0): PlanAssignment {
+function assignmentFromLeaf(leaf: SelectedPlanLeaf, day = -1): PlanAssignment {
   return {
     nodeId: leaf.id,
     name: displayNodeName(leaf.name),
@@ -91,7 +91,7 @@ function reconcileAssignments(leaves: SelectedPlanLeaf[], existing: PlanAssignme
     const current = byId.get(leaf.id);
     if (!current) return assignmentFromLeaf(leaf, 0);
     return { ...assignmentFromLeaf(leaf, current.day), ...current,
-      day: current.day > 0 && days.includes(current.day) ? current.day : 0 };
+      day: current.day >= 0 && days.includes(current.day) ? current.day : -1 };
   });
 }
 const defaultSchedule = (plan: StudyPlan): ScheduleConfig => ({
@@ -535,7 +535,7 @@ function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyP
     const daySchedules = { ...(config.daySchedules || {}) };
     days.forEach(day => { if (!daySchedules[day]) daySchedules[day] = emptyDaySchedule(); });
     const nextConfig = { ...config, days, daySchedules };
-    const nextAssignments = assignments.map(item => item.day > 0 && !days.includes(item.day) ? { ...item, day: 0 } : item);
+    const nextAssignments = assignments.map(item => item.day >= 0 && !days.includes(item.day) ? { ...item, day: -1 } : item);
     setConfig(nextConfig);
     setAssignments(nextAssignments);
     setSelectedIds([]);
@@ -547,7 +547,7 @@ function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyP
     changeConfig({ daySchedules: { ...(config.daySchedules || {}), [dayId]: { ...current, ...patch } } });
   }
   function moveTopicToDay(nodeId: string, dayId: number) {
-    if (dayId !== 0 && !config.days.includes(dayId)) return;
+    if (dayId !== -1 && !config.days.includes(dayId)) return;
     const leaf = leaves.find(item => item.id === nodeId);
     if (!leaf) return;
     const exists = assignments.some(item => item.nodeId === nodeId);
@@ -635,11 +635,11 @@ function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyP
       return;
     }
     const normalized = reconcileAssignments(leaves, assignments, config.days);
-    if (!normalized.some(item => item.day > 0 && config.days.includes(item.day))) {
+    if (!normalized.some(item => item.day >= 0 && config.days.includes(item.day))) {
       setScheduleFeedback("Distribua pelo menos um conteúdo em um dia para ativar o acompanhamento. Os demais podem ficar sem dia por enquanto.");
       return;
     }
-    const unassignedCount = normalized.filter(item => item.day === 0).length;
+    const unassignedCount = normalized.filter(item => item.day === -1).length;
     await onSave({ ...plan, scheduleConfig: config, assignments: normalized, status: "active", stage: "schedule", updatedAt: Date.now() });
     setAssignments(normalized);
     setScheduleFeedback(unassignedCount
@@ -650,7 +650,7 @@ function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyP
   const assignmentById = new Map(assignments.map(item => [item.nodeId, item]));
   const unassigned = leaves.filter(leaf => {
     const assignment = assignmentById.get(leaf.id);
-    return !assignment || assignment.day === 0 || !config.days.includes(assignment.day);
+    return !assignment || assignment.day === -1 || !config.days.includes(assignment.day);
   });
   const grouped = WEEKDAYS.filter(day => config.days.includes(day.id)).map(day => {
     const slot = config.daySchedules?.[day.id] || emptyDaySchedule();
@@ -679,7 +679,7 @@ function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyP
       <div className="schedule-topic-copy"><strong>{displayNodeName(leaf.name)}</strong><small>{leaf.path.slice(0, -1).map(displayNodeName).join(" / ")}</small></div>
       <div className="schedule-topic-actions">
         <select aria-label={`Dia de estudo para ${displayNodeName(leaf.name)}`} value={dayId} onChange={event => moveTopicToDay(leaf.id, Number(event.target.value))}>
-          <option value={0}>Sem dia</option>
+          <option value={-1}>Sem dia</option>
           {WEEKDAYS.filter(day => config.days.includes(day.id)).map(day => <option key={day.id} value={day.id}>{day.short}</option>)}
         </select>
         <span className="schedule-drag-handle" aria-hidden="true"><GripVertical size={15}/></span>
@@ -727,10 +727,10 @@ function ScheduleStep({ plan, onSave }: { plan: StudyPlan; onSave: (next: StudyP
     </section>
 
     <section
-      className={`panel wizard-panel schedule-unassigned-panel ${dragOverDay === 0 ? "drag-over" : ""}`}
+      className={`panel wizard-panel schedule-unassigned-panel ${dragOverDay === -1 ? "drag-over" : ""}`}
       onDragOver={event => { event.preventDefault(); setDragOverDay(0); }}
       onDragLeave={() => setDragOverDay(current => current === 0 ? null : current)}
-      onDrop={event => handleDrop(event, 0)}
+      onDrop={event => handleDrop(event, -1)}
     >
       <div className="panel-title-row"><div><span className="step-kicker">ORGANIZAÇÃO DOS ASSUNTOS</span><h2>Conteúdos ainda sem dia</h2><p>Esta é sua lista de conteúdos selecionados. Arraste cada assunto para o dia em que ele cabe melhor. No celular, use o seletor ao lado do assunto.</p></div><span className="soft-tag">{unassigned.length} restante(s)</span></div>
       <div className="assignment-toolbar">
@@ -1084,7 +1084,7 @@ export function PlanDetailRoute() {
         <div className="plan-progress-foot"><span>{weeklyPercent}% do cronograma semanal concluído</span><span>{weeklyPlanned - weeklyCompleted} assunto(s) ainda previsto(s)</span></div>
         <div className="plan-week-strip">
           {weekEntries.map(day => <div className={"plan-week-chip " + (day.isToday ? "today" : "") + (day.active ? "" : " inactive")} key={day.id}>
-            <span>{day.short}</span><b>{day.items.length ? day.completed + "/" + day.items.length : "—"}</b>
+            <span>{day.short}</span><b>{day.simulation ? (day.simulationDone ? "OK" : "SIM") : day.items.length ? day.completed + "/" + day.items.length : "—"}</b>
           </div>)}
         </div>
       </section>
