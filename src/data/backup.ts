@@ -1,6 +1,6 @@
 import { database } from "./database";
 
-const STORES = ["appState", "plans", "concepts", "reviews", "errors", "blocks", "learningSessions"] as const;
+const STORES = ["appState", "plans", "concepts", "reviews", "errors", "blocks", "learningSessions", "pages", "questions", "questionAttempts", "studySessions"] as const;
 type StoreName = typeof STORES[number];
 type BackupData = Record<StoreName, Array<Record<string, unknown>>>;
 export interface BackupSummary {
@@ -30,7 +30,7 @@ export function inspectBackup(raw: string): BackupSummary {
   if (!source) throw new Error("O backup não contém a seção de dados.");
   const data = {} as BackupData;
   for (const store of STORES) {
-    const rows = source[store];
+    const rows = source[store] ?? (["pages", "questions", "questionAttempts", "studySessions"].includes(store) ? [] : undefined);
     if (!Array.isArray(rows)) throw new Error(`O backup não contém a lista “${store}”.`);
     const normalized = rows.map((value, index) => {
       const row = object(value);
