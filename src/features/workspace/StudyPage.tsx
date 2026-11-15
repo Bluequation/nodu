@@ -5,18 +5,17 @@ import { BlockNoteView } from "@blocknote/mantine";
 import { useCreateBlockNote } from "@blocknote/react";
 import type { Block } from "@blocknote/core";
 import { pt } from "@blocknote/core/locales";
-import { ArrowLeft, Check, CircleAlert, Clock3, Play, Square, Target } from "lucide-react";
+import { ArrowLeft, Check, Play, Square, Target } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import type { StudyPlan, PlanNode } from "../../domain/models";
-import type { PlanTopicRef, ErrorRecord } from "../../domain/study";
+import type { PlanTopicRef } from "../../domain/study";
 import type { StudyPageRecord, QuestionAttemptRecord } from "../../domain/ritmo9";
 import { answerIsCorrect, subjectForArea } from "../../domain/ritmo9";
 import { listPlans } from "../../data/plans";
 import {
-  createQuestionAttempt, createStudyQuestion, finishStudySession, getActiveStudySession,
-  getStudyPage, listQuestionAttempts, saveStudyPage, startStudySession,
+  finishStudySession, getActiveStudySession, getStudyPage, listQuestionAttempts,
+  recordQuestionAttempt, saveStudyPage, startStudySession,
 } from "../../data/ritmo9";
-import { saveError } from "../../data/study";
 import "./study-page.css";
 
 function findNode(nodes: PlanNode[], id: string): PlanNode | undefined {
@@ -95,11 +94,13 @@ function QuestionCapture({
   topicName,
   plan,
   onSaved,
+  sessionId,
 }: {
   topicLinks: PlanTopicRef[];
   topicName: string;
   plan?: StudyPlan;
   onSaved: (attempt: QuestionAttemptRecord) => void;
+  sessionId?: string;
 }) {
   const [statement, setStatement] = useState("");
   const [optionsText, setOptionsText] = useState("");
@@ -118,61 +119,56 @@ function QuestionCapture({
     setFeedback(null);
     try {
       const options = optionsText.split("\n").map(value => value.trim()).filter(Boolean);
-      const question = await createStudyQuestion({
-        statement: statement.trim(),
-        options,
-        correctAnswer: correctAnswer.trim(),
-        explanation: explanation.trim(),
-        source: source.trim(),
-        board: plan?.organizer ?? "",
-        exam: plan?.title ?? "",
-        year: "",
-        difficulty: "",
-        topicLinks,
-      });
       const correct = answerIsCorrect(selectedAnswer, correctAnswer);
       const timeSpentSeconds = minutes.trim() ? Math.max(0, Number(minutes) * 60) : undefined;
-      const attempt = await createQuestionAttempt({
-        questionId: question.id,
-        selectedAnswer: selectedAnswer.trim(),
-        isCorrect: correct,
-        mode: "practice",
-        ...(Number.isFinite(timeSpentSeconds) ? { timeSpentSeconds } : {}),
-        topicLinks,
+      const now = Date.now();
+      const error = correct ? undefined : {
+        subject: subjectForArea(plan?.area ?? ""),
+        discipline: plan?.area || "Geral",
+        area: plan?.area || "",
+        topic: topicName || "Estudo livre",
+        type: "Questão",
+        mistake: `Resposta registrada: ${selectedAnswer.trim()}.`,
+        fix: [`Gabarito: ${correctAnswer.trim()}.`, explanation.trim()].filter(Boolean).join("\n\n"),
+        reviewDays: 1,
+        questionUrl: "",
+        conceptId: "",
+        questionText: statement.trim(),
+        optionsText: options.join("\n"),
+        correctAnswer: correctAnswer.trim(),
+        at: now,
+        nextReview: now + 24 * 60 * 60 * 1000,
+        successes: 0,
+        failures: 1,
+        status: "pendente" as const,
+        history: [{ at: now, grade: "wrong" as const }],
+        planTopics: topicLinks,
+      };
+      const result = await recordQuestionAttempt({
+        question: {
+          statement: statement.trim(),
+          options,
+          correctAnswer: correctAnswer.trim(),
+          explanation: explanation.trim(),
+          source: source.trim(),
+          board: plan?.organizer ?? "",
+          exam: plan?.title ?? "",
+          year: "",
+          difficulty: "",
+          topicLinks,
+        },
+        attempt: {
+          selectedAnswer: selectedAnswer.trim(),
+          isCorrect: correct,
+          mode: "practice",
+          ...(sessionId ? { sessionId } : {}),
+          ...(Number.isFinite(timeSpentSeconds) ? { timeSpentSeconds } : {}),
+          topicLinks,
+        },
+        ...(error ? { error } : {}),
       });
 
-      if (!correct) {
-        const now = Date.now();
-        const errors = await listErrors();
-        const error: ErrorRecord = {
-          id: crypto.randomUUID(),
-          sourceAttemptId: attempt.id,
-          subject: subjectForArea(plan?.area ?? ""),
-          discipline: plan?.area || "Geral",
-          area: plan?.area || "",
-          topic: topicName || "Estudo livre",
-          type: "Questão",
-          mistake: `Resposta registrada: ${selectedAnswer.trim()}.`,
-          fix: [`Gabarito: ${correctAnswer.trim()}.`, explanation.trim()].filter(Boolean).join("\n\n"),
-          reviewDays: 1,
-          questionUrl: "",
-          conceptId: "",
-          questionText: statement.trim(),
-          optionsText: options.join("\n"),
-          correctAnswer: correctAnswer.trim(),
-          at: now,
-          nextReview: now + 24 * 60 * 60 * 1000,
-          successes: 0,
-          failures: 1,
-          status: "pendente",
-          history: [{ at: now, grade: "wrong" }],
-          planTopics: topicLinks,
-        };
-        await saveError(error);
-        void errors;
-      }
-
-      onSaved(attempt);
+      onSaved(result.attempt);
       setFeedback({
         correct,
         message: correct
@@ -192,7 +188,6 @@ function QuestionCapture({
       setSaving(false);
     }
   }
-
   return <section className="r9-question-capture">
     <div className="r9-section-heading">
       <div>
@@ -333,6 +328,7 @@ export function StudyPage() {
       topicName={topic?.name ?? ""}
       plan={topic?.plan}
       onSaved={attempt => setAttempts(current => [attempt, ...current])}
+      sessionId={activeSession?.id}
     />
     {topic && <section className="r9-attempt-history">
       <div className="r9-section-heading"><div><span className="r9-eyebrow">HISTÓRICO</span><h2>Tentativas deste assunto</h2></div><span>{pageAttempts.length} registradas</span></div>
