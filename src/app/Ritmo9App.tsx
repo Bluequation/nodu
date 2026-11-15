@@ -16,7 +16,7 @@ import { calculateTopicPerformance } from "../domain/ritmo9";
 import { getSelectedLeaves } from "../domain/verticalization";
 import { PlanDetailRoute, PlanWizardRoute } from "../features/plans/PlanWizard";
 import { FlashcardEditorPage, FlashcardsPage, ReviewPageRoute } from "../features/study/Flashcards";
-import { ErrorsPage } from "../features/practice/Practice";
+import { ErrorsPage, QuestionsPage } from "../features/practice/Practice";
 import { SettingsPage } from "../features/settings/Settings";
 import { LearningPage } from "../features/study/Learning";
 import { AgendaPage } from "../features/agenda/AgendaPage";
@@ -106,6 +106,7 @@ function Shell() {
           <Route path="/flashcards/:id/edit" element={<FlashcardEditorPage/>}/>
           <Route path="/reviews" element={<ReviewPageRoute/>}/>
           <Route path="/errors" element={<ErrorsPage/>}/>
+          <Route path="/questions" element={<QuestionsPage/>}/>
           <Route path="/import" element={<ImportPage/>}/>
           <Route path="/curation" element={<CurationPage/>}/>
           <Route path="/performance" element={<PerformancePage/>}/>
