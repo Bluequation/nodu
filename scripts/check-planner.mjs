@@ -225,8 +225,14 @@ try{
  assert.equal(await page.locator(".main").evaluate(el=>getComputedStyle(el).marginLeft),"0px","hiding the sidebar gives the notebook full width");
  await page.getByRole("button",{name:"Mostrar painel lateral"}).click();
  await page.locator(".shell:not(.sidebar-collapsed)").waitFor();
+ const desktopNotebookGeometry=await page.evaluate(()=>({viewport:window.innerWidth,document:document.documentElement.scrollWidth,tableClient:document.querySelector(".rm-notion-table-scroll").clientWidth,tableScroll:document.querySelector(".rm-notion-table-scroll").scrollWidth}));
+ assert.ok(desktopNotebookGeometry.document<=desktopNotebookGeometry.viewport+1,"desktop notebook must not create page-level horizontal overflow");
+ assert.ok(desktopNotebookGeometry.tableScroll>desktopNotebookGeometry.tableClient,"wide notebook columns stay inside their own horizontal scroller");
  await page.screenshot({path:"planner-screenshots/16-erros.png",fullPage:true});
  await page.setViewportSize({width:390,height:844});
+ const mobileNotebookGeometry=await page.evaluate(()=>({viewport:window.innerWidth,document:document.documentElement.scrollWidth,tableClient:document.querySelector(".rm-notion-table-scroll").clientWidth,tableScroll:document.querySelector(".rm-notion-table-scroll").scrollWidth}));
+ assert.ok(mobileNotebookGeometry.document<=mobileNotebookGeometry.viewport+1,"mobile notebook must not create page-level horizontal overflow");
+ assert.ok(mobileNotebookGeometry.tableScroll>mobileNotebookGeometry.tableClient,"mobile notebook table scrolls inside its own viewport");
  await page.screenshot({path:"planner-screenshots/16-erros-mobile.png",fullPage:true});
  await page.setViewportSize({width:1440,height:1050});
  await page.goto(url+"/#/reviews?plan=bound-learning&topic=ldb");
