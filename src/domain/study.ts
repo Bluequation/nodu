@@ -91,6 +91,20 @@ export interface ErrorRecord {
   status: "pendente" | "dominado" | string;
   history: ErrorHistoryEntry[];
   attachments?: ErrorAttachment[];
+  customFields?: Record<string, string>;
+}
+export type ErrorNotebookColumnKind =
+  | "date" | "type" | "discipline" | "text" | "longtext"
+  | "interval" | "reviewDate" | "url" | "attachment" | "custom";
+export interface ErrorNotebookColumn {
+  id: string;
+  label: string;
+  kind: ErrorNotebookColumnKind;
+  custom?: boolean;
+}
+export interface ErrorNotebookSettings {
+  columns: ErrorNotebookColumn[];
+  disciplines: string[];
 }
 export interface QuestionBlock {
   planTopics?: PlanTopicRef[];
