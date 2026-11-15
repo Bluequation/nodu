@@ -18,13 +18,13 @@ function downloadFile(name: string, content: string, type: string) {
   URL.revokeObjectURL(url);
 }
 function buildCardPrompt(context:string,amount:number){
- return \`Você é especialista em aprendizagem ativa e elaboração de flashcards para concursos públicos.
+ return `Você é especialista em aprendizagem ativa e elaboração de flashcards para concursos públicos.
 
 CONTEXTO DO ESTUDO:
-\${context}
+${context}
 
 QUANTIDADE:
-Gere no máximo \${amount} cartões individuais. Nunca ultrapasse esse limite. Não aumente a quantidade artificialmente.
+Gere no máximo ${amount} cartões individuais. Nunca ultrapasse esse limite. Não aumente a quantidade artificialmente.
 
 OBJETIVO:
 Transformar o material de referência em cartões de recuperação ativa, claros e úteis para revisão espaçada de concurso público.
@@ -84,11 +84,11 @@ CONFERÊNCIA OBRIGATÓRIA ANTES DE RESPONDER:
 - Cada cartão contém exatamente um Assunto, uma Fonte, uma Frente e um Verso.
 - A ordem dos campos está correta.
 - Não há negrito nos títulos dos cartões ou nas seções Frente e Verso.
-- A quantidade total não ultrapassa \${amount}.
+- A quantidade total não ultrapassa ${amount}.
 - A resposta contém somente o baralho em Markdown.
 
 MATERIAL DE REFERÊNCIA:
-O estudante anexará ou colará o material junto desta solicitação. Se nenhum material for fornecido, peça o material antes de gerar os cartões.\`;
+O estudante anexará ou colará o material junto desta solicitação. Se nenhum material for fornecido, peça o material antes de gerar os cartões.`;
 }
 
 export function ImportPage() {
