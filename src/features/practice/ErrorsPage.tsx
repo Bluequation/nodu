@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Check, ExternalLink, NotebookPen, Paperclip, Plus, Search, Trash2 } from "lucide-react";
+import { Check, ExternalLink, NotebookPen, Paperclip, Plus, Search, Target, Trash2 } from "lucide-react";
 import type { Concept, ErrorAttachment, ErrorRecord, QuestionBlock, StudySubject } from "../../domain/study";
 import { deleteError, deleteQuestionBlock, listConcepts, listErrors, listQuestionBlocks, saveError, saveQuestionBlock } from "../../data/study";
 import { errorStage } from "../../domain/learningQueue";
