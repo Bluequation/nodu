@@ -69,7 +69,7 @@ function sameDiscipline(a: string, b: string) {
 function uniqueLabels(values: string[]) {
   const unique: string[] = [];
   for (const raw of values) {
-    const value = raw.trim().replace(/\\s+/g, " ");
+    const value = raw.trim().replace(/\s+/g, " ");
     if (value && !unique.some(item => sameDiscipline(item, value))) unique.push(value);
   }
   return unique.sort((a, b) => a.localeCompare(b, "pt-BR"));
