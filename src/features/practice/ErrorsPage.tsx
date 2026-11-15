@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
-  Bell, BellOff, BellRing, ChevronDown, ChevronUp, ExternalLink,
+  Bell, BellOff, BellRing, Check, ChevronDown, ChevronUp, ExternalLink,
   FileText, Image as ImageIcon, NotebookPen, Paperclip, Plus, Search,
-  Settings2, Trash2, X,
+  Pencil, Settings2, Trash2, X,
 } from "lucide-react";
 import type {
   ErrorAttachment, ErrorNotebookColumn, ErrorNotebookSettings,
@@ -58,6 +58,12 @@ function dateFromInput(value: string) {
   const [year, month, day] = value.split("-").map(Number);
   return new Date(year, month - 1, day, 12, 0, 0, 0).getTime();
 }
+function addCalendarDays(value: number, days: number) {
+  const date = new Date(value);
+  date.setDate(date.getDate() + days);
+  date.setHours(12, 0, 0, 0);
+  return date.getTime();
+}
 function shortDate(value: number) {
   return new Date(value).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
@@ -109,6 +115,10 @@ export function ErrorsPage() {
   const [lastSavedId, setLastSavedId] = useState("");
   const [showColumnSettings, setShowColumnSettings] = useState(false);
   const [newColumnName, setNewColumnName] = useState("");
+  const [editingColumnId, setEditingColumnId] = useState("");
+  const [editingColumnLabel, setEditingColumnLabel] = useState("");
+  const [showAddDiscipline, setShowAddDiscipline] = useState(false);
+  const [newDisciplineName, setNewDisciplineName] = useState("");
   const [alarmPermission, setAlarmPermission] = useState<NotificationPermission | "unsupported">(
     () => typeof Notification === "undefined" ? "unsupported" : Notification.permission,
   );
@@ -186,8 +196,8 @@ export function ErrorsPage() {
     if (patch.discipline !== undefined) {
       next.subject = sameDiscipline(patch.discipline, "Física") ? "fisica" : "tae";
     }
-    if (patch.reviewDays !== undefined && patch.nextReview === undefined) {
-      next.nextReview = Date.now() + Number(patch.reviewDays) * DAY;
+    if (patch.nextReview === undefined && (patch.reviewDays !== undefined || patch.at !== undefined)) {
+      next.nextReview = addCalendarDays(next.at, Number(next.reviewDays || 15));
     }
     const nextErrors = errorsRef.current.map(item => item.id === id ? next : item);
     errorsRef.current = nextErrors;
@@ -206,15 +216,23 @@ export function ErrorsPage() {
     setSettings(next);
     void saveErrorNotebookSettings(next);
   }
-  function draftColumnLabel(id: string, label: string) {
-    const next = {
-      ...settingsRef.current,
-      columns: settingsRef.current.columns.map(column =>
-        column.id === id ? { ...column, label } : column
-      ),
-    };
-    settingsRef.current = next;
-    setSettings(next);
+  function beginColumnRename(column: ErrorNotebookColumn) {
+    setEditingColumnId(column.id);
+    setEditingColumnLabel(column.label);
+  }
+  function finishColumnRename() {
+    const label = editingColumnLabel.trim();
+    if (label) {
+      const next = {
+        ...settingsRef.current,
+        columns: settingsRef.current.columns.map(column =>
+          column.id === editingColumnId ? { ...column, label } : column
+        ),
+      };
+      saveColumnSettings(next);
+    }
+    setEditingColumnId("");
+    setEditingColumnLabel("");
   }
   function moveColumn(id: string, direction: -1 | 1) {
     const next = [...settingsRef.current.columns];
@@ -267,19 +285,19 @@ export function ErrorsPage() {
     await Promise.all(nextErrors.map(error => saveError(error)));
   }
   function addDiscipline() {
-    const value = window.prompt("Nome da nova disciplina:");
-    const name = value?.trim().replace(/\s+/g, " ");
+    const name = newDisciplineName.trim().replace(/\s+/g, " ");
     if (!name) return;
-    if (disciplines.some(item => sameDiscipline(item, name))) {
-      setDisciplineTab(disciplines.find(item => sameDiscipline(item, name)) || name);
-      return;
+    const existing = disciplines.find(item => sameDiscipline(item, name));
+    if (existing) setDisciplineTab(existing);
+    else {
+      saveColumnSettings({
+        ...settingsRef.current,
+        disciplines: [...settingsRef.current.disciplines, name],
+      });
+      setDisciplineTab(name);
     }
-    const next = {
-      ...settingsRef.current,
-      disciplines: [...settingsRef.current.disciplines, name],
-    };
-    saveColumnSettings(next);
-    setDisciplineTab(name);
+    setNewDisciplineName("");
+    setShowAddDiscipline(false);
   }
 
   async function addRow() {
@@ -306,7 +324,7 @@ export function ErrorsPage() {
       optionsText: "",
       correctAnswer: "",
       at: now,
-      nextReview: now + 15 * DAY,
+      nextReview: addCalendarDays(now, 15),
       successes: 0,
       failures: 0,
       status: "pendente",
@@ -396,9 +414,12 @@ export function ErrorsPage() {
           aria-label={column.label} value={dateInputValue(error.at)}
           onChange={event => void updateError(error.id, { at: dateFromInput(event.currentTarget.value) })}/>;
       case "type":
-        return <input {...common} className="rm-cell-input" list="rm-error-types"
-          aria-label={column.label} defaultValue={error.type}
-          placeholder="Tipo de erro" onBlur={event => void updateError(error.id, { type: event.currentTarget.value })}/>;
+        return <select {...common} className="rm-cell-select rm-cell-type"
+          aria-label={column.label} value={error.type}
+          onChange={event => void updateError(error.id, { type: event.currentTarget.value })}>
+          <option value="">Selecionar tipo</option>
+          {ERROR_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
+        </select>;
       case "discipline":
         return <select {...common} className="rm-cell-select" aria-label={column.label}
           defaultValue={error.discipline} onChange={event => void updateError(error.id, { discipline: event.currentTarget.value })}>
@@ -412,10 +433,15 @@ export function ErrorsPage() {
           onBlur={event => void updateError(error.id, column.id === "area"
             ? { area: event.currentTarget.value } : { topic: event.currentTarget.value })}/>;
       case "longtext":
-        return <textarea {...common} className="rm-cell-textarea" rows={2}
+        return <textarea {...common} className="rm-cell-textarea" rows={1}
           aria-label={column.label}
           defaultValue={column.id === "mistake" ? error.mistake : column.id === "fix" ? error.fix : error.customFields?.[column.id] || ""}
-          placeholder={column.id === "mistake" ? "O que levou ao erro?" : "Qual é o raciocínio correto?"}
+          placeholder={column.id === "mistake" ? "Descreva o que levou ao erro..." : "Registre o raciocínio correto..."}
+          onInput={event => {
+            const field = event.currentTarget;
+            field.style.height = "auto";
+            field.style.height = field.scrollHeight + "px";
+          }}
           onBlur={event => void updateError(error.id, column.id === "mistake"
             ? { mistake: event.currentTarget.value }
             : column.id === "fix" ? { fix: event.currentTarget.value }
@@ -468,7 +494,7 @@ export function ErrorsPage() {
         </div>;
       case "custom":
         return <input {...common} className="rm-cell-input" aria-label={column.label}
-          defaultValue={error.customFields?.[column.id] || ""} placeholder="Preencher"
+          defaultValue={error.customFields?.[column.id] || ""} placeholder="Adicionar informação..."
           onBlur={event => void updateError(error.id, {
             customFields: { ...(error.customFields || {}), [column.id]: event.currentTarget.value },
           })}/>;
@@ -478,82 +504,80 @@ export function ErrorsPage() {
   }
 
   return <div className="stack ritmo-materials rm-errors rm-notion-errors">
-    <header className="heading">
+    <header className="rm-notebook-heading">
       <div>
         <small>RITMO / PRÁTICA</small>
         <h1>Caderno de erros</h1>
-        <p>Seu banco pessoal de questões: registre, corrija e programe quando retomar.</p>
+        <p>Transforme cada erro em aprendizado. Um registro de cada vez.</p>
       </div>
-      <div className="rm-notebook-header-actions">
-        <button className="secondary-button" type="button" onClick={() => setShowColumnSettings(value => !value)}>
-          <Settings2 size={15}/>{showColumnSettings ? "Fechar propriedades" : "Propriedades"}
+      <div className="rm-notebook-actions">
+        <button className="rm-properties-trigger" type="button" aria-expanded={showColumnSettings}
+          onClick={() => setShowColumnSettings(value => !value)}>
+          <Settings2 size={15}/><span>Colunas</span>
         </button>
-        <button className="primary-button" type="button" onClick={() => void addRow()}>
-          <Plus size={16}/>Nova linha
+        <button className="primary-button rm-new-row-button" type="button" onClick={() => void addRow()}>
+          <Plus size={16}/><span>Nova linha</span>
         </button>
       </div>
     </header>
 
-    {context.requested && <p className="inline-feedback">
-      {context.valid ? context.plan?.title + " · " + context.title : "Assunto do plano indisponível ou carregando."}
-      {" · "}<Link to={context.returnTo}>Voltar a Aprender</Link>
-    </p>}
-    {dueOnly && <p className="inline-feedback">
-      Mostrando registros com revisão prevista até agora.{" "}
-      <Link to="/errors">Ver todos</Link>
-    </p>}
+    {context.requested && <div className="rm-context-line">
+      <span>{context.valid ? context.plan?.title + " / " + context.title : "Assunto do plano indisponível ou carregando."}</span>
+      <Link to={context.returnTo}>Voltar ao plano</Link>
+    </div>}
+    {dueOnly && <div className="rm-context-line">
+      <span>Revisões previstas para hoje ou atrasadas</span><Link to="/errors">Mostrar todos</Link>
+    </div>}
 
     <div className="rm-notebook-toolbar">
       <label className="rm-error-search">
-        <Search size={15}/>
+        <Search size={16}/>
         <input aria-label="Buscar no caderno" value={searchTerm}
           onChange={event => setSearchTerm(event.target.value)}
-          placeholder="Buscar assunto, erro, tipo ou correção..."/>
+          placeholder="Buscar no caderno..."/>
+        {searchTerm && <button type="button" aria-label="Limpar busca" onClick={() => setSearchTerm("")}><X size={14}/></button>}
       </label>
       <div className="rm-notebook-summary">
         <span>{scopedErrors.length} {scopedErrors.length === 1 ? "registro" : "registros"}</span>
-        <span className="rm-notebook-due">{dueCount} para retomar</span>
+        <i/>
+        <strong>{dueCount} para revisar</strong>
         <button type="button" className={"rm-alarm-button " + (alarmPermission === "granted" ? "is-active" : "")}
           onClick={() => void enableAlarms()}
-          title="Notificações quando a data de revisão chegar. O Ritmo precisa estar aberto.">
+          title="O Ritmo avisa quando a revisão vencer enquanto estiver aberto.">
           {alarmPermission === "granted" ? <BellRing size={15}/> : alarmPermission === "denied" ? <BellOff size={15}/> : <Bell size={15}/>}
-          {alarmPermission === "granted" ? "Alarmes ativos" : alarmPermission === "denied" ? "Notificações bloqueadas" : "Ativar alarmes"}
+          <span>{alarmPermission === "granted" ? "Lembretes ativos" : alarmPermission === "denied" ? "Notificações bloqueadas" : "Ativar lembretes"}</span>
         </button>
       </div>
     </div>
 
-    {showColumnSettings && <section className="rm-column-settings">
-      <div className="rm-column-settings-heading">
-        <div><strong>Propriedades da tabela</strong><span>Renomeie, reorganize ou adicione colunas. As alterações ficam salvas neste dispositivo.</span></div>
-        <button type="button" className="icon-button" aria-label="Fechar propriedades" onClick={() => setShowColumnSettings(false)}><X size={15}/></button>
+    {feedback && <p className="rm-notebook-feedback" role="status">{feedback}</p>}
+
+    {showColumnSettings && <section className="rm-properties-panel">
+      <div className="rm-properties-topline">
+        <div><strong>Organizar colunas</strong><span>Renomeie clicando no título da coluna. Reordene por aqui.</span></div>
+        <button type="button" className="rm-close-properties" aria-label="Fechar propriedades" onClick={() => setShowColumnSettings(false)}><X size={15}/></button>
       </div>
-      <div className="rm-column-settings-list">
-        {settings.columns.map((column, index) => <div className="rm-column-setting-row" key={column.id}>
-          <input aria-label={"Nome da coluna " + column.label} value={column.label}
-            onChange={event => draftColumnLabel(column.id, event.currentTarget.value)}
-            onBlur={commitColumnLabels}/>
-          <span>{column.custom ? "Personalizada" : "Padrão"}</span>
+      <div className="rm-properties-list">
+        {settings.columns.map((column, index) => <div className="rm-property-item" key={column.id}>
+          <span>{column.label}</span>
           <div>
-            <button type="button" className="icon-button" title="Mover para cima" aria-label="Mover para cima"
-              disabled={index === 0} onClick={() => moveColumn(column.id, -1)}><ChevronUp size={14}/></button>
-            <button type="button" className="icon-button" title="Mover para baixo" aria-label="Mover para baixo"
-              disabled={index === settings.columns.length - 1} onClick={() => moveColumn(column.id, 1)}><ChevronDown size={14}/></button>
-            {column.custom && <button type="button" className="icon-button danger" title="Excluir coluna" aria-label="Excluir coluna"
-              onClick={() => void removeColumn(column)}><Trash2 size={14}/></button>}
+            <button type="button" aria-label={"Mover " + column.label + " para a esquerda"} disabled={index === 0}
+              onClick={() => moveColumn(column.id, -1)}><ChevronUp size={14}/></button>
+            <button type="button" aria-label={"Mover " + column.label + " para a direita"} disabled={index === settings.columns.length - 1}
+              onClick={() => moveColumn(column.id, 1)}><ChevronDown size={14}/></button>
+            {column.custom && <button type="button" aria-label={"Excluir coluna " + column.label}
+              onClick={() => void removeColumn(column)}><Trash2 size={13}/></button>}
           </div>
         </div>)}
       </div>
-      <div className="rm-add-column-row">
+      <form className="rm-add-property" onSubmit={event => { event.preventDefault(); addColumn(); }}>
         <input value={newColumnName} onChange={event => setNewColumnName(event.currentTarget.value)}
-          onKeyDown={event => { if (event.key === "Enter") addColumn(); }}
-          placeholder="Nome da nova coluna..."/>
-        <button type="button" className="secondary-button compact" onClick={addColumn} disabled={!newColumnName.trim()}>
-          <Plus size={14}/>Adicionar coluna
-        </button>
-      </div>
+          placeholder="Nome da nova coluna" aria-label="Nome da nova coluna"/>
+        <button type="submit" disabled={!newColumnName.trim()}><Plus size={14}/>Adicionar propriedade</button>
+      </form>
     </section>}
 
-    <div className="rm-error-tabs rm-notebook-discipline-tabs" role="tablist" aria-label="Disciplinas do caderno">
+    <nav className="rm-discipline-tabs" role="tablist" aria-label="Disciplinas do caderno">
       {disciplines.map(name => {
         const count = name === "Todas"
           ? scopedErrors.length
@@ -563,57 +587,65 @@ export function ErrorsPage() {
           <span>{name}</span><small>{count}</small>
         </button>;
       })}
-      <button type="button" className="rm-add-discipline" onClick={addDiscipline}><Plus size={13}/> Disciplina</button>
-    </div>
+      {showAddDiscipline ? <form className="rm-add-discipline-form" onSubmit={event => { event.preventDefault(); addDiscipline(); }}>
+        <input autoFocus value={newDisciplineName} onChange={event => setNewDisciplineName(event.currentTarget.value)}
+          onKeyDown={event => { if (event.key === "Escape") setShowAddDiscipline(false); }}
+          placeholder="Nova disciplina" aria-label="Nome da disciplina"/>
+        <button type="submit" disabled={!newDisciplineName.trim()}><Check size={14}/></button>
+        <button type="button" aria-label="Cancelar" onClick={() => setShowAddDiscipline(false)}><X size={14}/></button>
+      </form> : <button type="button" className="rm-add-discipline" onClick={() => setShowAddDiscipline(true)}>
+        <Plus size={14}/><span>Disciplina</span>
+      </button>}
+    </nav>
 
-    <section className="panel rm-error-database rm-notion-database">
-      <div className="rm-notion-database-head">
-        <div><strong>{disciplineTab === "Todas" ? "Todos os registros" : disciplineTab}</strong>
-          <span>{visible.length} {visible.length === 1 ? "linha" : "linhas"} · edição direta nas células</span></div>
-        <button type="button" className="secondary-button compact" onClick={() => void addRow()}><Plus size={14}/>Nova linha</button>
+    <section className="rm-notebook-table-section">
+      <div className="rm-table-caption">
+        <strong>{disciplineTab === "Todas" ? "Todas as disciplinas" : disciplineTab}</strong>
+        <span>{visible.length} {visible.length === 1 ? "questão registrada" : "questões registradas"}</span>
       </div>
-      {feedback && <p className="rm-notebook-feedback" role="status">{feedback}</p>}
-      {loading ? <div className="rm-error-empty">Carregando seu caderno...</div> :
-        <div className="rm-error-table-scroll rm-notion-table-scroll">
-          <table className="rm-error-table rm-notion-table">
+      {loading ? <div className="rm-notebook-loading">Preparando seu caderno...</div> :
+        <div className="rm-notion-table-scroll">
+          <table className="rm-notion-table">
             <thead><tr>
               {columns.map(column => <th key={column.id} data-column={column.id}>
-                <span>{column.label}</span>
-                {column.kind === "reviewDate" && <Bell size={11}/>}
-                <small title="Edite o nome em Propriedades">✎</small>
+                {editingColumnId === column.id ? <input autoFocus className="rm-column-rename-input"
+                  value={editingColumnLabel} aria-label={"Renomear coluna " + column.label}
+                  onChange={event => setEditingColumnLabel(event.currentTarget.value)}
+                  onBlur={finishColumnRename}
+                  onKeyDown={event => { if (event.key === "Enter") event.currentTarget.blur(); if (event.key === "Escape") { setEditingColumnId(""); setEditingColumnLabel(""); } }}/> :
+                  <button type="button" className="rm-column-title" title="Clique para renomear esta coluna"
+                    onClick={() => beginColumnRename(column)}>
+                    <span>{column.label}</span><Pencil size={11}/>
+                  </button>}
               </th>)}
-              <th className="rm-notion-actions-heading">Ações</th>
+              <th className="rm-row-actions-heading" aria-label="Ações"/>
             </tr></thead>
             <tbody>
               {visible.map(error => <tr key={error.id} className={isDue(error) ? "rm-notion-row-due" : ""}>
                 {columns.map(column => <td key={column.id} data-column={column.id}>
                   {renderCell(error, column)}
                 </td>)}
-                <td className="rm-notion-actions">
-                  {lastSavedId === error.id && <small className="rm-row-saved">Salvo</small>}
-                  <button type="button" className="icon-button danger" title="Excluir registro"
-                    aria-label="Excluir registro" onClick={() => void removeRow(error.id)}><Trash2 size={14}/></button>
+                <td className="rm-row-actions">
+                  <button type="button" title="Excluir registro" aria-label="Excluir registro"
+                    onClick={() => void removeRow(error.id)}><Trash2 size={14}/></button>
                 </td>
               </tr>)}
               {!visible.length && <tr><td colSpan={columns.length + 1} className="rm-notion-empty">
                 <NotebookPen size={25}/>
-                <strong>{scopedErrors.length ? "Nenhum registro nesta visualização" : "Seu caderno começa aqui"}</strong>
-                <span>{scopedErrors.length ? "Experimente outra disciplina ou termo de busca." : "Adicione uma linha e preencha cada informação diretamente na tabela."}</span>
-                {!scopedErrors.length && <button type="button" className="primary-button" onClick={() => void addRow()}><Plus size={15}/>Adicionar primeira linha</button>}
+                <strong>{scopedErrors.length ? "Nenhum resultado nesta visualização" : "Seu caderno começa aqui"}</strong>
+                <span>{scopedErrors.length ? "Experimente outra disciplina ou busca." : "Crie uma linha e comece a registrar o que precisa aprender."}</span>
+                {!scopedErrors.length && <button type="button" onClick={() => void addRow()}><Plus size={15}/>Criar primeira linha</button>}
               </td></tr>}
             </tbody>
           </table>
         </div>
       }
-      <div className="rm-notion-table-footer">
-        <button type="button" onClick={() => void addRow()}><Plus size={14}/> Nova linha</button>
-        <span>Os campos são salvos automaticamente ao sair de cada célula.</span>
-      </div>
+      {!loading && <button type="button" className="rm-add-row-inline" onClick={() => void addRow()}>
+        <Plus size={15}/><span>Nova linha</span>
+      </button>}
     </section>
 
     <datalist id="rm-error-types">
       {ERROR_TYPES.map(type => <option key={type} value={type}/>)}
     </datalist>
-    <p className="rm-notebook-note"><Bell size={13}/> Os alarmes aparecem como notificações enquanto o Ritmo estiver aberto. A data e o estado da revisão permanecem registrados no caderno.</p>
-  </div>;
-}
+  </div>;}
