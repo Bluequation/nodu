@@ -96,6 +96,8 @@ export interface QuestionBlock {
   planTopics?: PlanTopicRef[];
   id: string;
   subject: StudySubject;
+  discipline?: string;
+  area?: string;
   topic: string;
   at: number;
   total: number;
