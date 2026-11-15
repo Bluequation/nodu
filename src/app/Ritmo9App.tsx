@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import {
   Activity, ArrowRight, BookOpen, Brain, CalendarDays, CheckCircle2, ChevronRight,
   Clock3, FileText, Folder, Home, LayoutGrid, NotebookPen, Plus, Settings,
@@ -21,7 +21,7 @@ import { SettingsPage } from "../features/settings/Settings";
 import { LearningPage } from "../features/study/Learning";
 import { AgendaPage } from "../features/agenda/AgendaPage";
 import { CurationPage, ImportPage } from "../features/study/ImportCuration";
-import { StudyPage } from "../features/workspace/StudyPage";
+const StudyPage = lazy(() => import("../features/workspace/StudyPage").then(module => ({ default: module.StudyPage })));
 import "../ritmo9.css";
 
 const primaryNav = [
@@ -98,7 +98,7 @@ function Shell() {
           <Route path="/today" element={<TodayPage/>}/>
           <Route path="/space" element={<WorkspaceHome/>}/>
           <Route path="/space/new" element={<NewStudyPage/>}/>
-          <Route path="/space/:id" element={<StudyPage/>}/>
+          <Route path="/space/:id" element={<Suspense fallback={<div className="r9-loading">Abrindo editor…</div>}><StudyPage/></Suspense>}/>
           <Route path="/plans" element={<PlanHub/>}/>
           <Route path="/plans/new" element={<NewPlanPage/>}/>
           <Route path="/plans/:id/verticalize" element={<PlanWizardRoute/>}/>
