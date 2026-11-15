@@ -1,4 +1,4 @@
-export type StudySubject = "tae" | "fisica";
+export type StudySubject = "tae" | "fisica" | "general";
 export type VariantFormat = "basic" | "cloze" | "typed" | "image";
 export type VariantStatus = "approved" | "draft" | "rejected";
 export interface FlashcardVariant {
