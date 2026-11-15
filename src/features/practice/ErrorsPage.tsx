@@ -1,8 +1,8 @@
 import { Fragment, useEffect, useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Check, ExternalLink, NotebookPen, Paperclip, Plus, Search, Trash2 } from "lucide-react";
-import type { Concept, ErrorAttachment, ErrorRecord, StudySubject } from "../../domain/study";
-import { deleteError, listConcepts, listErrors, saveError } from "../../data/study";
+import type { Concept, ErrorAttachment, ErrorRecord, QuestionBlock, StudySubject } from "../../domain/study";
+import { deleteError, deleteQuestionBlock, listConcepts, listErrors, listQuestionBlocks, saveError, saveQuestionBlock } from "../../data/study";
 import { errorStage } from "../../domain/learningQueue";
 import { useStudyContext } from "../study/useStudyContext";
 import { MaterialScopePicker, useMaterialPlans } from "../study/MaterialScopePicker";
@@ -21,6 +21,15 @@ const DISCIPLINE_DEFAULTS = [
   "Matemática",
   "Português",
 ];
+const EMPTY_BLOCK = {
+  subject: "tae" as StudySubject,
+  discipline: "",
+  area: "",
+  topic: "",
+  total: 10,
+  correct: 0,
+  note: "",
+};
 const EMPTY_ERROR = {
   subject: "tae" as StudySubject,
   discipline: "",
@@ -70,40 +79,55 @@ function sameDiscipline(a: string, b: string) {
 export function ErrorsPage() {
   const context = useStudyContext();
   const plans = useMaterialPlans();
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
+  const requestedView = params.get("view") === "performance" ? "performance" : "errors";
+  const [view, setView] = useState<"errors" | "performance">(requestedView);
   const [phase, setPhase] = useState<"all" | "pendente" | "recuperacao" | "superado">("all");
   const [disciplineTab, setDisciplineTab] = useState("Todas");
   const [searchTerm, setSearchTerm] = useState("");
   const [errors, setErrors] = useState<ErrorRecord[]>([]);
+  const [blocks, setBlocks] = useState<QuestionBlock[]>([]);
   const [concepts, setConcepts] = useState<Concept[]>([]);
   const [form, setForm] = useState(EMPTY_ERROR);
+  const [blockForm, setBlockForm] = useState(EMPTY_BLOCK);
   const [editingId, setEditingId] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [applyId, setApplyId] = useState("");
   const [feedback, setFeedback] = useState("");
 
   async function reload() {
-    const [nextErrors, nextConcepts] = await Promise.all([listErrors(), listConcepts()]);
+    const [nextErrors, nextConcepts, nextBlocks] = await Promise.all([listErrors(), listConcepts(), listQuestionBlocks()]);
     setErrors(nextErrors);
     setConcepts(nextConcepts);
+    setBlocks(nextBlocks);
   }
   useEffect(() => { reload(); }, []);
+  useEffect(() => { setView(requestedView); }, [requestedView]);
 
   const selectedPlan = plans.find(plan => plan.id === params.get("plan"));
-  const scoped = errors.filter(error =>
+  const inScope = <T extends { planTopics?: ErrorRecord["planTopics"] }>(item: T) =>
     context.requested
-      ? context.valid && linkedTo(error, context.ref)
+      ? context.valid && linkedTo(item, context.ref)
       : params.get("plan")
-        ? !!selectedPlan && linkedToPlan(error, selectedPlan)
-        : true
-  );
+        ? !!selectedPlan && linkedToPlan(item, selectedPlan)
+        : true;
+  const scoped = errors.filter(inScope);
+  const scopedBlocks = blocks.filter(inScope);
+  const blockDiscipline = (block: QuestionBlock) => block.discipline?.trim() || (block.subject === "fisica" ? "Física" : "Geral");
   const dueOnly = params.get("due") === "1";
-  const extraDisciplines = Array.from(new Set(scoped.map(error => error.discipline.trim()).filter(Boolean)))
-    .filter(name => !DISCIPLINE_DEFAULTS.some(defaultName => sameDiscipline(defaultName, name)))
+  const extraDisciplines = Array.from(new Set([
+    ...scoped.map(error => error.discipline.trim()).filter(Boolean),
+    ...scopedBlocks.map(blockDiscipline).filter(Boolean),
+  ]))
+    .filter(name => !["Geral", ...DISCIPLINE_DEFAULTS].some(defaultName => sameDiscipline(defaultName, name)))
     .sort((a, b) => a.localeCompare(b, "pt-BR"));
-  const disciplineTabs = ["Todas", ...DISCIPLINE_DEFAULTS, ...extraDisciplines];
+  const disciplineTabs = ["Todas", "Geral", ...DISCIPLINE_DEFAULTS, ...extraDisciplines]
+    .filter((name, index, all) => all.findIndex(item => sameDiscipline(item, name)) === index);
   const disciplineRows = scoped.filter(error =>
     disciplineTab === "Todas" || sameDiscipline(error.discipline, disciplineTab)
+  );
+  const performanceRows = scopedBlocks.filter(block =>
+    disciplineTab === "Todas" || sameDiscipline(blockDiscipline(block), disciplineTab)
   );
   const normalizedSearch = searchTerm.trim().toLocaleLowerCase("pt-BR");
   const visible = disciplineRows.filter(error => {
@@ -122,9 +146,30 @@ export function ErrorsPage() {
     recuperacao: disciplineRows.filter(error => errorStage(error) === "recuperacao").length,
     superado: disciplineRows.filter(error => errorStage(error) === "superado").length,
   };
+  const normalizedBlockSearch = searchTerm.trim().toLocaleLowerCase("pt-BR");
+  const visibleBlocks = performanceRows.filter(block => [
+    blockDiscipline(block), block.area || "", block.topic, block.note || "",
+  ].join(" ").toLocaleLowerCase("pt-BR").includes(normalizedBlockSearch));
+  const questionTotal = visibleBlocks.reduce((sum, block) => sum + block.total, 0);
+  const correctTotal = visibleBlocks.reduce((sum, block) => sum + block.correct, 0);
+  const accuracy = questionTotal ? Math.round(correctTotal / questionTotal * 100) : 0;
 
   function set<K extends keyof typeof EMPTY_ERROR>(key: K, value: typeof EMPTY_ERROR[K]) {
     setForm(current => ({ ...current, [key]: value }));
+  }
+  function setBlock<K extends keyof typeof EMPTY_BLOCK>(key: K, value: typeof EMPTY_BLOCK[K]) {
+    setBlockForm(current => ({ ...current, [key]: value }));
+  }
+  function changeView(next: "errors" | "performance") {
+    const nextParams = new URLSearchParams(params);
+    if (next === "performance") nextParams.set("view", "performance");
+    else nextParams.delete("view");
+    setParams(nextParams);
+    setView(next);
+    setDisciplineTab("Todas");
+    setPhase("all");
+    setShowForm(false);
+    setFeedback("");
   }
   function edit(error: ErrorRecord) {
     setEditingId(error.id);
@@ -165,6 +210,63 @@ export function ErrorsPage() {
       : { ...EMPTY_ERROR, discipline: tabDiscipline });
     setShowForm(true);
     setFeedback("");
+  }
+  function newBlock() {
+    if (params.get("plan") && !context.valid) {
+      setFeedback("Escolha um assunto válido do plano antes de registrar o bloco.");
+      return;
+    }
+    const selectedDiscipline = disciplineTab === "Todas" ? "" : disciplineTab;
+    setBlockForm(context.valid
+      ? {
+          ...EMPTY_BLOCK,
+          topic: context.title,
+          discipline: context.area,
+          subject: /f[ií]sica/i.test(context.plan?.area || "") ? "fisica" : "tae",
+        }
+      : { ...EMPTY_BLOCK, discipline: selectedDiscipline });
+    setEditingId("");
+    setShowForm(true);
+    setFeedback("");
+  }
+  async function submitBlock(event: FormEvent) {
+    event.preventDefault();
+    setFeedback("");
+    if (context.requested && !context.valid) {
+      setFeedback("Assunto indisponível.");
+      return;
+    }
+    if (!blockForm.discipline.trim() || !blockForm.topic.trim()) {
+      setFeedback("Preencha disciplina e assunto.");
+      return;
+    }
+    if (!Number.isInteger(blockForm.total) || blockForm.total < 1 || blockForm.total > 500 ||
+        !Number.isInteger(blockForm.correct) || blockForm.correct < 0 || blockForm.correct > blockForm.total) {
+      setFeedback("Confira o total de questões e a quantidade de acertos.");
+      return;
+    }
+    const record: QuestionBlock = {
+      id: crypto.randomUUID(),
+      subject: blockForm.subject,
+      discipline: blockForm.discipline.trim(),
+      area: blockForm.area.trim(),
+      topic: blockForm.topic.trim(),
+      at: Date.now(),
+      total: blockForm.total,
+      correct: blockForm.correct,
+      note: blockForm.note.trim(),
+      ...(context.valid ? { planTopics: [context.ref] } : {}),
+    };
+    await saveQuestionBlock(record);
+    setBlockForm(EMPTY_BLOCK);
+    setShowForm(false);
+    setFeedback("Bloco de questões registrado.");
+    await reload();
+  }
+  async function removeBlock(id: string) {
+    if (!confirm("Excluir este bloco de desempenho?")) return;
+    await deleteQuestionBlock(id);
+    await reload();
   }
   async function addAttachments(files: FileList | null) {
     const selected = Array.from(files || []);
@@ -276,11 +378,11 @@ export function ErrorsPage() {
     <header className="heading">
       <div>
         <small>RITMO / PRÁTICA</small>
-        <h1>Caderno de erros</h1>
-        <p>Organize questões erradas e lacunas por disciplina, registre a correção e retome no prazo.</p>
+        <h1>Questões</h1>
+        <p>Registre seu desempenho e transforme cada erro em um ponto de aprendizagem.</p>
       </div>
-      <button className="primary-button" onClick={() => showForm ? setShowForm(false) : newError()}>
-        <Plus size={16}/>{showForm ? "Fechar formulário" : "Registrar erro"}
+      <button className="primary-button" onClick={() => showForm ? setShowForm(false) : view === "errors" ? newError() : newBlock()}>
+        <Plus size={16}/>{showForm ? "Fechar formulário" : view === "errors" ? "Registrar erro" : "Registrar bloco"}
       </button>
     </header>
     {context.requested && <p className="inline-feedback">
@@ -292,16 +394,25 @@ export function ErrorsPage() {
       <Link to={"/errors?" + new URLSearchParams([...params].filter(([key]) => key !== "due")).toString()}>Ver todos</Link>
     </p>}
 
+    <div className="rm-question-views" role="tablist" aria-label="Área de questões">
+      <button type="button" role="tab" aria-selected={view === "errors"} onClick={() => changeView("errors")}>
+        <NotebookPen size={15}/> Caderno de erros <small>{scoped.length}</small>
+      </button>
+      <button type="button" role="tab" aria-selected={view === "performance"} onClick={() => changeView("performance")}>
+        <Check size={15}/> Desempenho <small>{scopedBlocks.length}</small>
+      </button>
+    </div>
+
     <div className="rm-toolbar rm-error-toolbar">
       <MaterialScopePicker plans={plans} disabled={showForm} onChange={() => { setPhase("all"); setDisciplineTab("Todas"); }}/>
       <label className="rm-error-search">
         <Search size={15}/>
         <input aria-label="Buscar no caderno de erros" value={searchTerm} onChange={event => setSearchTerm(event.target.value)} placeholder="Buscar disciplina, assunto ou erro…"/>
       </label>
-      <span className="rm-error-due-count">{due} para retomar</span>
+      <span className="rm-error-due-count">{view === "errors" ? due + " para retomar" : visibleBlocks.length + " blocos registrados"}</span>
     </div>
 
-    <section className="panel rm-error-database">
+    {view === "errors" ? <section className="panel rm-error-database">
       <div className="rm-error-tabs" role="tablist" aria-label="Filtrar por disciplina">
         {disciplineTabs.map(name => {
           const count = name === "Todas" ? scoped.length : scoped.filter(error => sameDiscipline(error.discipline, name)).length;
@@ -472,6 +583,46 @@ export function ErrorsPage() {
         <span>{scoped.length ? "Experimente outra disciplina, situação ou termo de busca." : "Registre uma questão errada ou uma lacuna, explique a correção e acompanhe quando retomar."}</span>
         {!scoped.length && <button className="primary-button" onClick={newError}>Registrar primeiro erro</button>}
       </div>}
-    </section>
+    </section> : <section className="panel rm-error-database rm-performance-database">
+      <div className="rm-performance-summary">
+        <div><small>QUESTÕES RESOLVIDAS</small><strong>{questionTotal}</strong></div>
+        <div><small>ACERTOS</small><strong>{correctTotal}</strong></div>
+        <div><small>APROVEITAMENTO</small><strong>{accuracy}%</strong></div>
+      </div>
+      {showForm && <form className="error-form rm-error-form rm-performance-form" onSubmit={submitBlock}>
+        <div className="panel-title-row">
+          <div><span className="step-kicker">NOVO REGISTRO DE DESEMPENHO</span><h2>Como foi sua sessão?</h2><p>Registre os resultados por disciplina e assunto. Os blocos antigos continuam disponíveis.</p></div>
+          <button className="icon-button" type="button" aria-label="Fechar formulário" onClick={() => setShowForm(false)}>×</button>
+        </div>
+        <div className="form-grid">
+          <div className="field-block"><label>Área de estudo</label><select value={blockForm.subject} onChange={event => setBlock("subject", event.target.value as StudySubject)}><option value="tae">Geral</option><option value="fisica">Física</option></select></div>
+          <div className="field-block"><label>Disciplina *</label><input list="error-disciplines" value={blockForm.discipline} onChange={event => setBlock("discipline", event.target.value)} placeholder="Ex.: Português"/></div>
+          <div className="field-block"><label>Área / eixo</label><input value={blockForm.area} onChange={event => setBlock("area", event.target.value)} placeholder="Ex.: Sintaxe, Mecânica"/></div>
+          <div className="field-block"><label>Assunto *</label><input value={blockForm.topic} onChange={event => setBlock("topic", event.target.value)} placeholder="Ex.: Concordância nominal"/></div>
+          <div className="field-block"><label>Questões resolvidas *</label><input type="number" min={1} max={500} value={blockForm.total} onChange={event => setBlock("total", Number(event.target.value))}/></div>
+          <div className="field-block"><label>Acertos *</label><input type="number" min={0} max={500} value={blockForm.correct} onChange={event => setBlock("correct", Number(event.target.value))}/></div>
+          <div className="field-block field-span"><label>Observação (opcional)</label><textarea rows={2} value={blockForm.note} onChange={event => setBlock("note", event.target.value)} placeholder="Banca, dificuldade, padrão dos erros…"/></div>
+        </div>
+        {feedback && <p className="inline-feedback" role="alert">{feedback}</p>}
+        <div className="form-actions"><button type="button" className="secondary-button" onClick={() => setShowForm(false)}>Cancelar</button><button className="primary-button" type="submit">Salvar desempenho <Check size={15}/></button></div>
+      </form>}
+      <div className="rm-error-filters"><span>{visibleBlocks.length} {visibleBlocks.length === 1 ? "bloco registrado" : "blocos registrados"}</span></div>
+      {visibleBlocks.length ? <div className="rm-error-table-scroll">
+        <table className="rm-error-table rm-performance-table">
+          <thead><tr><th>Data</th><th>Disciplina</th><th>Área / eixo</th><th>Assunto</th><th>Questões</th><th>Acertos</th><th>Aproveitamento</th><th>Observação</th><th>Ações</th></tr></thead>
+          <tbody>{visibleBlocks.map(block => <tr key={block.id}>
+            <td className="rm-nowrap">{shortDateLabel(block.at)}</td>
+            <td><strong>{blockDiscipline(block)}</strong></td>
+            <td>{block.area || "—"}</td>
+            <td><strong>{block.topic}</strong></td>
+            <td className="rm-nowrap">{block.total}</td>
+            <td className="rm-nowrap">{block.correct}</td>
+            <td className="rm-nowrap">{block.total ? Math.round(block.correct / block.total * 100) : 0}%</td>
+            <td><div className="rm-error-cell-text">{block.note || "—"}</div></td>
+            <td><button className="icon-button" aria-label="Excluir bloco" onClick={() => removeBlock(block.id)}><Trash2 size={14}/></button></td>
+          </tr>)}</tbody>
+        </table>
+      </div> : <div className="rm-error-empty"><Target size={26}/><strong>{scopedBlocks.length ? "Nenhum bloco neste filtro" : "Seu desempenho começa aqui"}</strong><span>{scopedBlocks.length ? "Experimente outra disciplina ou plano." : "Registre a quantidade de questões resolvidas e acertos para acompanhar sua evolução."}</span><button className="primary-button" onClick={newBlock}>Registrar primeiro bloco</button></div>}
+    </section>}
   </div>;
 }
