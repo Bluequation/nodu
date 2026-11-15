@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import {
   Activity, ArrowRight, BookOpen, Brain, CalendarDays, CheckCircle2, ChevronRight,
   Clock3, FileText, Folder, Home, LayoutGrid, NotebookPen, Plus, Settings,
@@ -35,7 +35,7 @@ const primaryNav = [
 function PageHeading({ title, subtitle, action }: {
   title: string;
   subtitle?: string;
-  action?: React.ReactNode;
+  action?: ReactNode;
 }) {
   return <header className="r9-heading">
     <div><h1>{title}</h1>{subtitle && <p>{subtitle}</p>}</div>
