@@ -57,7 +57,7 @@ export function SettingsPage() {
   async function applyBackup() {
     if (!backup || backupBusy) return;
     const warning = backupMode === "replace"
-      ? "Isso substituirá os dados atuais do Ritmo 8 neste navegador. O localStorage legado não será apagado. Faça um backup atual antes de continuar."
+      ? "Isso substituirá os dados atuais deste navegador. Faça um backup atual antes de continuar."
       : "Isso mesclará os dados do arquivo com os dados atuais. Registros com o mesmo ID serão atualizados.";
     if (!confirm(warning)) return;
     setBackupBusy(true); setBackupError("");
@@ -94,11 +94,11 @@ export function SettingsPage() {
     <section className="panel wizard-panel backup-panel">
       <div className="panel-title-row"><div><span className="step-kicker">SEGURANÇA DOS DADOS</span><h2><Download size={19}/> Backup e restauração</h2><p>Exporte seus dados para guardar uma cópia. O arquivo não é enviado a nenhum servidor.</p></div><span className="soft-tag">Local</span></div>
       <div className="backup-export-row"><div><strong>Baixar backup completo</strong><small>Planos, flashcards, revisões FSRS, caderno de erros, questões, sessões e configurações.</small></div><button className="primary-button" type="button" disabled={backupBusy} onClick={downloadBackup}>{backupBusy ? "Preparando…" : "Baixar backup"} <Download size={15}/></button></div>
-      <div className="field-block"><label htmlFor="backup-file">Restaurar ou mesclar um backup Ritmo 8</label><div className="file-picker"><ShieldCheck size={18}/><span>{backupFile || "Escolha um arquivo ritmo-backup-v1.json"}</span><label className="secondary-button" htmlFor="backup-file">Procurar</label><input id="backup-file" type="file" accept=".json,application/json" onChange={inspectFile}/></div></div>
+      <div className="field-block"><label htmlFor="backup-file">Restaurar ou mesclar um backup do Ritmo</label><div className="file-picker"><ShieldCheck size={18}/><span>{backupFile || "Escolha um arquivo ritmo-backup-v1.json"}</span><label className="secondary-button" htmlFor="backup-file">Procurar</label><input id="backup-file" type="file" accept=".json,application/json" onChange={inspectFile}/></div></div>
       {backup && <div className="backup-preview"><strong>Arquivo validado · {new Date(backup.exportedAt).toLocaleString("pt-BR")}</strong><div className="backup-counts">{Object.entries(backup.counts).map(([key, value]) => <span key={key}><b>{value}</b>{key}</span>)}</div><div className="field-block"><label>Como deseja restaurar?</label><select value={backupMode} onChange={event => setBackupMode(event.target.value as "merge" | "replace")}><option value="merge">Mesclar — preservar registros que não estão no arquivo</option><option value="replace">Substituir — trocar os dados do Ritmo 8 pelos do backup</option></select></div><button className="primary-button" type="button" disabled={backupBusy} onClick={applyBackup}>Restaurar backup <Check size={15}/></button></div>}
       {backupError && <p className="inline-feedback" role="alert">{backupError}</p>}
-      <p className="field-hint">A opção “Substituir” afeta somente os stores do Ritmo 8 no IndexedDB. A cópia legada no localStorage permanece intacta. Recomendamos baixar um backup antes de restaurar.</p>
+      <p className="field-hint">A opção “Substituir” afeta os dados do Ritmo neste navegador. Os dados legados preservados permanecem intactos. Recomendamos baixar um backup antes de restaurar.</p>
     </section>
-    <section className="panel privacy-panel"><ShieldCheck size={22}/><div><strong>Seus dados permanecem no navegador</strong><p>O Ritmo 8 não exige conta, chave de IA ou serviço externo para funcionar. A leitura de PDF textual pode carregar o leitor PDF.js sob demanda; o arquivo é processado no próprio navegador.</p></div></section>
+    <section className="panel privacy-panel"><ShieldCheck size={22}/><div><strong>Seus dados permanecem no navegador</strong><p>O Ritmo não exige conta, chave de IA ou serviço externo para funcionar. A leitura de PDF textual pode carregar o leitor PDF.js sob demanda; o arquivo é processado no próprio navegador.</p></div></section>
   </div>;
 }
