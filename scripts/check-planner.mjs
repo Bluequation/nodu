@@ -226,7 +226,9 @@ try{
  await page.getByRole("button",{name:"Mostrar painel lateral"}).click();
  await page.locator(".shell:not(.sidebar-collapsed)").waitFor();
  const desktopNotebookGeometry=await page.evaluate(()=>({viewport:window.innerWidth,document:document.documentElement.scrollWidth,tableClient:document.querySelector(".rm-notion-table-scroll").clientWidth,tableScroll:document.querySelector(".rm-notion-table-scroll").scrollWidth,overflow:[...document.querySelectorAll("body *")].map(el=>{const r=el.getBoundingClientRect();return {tag:el.tagName,cls:typeof el.className==="string"?el.className:"",left:Math.round(r.left),right:Math.round(r.right),width:Math.round(r.width),scrollWidth:el.scrollWidth,clientWidth:el.clientWidth};}).filter(x=>x.right>window.innerWidth+1||x.left< -1).sort((a,b)=>b.right-a.right).slice(0,16)}));
+ const notebookAncestors=await page.evaluate(()=>{let el=document.querySelector(".rm-notion-table");const rows=[];while(el){const r=el.getBoundingClientRect(),c=getComputedStyle(el);rows.push({tag:el.tagName,cls:typeof el.className==="string"?el.className:"",left:Math.round(r.left),right:Math.round(r.right),width:Math.round(r.width),clientWidth:el.clientWidth,scrollWidth:el.scrollWidth,overflowX:c.overflowX,overflowY:c.overflowY,contain:c.contain,position:c.position});el=el.parentElement;}return rows;});
  console.log("NOTEBOOK_DESKTOP_GEOMETRY",JSON.stringify(desktopNotebookGeometry));
+ console.log("NOTEBOOK_ANCESTORS",JSON.stringify(notebookAncestors));
  assert.ok(desktopNotebookGeometry.document<=desktopNotebookGeometry.viewport+1,"desktop notebook must not create page-level horizontal overflow");
  assert.ok(desktopNotebookGeometry.tableScroll>desktopNotebookGeometry.tableClient,"wide notebook columns stay inside their own horizontal scroller");
  await page.screenshot({path:"planner-screenshots/16-erros.png",fullPage:true});
