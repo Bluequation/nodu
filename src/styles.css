@@ -731,3 +731,20 @@ button:disabled{opacity:.45;cursor:not-allowed}
 @media(prefers-reduced-motion:reduce){.gallery-plan,.hybrid-week .planner-day{transition:none}}
 
 
+
+
+/* Caderno de erros · foco branco, abas-arquivo e edição rápida */
+.sidebar{transition:transform .22s ease,opacity .18s ease}
+.shell.sidebar-collapsed .sidebar{transform:translateX(calc(-100% - 10px));opacity:0;pointer-events:none}
+.shell.sidebar-collapsed .main{margin-left:0}
+.sidebar-toggle{
+  position:fixed;z-index:45;top:8px;left:calc(var(--sidebar) + 8px);
+  display:grid;place-items:center;width:30px;height:30px;padding:0;
+  border:1px solid var(--line);border-radius:9px;background:#fff;color:#53657a;
+  box-shadow:0 2px 8px #1e293b0d;cursor:pointer;transition:left .22s ease,background .15s,border-color .15s
+}
+.sidebar-toggle:hover{border-color:#b9cbdc;background:#f4f8fb;color:var(--blue)}
+.shell.sidebar-collapsed .sidebar-toggle{left:8px}
+@media(max-width:700px){.sidebar-toggle{display:none}.shell.sidebar-collapsed .main{margin-left:0}}
+.shell:has(.rm-notion-errors),.shell:has(.rm-notion-errors) .main{background:#fff}
+.stack.rm-notion-errors{width:100%;max-width:none;min-width:0;margin:0;gap:22px}

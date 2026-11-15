@@ -1,8 +1,8 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import {
   Activity, ArrowRight, BookOpen, Brain, CalendarDays, CheckCircle2, ClipboardList,
-  FileText, FolderKanban, LayoutDashboard, Layers3, NotebookPen, Settings,
-  Upload, WandSparkles,
+  FileText, FolderKanban, LayoutDashboard, Layers3, NotebookPen, PanelLeftClose,
+  PanelLeftOpen, Settings, Upload, WandSparkles,
 } from "lucide-react";
 import { HashRouter, Link, NavLink, Route, Routes, useNavigate } from "react-router-dom";
 import { createPlan, listPlans } from "../data/plans";
@@ -33,12 +33,28 @@ function Panel({ children, className = "" }: { children: ReactNode; className?: 
   return <section className={`panel ${className}`}>{children}</section>;
 }
 function Shell() {
-  return <div className="shell">
-    <aside className="sidebar">
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try { return window.localStorage.getItem("ritmo:sidebar-collapsed") === "1"; }
+    catch { return false; }
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem("ritmo:sidebar-collapsed", sidebarCollapsed ? "1" : "0"); }
+    catch { /* Storage may be unavailable; the control still works for this session. */ }
+  }, [sidebarCollapsed]);
+
+  return <div className={`shell${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
+    <aside id="ritmo-sidebar" className="sidebar" aria-hidden={sidebarCollapsed}>
       <Link to="/" className="brand"><i>R</i><span><b>Ritmo</b><small>SEU ESPAÇO DE ESTUDOS</small></span></Link>
       <nav>{groups.map(([label, items]) => <section key={label}><small>{label}</small>{items.map(([name, path, Icon]) => <NavLink key={path} to={path} end={path === "/"}><Icon size={17}/>{name}</NavLink>)}</section>)}</nav>
       <footer><b>Estude no seu ritmo.</b><small>Seus dados ficam salvos neste navegador.</small></footer>
     </aside>
+    <button className="sidebar-toggle" type="button"
+      aria-label={sidebarCollapsed ? "Mostrar painel lateral" : "Ocultar painel lateral"}
+      aria-controls="ritmo-sidebar" aria-expanded={!sidebarCollapsed}
+      title={sidebarCollapsed ? "Mostrar painel lateral" : "Ocultar painel lateral"}
+      onClick={() => setSidebarCollapsed(value => !value)}>
+      {sidebarCollapsed ? <PanelLeftOpen size={16}/> : <PanelLeftClose size={16}/>}
+    </button>
     <main className="main">
       <header className="mobile-head"><Link to="/">◈ Ritmo</Link><small>8.0 · nova estrutura</small></header>
       <Routes>

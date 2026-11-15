@@ -501,3 +501,203 @@
   .rm-notion-errors .rm-notion-table td:first-child{position:sticky;left:0;z-index:3;background:#fff}
   .rm-notion-errors .rm-notion-table th:first-child{z-index:4;background:#f8fafc}
 }
+
+
+/* Caderno de erros · acabamento visual e campos inteligentes */
+.shell:has(.rm-notion-errors),.shell:has(.rm-notion-errors) .main{background:#fff}
+.stack.rm-notion-errors{width:100%;max-width:none;min-width:0;margin:0;gap:22px}
+.rm-notion-errors .rm-notebook-heading{align-items:center;gap:16px;padding:0 0 2px}
+.rm-notion-errors .rm-notebook-heading h1{font-size:clamp(32px,3.2vw,42px);letter-spacing:-1.5px}
+.rm-notion-errors .rm-notebook-toolbar{gap:18px}
+.rm-notion-errors .rm-error-search{
+  width:min(430px,100%);min-height:42px;padding:0 12px;border:1px solid #dce4ed;
+  border-radius:11px;background:#fff;color:#71839a;box-shadow:0 1px 2px #1e293b05
+}
+.rm-notion-errors .rm-error-search:focus-within{
+  border-color:#8eacc8;box-shadow:0 0 0 3px #eaf1f8;color:#315e89
+}
+.rm-notion-errors .rm-error-search input{font-size:12px}
+.rm-notion-errors .rm-notebook-summary>strong{
+  padding:6px 9px;border-radius:8px;background:#edf3fa;color:#315e89;font-size:11px
+}
+.rm-notion-errors .rm-alarm-button{
+  min-height:34px;padding:0 10px;border:1px solid #dce4ed;border-radius:9px;
+  background:#fff;color:#53657a
+}
+.rm-notion-errors .rm-alarm-button:hover{border-color:#b8cbdc;background:#f5f9fc}
+.rm-notion-errors .rm-alarm-button.is-active{border-color:#d4e7dc;background:#edf5ef;color:#486d57}
+.rm-notion-errors .rm-discipline-tabs{
+  align-items:flex-end;gap:6px;min-height:56px;padding:9px 10px 0;
+  border:1px solid #e1e7ee;border-bottom:1px solid #d8e0e9;border-radius:13px 13px 0 0;
+  background:#f7f9fb;scrollbar-width:thin;scrollbar-color:#bdc9d5 transparent
+}
+.rm-notion-errors .rm-discipline-tabs>button{
+  --tab-bg:#eef2f6;--tab-ink:#53657a;--tab-edge:#dfe6ed;--tab-accent:#8b9bad;
+  position:relative;display:inline-flex;align-items:center;gap:8px;flex:none;
+  min-height:39px;margin-top:7px;padding:0 13px;border:1px solid var(--tab-edge);
+  border-bottom:0;border-radius:9px 9px 0 0;background:var(--tab-bg);
+  color:var(--tab-ink);font:inherit;font-size:12px;font-weight:600;white-space:nowrap;
+  transition:background .15s,border-color .15s,color .15s
+}
+.rm-notion-errors .rm-discipline-tabs>button::before{
+  position:absolute;top:-1px;right:9px;left:9px;height:3px;border-radius:5px;
+  background:var(--tab-accent);opacity:.62;content:""
+}
+.rm-notion-errors .rm-discipline-tabs>button[aria-selected=true]{
+  z-index:2;min-height:46px;margin-top:0;border-color:var(--tab-edge);
+  background:#fff;color:var(--tab-ink);font-weight:800;
+  box-shadow:inset 0 3px var(--tab-accent)
+}
+.rm-notion-errors .rm-discipline-tabs>button[aria-selected=true]::before{
+  right:0;left:0;height:3px;border-radius:8px 8px 0 0;opacity:1
+}
+.rm-notion-errors .rm-discipline-tabs>button[aria-selected=true]::after{
+  position:absolute;right:0;bottom:-1px;left:0;height:2px;background:#fff;content:""
+}
+.rm-notion-errors .rm-discipline-tabs>button>small{
+  min-width:20px;height:20px;padding:0 6px;border-radius:7px;
+  background:var(--tab-chip,#e7edf3);color:var(--tab-ink);font-size:10px;font-weight:800
+}
+.rm-notion-errors .rm-discipline-tabs>button[data-tone="all"]{
+  --tab-bg:#edf3fa;--tab-chip:#dbe8f6;--tab-ink:#315c84;--tab-edge:#d5e3f1;--tab-accent:#6d9ac5
+}
+.rm-notion-errors .rm-discipline-tabs>button[data-tone="physics"]{
+  --tab-bg:#eaf1fa;--tab-chip:#d9e6f5;--tab-ink:#315c84;--tab-edge:#d4e1f0;--tab-accent:#477eaf
+}
+.rm-notion-errors .rm-discipline-tabs>button[data-tone="language"]{
+  --tab-bg:#edf4ee;--tab-chip:#dceadf;--tab-ink:#486d57;--tab-edge:#dbe9df;--tab-accent:#7ba58b
+}
+.rm-notion-errors .rm-discipline-tabs>button[data-tone="law"]{
+  --tab-bg:#edf3fa;--tab-chip:#dbe8f6;--tab-ink:#315c84;--tab-edge:#d5e3f1;--tab-accent:#6d9ac5
+}
+.rm-notion-errors .rm-discipline-tabs>button[data-tone="administration"]{
+  --tab-bg:#faf4e7;--tab-chip:#f0e2c4;--tab-ink:#85622e;--tab-edge:#eee2c9;--tab-accent:#c29b58
+}
+.rm-notion-errors .rm-discipline-tabs>button[data-tone="pedagogy"]{
+  --tab-bg:#f3eef8;--tab-chip:#e8ddf2;--tab-ink:#70558c;--tab-edge:#e7dcef;--tab-accent:#a08ab9
+}
+.rm-notion-errors .rm-discipline-tabs>button[data-tone="data"]{
+  --tab-bg:#eaf3f3;--tab-chip:#d6e8e9;--tab-ink:#38696e;--tab-edge:#d7e7e8;--tab-accent:#6ca0a4
+}
+.rm-notion-errors .rm-discipline-tabs>button[data-tone="math"]{
+  --tab-bg:#f2f0fa;--tab-chip:#e2def2;--tab-ink:#625b91;--tab-edge:#e2dff1;--tab-accent:#948bc1
+}
+.rm-notion-errors .rm-discipline-tabs>button[data-tone="neutral"]{
+  --tab-bg:#f1f4f7;--tab-chip:#e4e9ef;--tab-ink:#586779;--tab-edge:#dfe5ec;--tab-accent:#9aa8b7
+}
+.rm-notion-errors .rm-discipline-tabs>.rm-add-discipline{
+  min-height:36px;margin:0 0 4px;padding:0 10px;border:1px dashed #bdcbd9;
+  border-radius:8px;background:#fff;color:#315e89
+}
+.rm-notion-errors .rm-discipline-tabs>.rm-add-discipline::before{display:none}
+.rm-notion-errors .rm-discipline-tabs>.rm-add-discipline-form{
+  min-height:36px;margin:0 0 4px;padding:2px 6px;border:1px solid #c8d8e6;
+  border-radius:8px;background:#fff
+}
+.rm-notion-errors .rm-discipline-tabs>.rm-add-discipline-form input{
+  width:145px;min-height:29px;padding:3px 5px;border:0;outline:0;background:#fff;color:#24364b
+}
+.rm-notion-errors .rm-notebook-table-section{
+  margin-top:-22px;padding:0 0 7px;border:1px solid #e1e7ee;border-top:0;
+  border-radius:0 0 13px 13px;background:#fff
+}
+.rm-notion-errors .rm-table-caption{min-height:42px;padding:10px 14px 8px}
+.rm-notion-errors .rm-table-caption strong{font-size:13px}
+.rm-notion-errors .rm-table-caption span{font-size:11px}
+.rm-notion-errors .rm-notion-table-scroll{border-top:1px solid #edf1f5}
+.rm-notion-errors .rm-notion-table{min-width:1580px}
+.rm-notion-errors .rm-notion-table th{
+  height:42px;padding:0 12px;border-top:0;border-bottom:1px solid #e2e8ef;
+  border-right:1px solid #edf1f5;background:#f8fafc;color:#53657a;font-size:11px
+}
+.rm-notion-errors .rm-notion-table th:first-child{border-left:0;border-top-left-radius:0}
+.rm-notion-errors .rm-notion-table th:last-child{border-right:0;border-top-right-radius:0}
+.rm-notion-errors .rm-notion-table td{
+  min-height:60px;padding:11px 10px;border-bottom:1px solid #edf1f5;
+  border-right:1px solid #f1f4f7;background:#fff;color:#334155;font-size:12px
+}
+.rm-notion-errors .rm-notion-table td:first-child{border-left:0}
+.rm-notion-errors .rm-notion-table td:last-child{border-right:0}
+.rm-notion-errors .rm-notion-table tbody tr:hover>td{background:#f8fbfe}
+.rm-notion-errors .rm-notion-table tbody tr.rm-notion-row-due>td[data-column=nextReview]{background:#fff8eb}
+.rm-notion-errors .rm-cell-select-shell{
+  position:relative;display:flex;align-items:center;min-width:0;width:100%
+}
+.rm-notion-errors .rm-cell-select-shell>select{
+  appearance:none;-webkit-appearance:none;display:block;width:100%;min-width:0;
+  min-height:34px;padding:5px 27px 5px 9px;border:1px solid var(--select-edge,#dce5ee);
+  border-radius:8px;outline:0;background:var(--select-bg,#f5f8fb);
+  color:var(--select-ink,#43566d);font:inherit;font-size:11px;font-weight:650;
+  cursor:pointer;transition:border-color .15s,box-shadow .15s,background .15s
+}
+.rm-notion-errors .rm-cell-select-shell>svg{
+  position:absolute;right:8px;pointer-events:none;color:var(--select-ink,#63758a)
+}
+.rm-notion-errors .rm-cell-select-shell:focus-within>select{
+  border-color:#8eacc8;background:#fff;box-shadow:0 0 0 3px #eaf1f8
+}
+.rm-notion-errors .rm-cell-select-shell[data-tone="amber"]{--select-bg:#faf4e7;--select-edge:#eee2c9;--select-ink:#85622e}
+.rm-notion-errors .rm-cell-select-shell[data-tone="orange"]{--select-bg:#fbf0e8;--select-edge:#f0dfd2;--select-ink:#98613e}
+.rm-notion-errors .rm-cell-select-shell[data-tone="violet"]{--select-bg:#f3eef8;--select-edge:#e7dcef;--select-ink:#70558c}
+.rm-notion-errors .rm-cell-select-shell[data-tone="blue"]{--select-bg:#edf3fa;--select-edge:#d5e3f1;--select-ink:#315c84}
+.rm-notion-errors .rm-cell-select-shell[data-tone="teal"]{--select-bg:#eaf3f3;--select-edge:#d7e7e8;--select-ink:#38696e}
+.rm-notion-errors .rm-cell-select-shell[data-tone="rose"]{--select-bg:#faeeee;--select-edge:#f0dddd;--select-ink:#925b5b}
+.rm-notion-errors .rm-cell-select-shell[data-tone="purple"]{--select-bg:#eeeffa;--select-edge:#dfe2f3;--select-ink:#585b96}
+.rm-notion-errors .rm-cell-select-shell[data-tone="law"]{--select-bg:#edf3fa;--select-edge:#d5e3f1;--select-ink:#315c84}
+.rm-notion-errors .rm-cell-select-shell[data-tone="language"]{--select-bg:#edf4ee;--select-edge:#dbe9df;--select-ink:#486d57}
+.rm-notion-errors .rm-cell-select-shell[data-tone="administration"]{--select-bg:#faf4e7;--select-edge:#eee2c9;--select-ink:#85622e}
+.rm-notion-errors .rm-cell-select-shell[data-tone="pedagogy"]{--select-bg:#f3eef8;--select-edge:#e7dcef;--select-ink:#70558c}
+.rm-notion-errors .rm-cell-select-shell[data-tone="data"]{--select-bg:#eaf3f3;--select-edge:#d7e7e8;--select-ink:#38696e}
+.rm-notion-errors .rm-cell-select-shell[data-tone="math"]{--select-bg:#f2f0fa;--select-edge:#e2dff1;--select-ink:#625b91}
+.rm-notion-errors .rm-cell-combobox{position:relative;width:100%;min-width:0}
+.rm-notion-errors .rm-cell-combobox-input{
+  display:block;width:100%;min-width:0;min-height:34px;padding:5px 8px;
+  border:1px solid var(--combo-edge,#e0e7ef);border-radius:8px;outline:0;
+  background:var(--combo-bg,#f5f8fb);color:var(--combo-ink,#334155);
+  font:inherit;font-size:11px;line-height:1.5;transition:border-color .15s,box-shadow .15s,background .15s
+}
+.rm-notion-errors .rm-cell-combobox-input::placeholder{color:#91a0b2}
+.rm-notion-errors .rm-cell-combobox-input:hover{border-color:#c5d3e1;background:#fff}
+.rm-notion-errors .rm-cell-combobox-input:focus{
+  border-color:#8eacc8;background:#fff;box-shadow:0 0 0 3px #eaf1f8
+}
+.rm-notion-errors .rm-cell-combobox[data-tone="data"]{--combo-bg:#eaf3f3;--combo-edge:#d7e7e8;--combo-ink:#38696e}
+.rm-notion-errors .rm-cell-combobox[data-tone="specific"]{--combo-bg:#edf3fa;--combo-edge:#d5e3f1;--combo-ink:#315c84}
+.rm-notion-errors .rm-combobox-menu{
+  position:absolute;z-index:30;top:calc(100% + 5px);left:0;width:max(100%,210px);
+  max-width:min(320px,80vw);max-height:220px;overflow:auto;padding:5px;
+  border:1px solid #dce5ee;border-radius:10px;background:#fff;
+  box-shadow:0 12px 28px #1e293b20
+}
+.rm-notion-errors .rm-combobox-menu>button{
+  display:flex;align-items:center;gap:8px;width:100%;min-height:34px;padding:6px 8px;
+  border:0;border-radius:7px;background:#fff;color:#334155;font-size:11px;
+  font-weight:550;text-align:left;cursor:pointer
+}
+.rm-notion-errors .rm-combobox-menu>button:hover,
+.rm-notion-errors .rm-combobox-menu>button[aria-selected=true]{background:#f0f5fa;color:#315e89}
+.rm-notion-errors .rm-combobox-option-dot{width:7px;height:7px;flex:none;border-radius:50%;background:#82a2c2}
+.rm-notion-errors .rm-combobox-menu>button.rm-combobox-create{
+  margin-top:4px;padding-top:8px;border-top:1px solid #edf1f5;border-radius:0;
+  color:#315e89;font-weight:750
+}
+.rm-notion-errors .rm-combobox-create svg{flex:none}
+.rm-notion-errors .rm-cell-date{
+  min-height:34px;padding:5px 7px;border:1px solid #dfe6ee;border-radius:8px;background:#f8fafc
+}
+.rm-notion-errors .rm-cell-date:focus{border-color:#8eacc8;box-shadow:0 0 0 3px #eaf1f8}
+.rm-notion-errors .rm-cell-review-date>small{padding:3px 7px;border-radius:6px;font-weight:700}
+.rm-notion-errors .rm-notion-table .rm-cell-textarea{min-height:34px}
+@media(max-width:760px){
+  .shell:has(.rm-notion-errors),.shell:has(.rm-notion-errors) .main{background:#fff}
+  .stack.rm-notion-errors{gap:20px}
+  .rm-notion-errors .rm-notebook-heading{align-items:flex-start;flex-direction:column;gap:12px}
+  .rm-notion-errors .rm-notebook-heading h1{font-size:32px}
+  .rm-notion-errors .rm-notebook-actions{width:100%;justify-content:flex-start}
+  .rm-notion-errors .rm-notebook-toolbar{align-items:stretch;flex-direction:column;gap:10px}
+  .rm-notion-errors .rm-error-search{width:100%}
+  .rm-notion-errors .rm-notebook-summary{justify-content:flex-start;gap:8px}
+  .rm-notion-errors .rm-discipline-tabs{gap:5px;padding:8px 8px 0}
+  .rm-notion-errors .rm-discipline-tabs>button{padding:0 10px;font-size:11px}
+  .rm-notion-errors .rm-notion-table{min-width:1580px}
+}

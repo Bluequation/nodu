@@ -96,6 +96,111 @@ function reviewState(value: number) {
   return "Agendada";
 }
 
+function disciplineTone(name: string) {
+  const value = name.trim().toLocaleLowerCase("pt-BR");
+  if (value === "todas") return "all";
+  if (value.includes("física")) return "physics";
+  if (value.includes("portugu")) return "language";
+  if (value.includes("legisla")) return "law";
+  if (value.includes("administra")) return "administration";
+  if (value.includes("pedag")) return "pedagogy";
+  if (value.includes("dados") || value.includes("indicadores")) return "data";
+  if (value.includes("matem")) return "math";
+  return "neutral";
+}
+
+function errorTypeTone(type: string) {
+  const value = type.toLocaleLowerCase("pt-BR");
+  if (value.includes("chute") || value.includes("pressa")) return "amber";
+  if (value.includes("atenção") || value.includes("leitura")) return "orange";
+  if (value.includes("memória")) return "violet";
+  if (value.includes("interpretação")) return "blue";
+  if (value.includes("cálculo")) return "teal";
+  if (value.includes("desconhecimento") || value.includes("lacuna")) return "rose";
+  if (value.includes("confusão")) return "purple";
+  return "neutral";
+}
+
+type CellAttributes = { "data-row-id": string; "data-column": string };
+type CreatableCellProps = {
+  common: CellAttributes;
+  value: string;
+  options: string[];
+  tone: string;
+  label: string;
+  placeholder: string;
+  onCommit: (value: string) => void;
+};
+
+function CreatableCell({ common, value, options, tone, label, placeholder, onCommit }: CreatableCellProps) {
+  const [draft, setDraft] = useState(value);
+  const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const committed = useRef(value);
+  useEffect(() => {
+    setDraft(value);
+    committed.current = value;
+  }, [value]);
+
+  const normalized = draft.trim().replace(/\\s+/g, " ");
+  const matches = options.filter(option =>
+    option.toLocaleLowerCase("pt-BR").includes(normalized.toLocaleLowerCase("pt-BR"))
+  ).slice(0, 6);
+  const exact = options.some(option => option.localeCompare(normalized, "pt-BR", { sensitivity: "base" }) === 0);
+  const canCreate = Boolean(normalized && !exact);
+  const itemCount = matches.length + (canCreate ? 1 : 0);
+
+  function commit(nextValue: string) {
+    const next = nextValue.trim().replace(/\\s+/g, " ");
+    setDraft(next);
+    setOpen(false);
+    if (next !== committed.current) {
+      committed.current = next;
+      onCommit(next);
+    }
+  }
+
+  return <div className="rm-cell-combobox" data-tone={tone}>
+    <input {...common} className="rm-cell-combobox-input" type="text"
+      aria-label={label} aria-autocomplete="list" aria-expanded={open}
+      autoComplete="off" value={draft} placeholder={placeholder}
+      onFocus={() => { setOpen(true); setActiveIndex(0); }}
+      onChange={event => { setDraft(event.currentTarget.value); setOpen(true); setActiveIndex(0); }}
+      onBlur={() => commit(draft)}
+      onKeyDown={event => {
+        if (event.key === "Escape") { setOpen(false); return; }
+        if (event.key === "ArrowDown" && itemCount) {
+          event.preventDefault();
+          setOpen(true);
+          setActiveIndex(index => Math.min(index + 1, itemCount - 1));
+        }
+        if (event.key === "ArrowUp" && itemCount) {
+          event.preventDefault();
+          setActiveIndex(index => Math.max(0, index - 1));
+        }
+        if (event.key === "Enter") {
+          event.preventDefault();
+          if (open && activeIndex < matches.length) commit(matches[activeIndex]);
+          else commit(normalized);
+        }
+      }}/>
+    {open && itemCount > 0 && <div className="rm-combobox-menu" role="listbox">
+      {matches.map((option, index) => <button type="button" role="option"
+        aria-selected={activeIndex === index} key={option}
+        onMouseDown={event => event.preventDefault()}
+        onClick={() => commit(option)}>
+        <span className="rm-combobox-option-dot"/>{option}
+      </button>)}
+      {canCreate && <button type="button" className="rm-combobox-create" role="option"
+        aria-selected={activeIndex === matches.length}
+        onMouseDown={event => event.preventDefault()}
+        onClick={() => commit(normalized)}>
+        <Plus size={13}/> Criar “{normalized}”
+      </button>}
+    </div>}
+  </div>;
+}
+
 export function ErrorsPage() {
   const context = useStudyContext();
   const [params] = useSearchParams();
@@ -394,31 +499,45 @@ export function ErrorsPage() {
 
   function renderCell(error: ErrorRecord, column: ErrorNotebookColumn) {
     const common = { "data-row-id": error.id, "data-column": column.id };
+    const matchingDiscipline = scopedErrors.filter(item =>
+      !error.discipline || sameDiscipline(recordDiscipline(item), recordDiscipline(error))
+    );
+    const areaOptions = [...new Set(matchingDiscipline.map(item => item.area.trim()).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, "pt-BR"));
+    const topicOptions = [...new Set(matchingDiscipline
+      .filter(item => !error.area || sameDiscipline(item.area, error.area))
+      .map(item => item.topic.trim()).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, "pt-BR"));
     switch (column.kind) {
       case "date":
         return <input {...common} className="rm-cell-input rm-cell-date" type="date"
           aria-label={column.label} value={dateInputValue(error.at)}
           onChange={event => void updateError(error.id, { at: dateFromInput(event.currentTarget.value) })}/>;
       case "type":
-        return <select {...common} className="rm-cell-select rm-cell-type"
-          aria-label={column.label} value={error.type}
-          onChange={event => void updateError(error.id, { type: event.currentTarget.value })}>
-          <option value="">Selecionar tipo</option>
-          {error.type && !ERROR_TYPES.includes(error.type) && <option value={error.type}>{error.type}</option>}
-          {ERROR_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
-        </select>;
+        return <div className="rm-cell-select-shell" data-tone={errorTypeTone(error.type)}>
+          <select {...common} className="rm-cell-select rm-cell-type"
+            aria-label={column.label} value={error.type}
+            onChange={event => void updateError(error.id, { type: event.currentTarget.value })}>
+            <option value="">Selecionar tipo</option>
+            {error.type && !ERROR_TYPES.includes(error.type) && <option value={error.type}>{error.type}</option>}
+            {ERROR_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
+          </select><ChevronDown size={14} aria-hidden="true"/>
+        </div>;
       case "discipline":
-        return <select {...common} className="rm-cell-select" aria-label={column.label}
-          defaultValue={error.discipline} onChange={event => void updateError(error.id, { discipline: event.currentTarget.value })}>
-          <option value="">Selecionar disciplina</option>
-          {disciplines.filter(name => name !== "Todas").map(name => <option key={name} value={name}>{name}</option>)}
-        </select>;
-      case "text":
-        return <input {...common} className="rm-cell-input" aria-label={column.label}
-          defaultValue={column.id === "area" ? error.area : error.topic}
-          placeholder={column.id === "area" ? "Área / eixo" : "Assunto"}
-          onBlur={event => void updateError(error.id, column.id === "area"
-            ? { area: event.currentTarget.value } : { topic: event.currentTarget.value })}/>;
+        return <div className="rm-cell-select-shell" data-tone={disciplineTone(error.discipline || disciplineTab)}>
+          <select {...common} className="rm-cell-select" aria-label={column.label}
+            value={error.discipline} onChange={event => void updateError(error.id, { discipline: event.currentTarget.value })}>
+            <option value="">Selecionar disciplina</option>
+            {disciplines.filter(name => name !== "Todas").map(name => <option key={name} value={name}>{name}</option>)}
+          </select><ChevronDown size={14} aria-hidden="true"/>
+        </div>;
+      case "text": {
+        const isArea = column.id === "area";
+        return <CreatableCell common={common} value={isArea ? error.area : error.topic}
+          options={isArea ? areaOptions : topicOptions} tone={isArea ? "data" : "specific"}
+          label={column.label} placeholder={isArea ? "Área / eixo" : "Assunto"}
+          onCommit={value => void updateError(error.id, isArea ? { area: value } : { topic: value })}/>;
+      }
       case "longtext": {
         const value = column.id === "mistake" ? error.mistake : column.id === "fix" ? error.fix : error.customFields?.[column.id] || "";
         const rows = Math.max(1, Math.min(5, Math.ceil(value.length / 42)));
@@ -441,12 +560,14 @@ export function ErrorsPage() {
               : { customFields: { ...(error.customFields || {}), [column.id]: event.currentTarget.value } })}/>;
       }
       case "interval":
-        return <select {...common} className="rm-cell-select rm-cell-interval"
-          aria-label={column.label} value={error.reviewDays || 15}
-          onChange={event => void updateError(error.id, { reviewDays: Number(event.currentTarget.value) })}>
-          {![...REVIEW_STEPS].includes(error.reviewDays) && <option value={error.reviewDays}>{error.reviewDays} dias</option>}
-          {REVIEW_STEPS.map(days => <option key={days} value={days}>{days} dias</option>)}
-        </select>;
+        return <div className="rm-cell-select-shell" data-tone="law">
+          <select {...common} className="rm-cell-select rm-cell-interval"
+            aria-label={column.label} value={error.reviewDays || 15}
+            onChange={event => void updateError(error.id, { reviewDays: Number(event.currentTarget.value) })}>
+            {![...REVIEW_STEPS].includes(error.reviewDays) && <option value={error.reviewDays}>{error.reviewDays} dias</option>}
+            {REVIEW_STEPS.map(days => <option key={days} value={days}>{days} dias</option>)}
+          </select><ChevronDown size={14} aria-hidden="true"/>
+        </div>;
       case "reviewDate":
         return <div className="rm-cell-review-date" data-column={column.id}>
           <Bell size={13} aria-hidden="true"/>
@@ -576,8 +697,8 @@ export function ErrorsPage() {
         const count = name === "Todas"
           ? scopedErrors.length
           : scopedErrors.filter(error => sameDiscipline(recordDiscipline(error), name)).length;
-        return <button key={name} type="button" role="tab" aria-selected={disciplineTab === name}
-          onClick={() => setDisciplineTab(name)}>
+        return <button key={name} type="button" role="tab" data-tone={disciplineTone(name)}
+          aria-selected={disciplineTab === name} onClick={() => setDisciplineTab(name)}>
           <span>{name}</span><small>{count}</small>
         </button>;
       })}
