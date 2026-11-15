@@ -10,6 +10,8 @@ describe("backup do Ritmo 8", () => {
     const backup = inspectBackup(raw);
     expect(backup.counts.concepts).toBe(1);
     expect(backup.exportedAt).toBe(123);
+    expect(backup.counts.pages).toBe(0);
+    expect(backup.counts.questionAttempts).toBe(0);
   });
   it("rejeita formato incompatível", () => {
     expect(() => inspectBackup(JSON.stringify({ format: "ritmo-v7", data: emptyData }))).toThrow("incompatível");
