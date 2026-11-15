@@ -225,16 +225,32 @@ try{
  assert.equal(await page.locator(".main").evaluate(el=>getComputedStyle(el).marginLeft),"0px","hiding the sidebar gives the notebook full width");
  await page.getByRole("button",{name:"Mostrar painel lateral"}).click();
  await page.locator(".shell:not(.sidebar-collapsed)").waitFor();
- const desktopNotebookGeometry=await page.evaluate(()=>({viewport:window.innerWidth,document:document.documentElement.scrollWidth,tableClient:document.querySelector(".rm-notion-table-scroll").clientWidth,tableScroll:document.querySelector(".rm-notion-table-scroll").scrollWidth,rootOverflow:getComputedStyle(document.documentElement).overflowX}));
- console.log("NOTEBOOK_DESKTOP_GEOMETRY",JSON.stringify(desktopNotebookGeometry));
- assert.equal(desktopNotebookGeometry.rootOverflow,"hidden","desktop notebook must hide page-level horizontal overflow");
- assert.ok(desktopNotebookGeometry.tableScroll>desktopNotebookGeometry.tableClient,"wide table scroll stays inside its own container");
- await page.screenshot({path:"planner-screenshots/16-erros.png"});
- await page.setViewportSize({width:390,height:844});
- const mobileNotebookGeometry=await page.evaluate(()=>({viewport:window.innerWidth,document:document.documentElement.scrollWidth,tableClient:document.querySelector(".rm-notion-table-scroll").clientWidth,tableScroll:document.querySelector(".rm-notion-table-scroll").scrollWidth,rootOverflow:getComputedStyle(document.documentElement).overflowX}));
- assert.equal(mobileNotebookGeometry.rootOverflow,"hidden","mobile notebook must hide page-level horizontal overflow");
- assert.ok(mobileNotebookGeometry.tableScroll>mobileNotebookGeometry.tableClient,"mobile notebook table scrolls inside its own viewport");
- await page.screenshot({path:"planner-screenshots/16-erros-mobile.png"});
+ await page.waitForFunction(()=>{
+  const sidebar=document.querySelector(".sidebar");
+  return sidebar&&getComputedStyle(sidebar).transform==="none"&&Number(getComputedStyle(sidebar).opacity)>=0.99;
+});
+const desktopNotebookGeometry=await page.evaluate(()=>{
+  const table=document.querySelector(".rm-notion-table-scroll");
+  table.scrollLeft=420;const tableScrollLeft=table.scrollLeft;table.scrollLeft=0;
+  window.scrollTo(9999,0);const pageScrollX=window.scrollX;window.scrollTo(0,0);
+  return {viewport:window.innerWidth,document:document.documentElement.scrollWidth,tableClient:table.clientWidth,tableScroll:table.scrollWidth,tableScrollLeft,pageScrollX,rootOverflow:getComputedStyle(document.documentElement).overflowX};
+});
+console.log("NOTEBOOK_DESKTOP_GEOMETRY",JSON.stringify(desktopNotebookGeometry));
+assert.equal(desktopNotebookGeometry.rootOverflow,"clip","desktop notebook clips overflow at the viewport");
+assert.equal(desktopNotebookGeometry.pageScrollX,0,"desktop page itself must not scroll horizontally");
+assert.ok(desktopNotebookGeometry.tableScroll>desktopNotebookGeometry.tableClient&&desktopNotebookGeometry.tableScrollLeft>0,"wide table scroll stays inside its own container");
+await page.screenshot({path:"planner-screenshots/16-erros.png"});
+await page.setViewportSize({width:390,height:844});
+const mobileNotebookGeometry=await page.evaluate(()=>{
+  const table=document.querySelector(".rm-notion-table-scroll");
+  table.scrollLeft=420;const tableScrollLeft=table.scrollLeft;table.scrollLeft=0;
+  window.scrollTo(9999,0);const pageScrollX=window.scrollX;window.scrollTo(0,0);
+  return {viewport:window.innerWidth,document:document.documentElement.scrollWidth,tableClient:table.clientWidth,tableScroll:table.scrollWidth,tableScrollLeft,pageScrollX,rootOverflow:getComputedStyle(document.documentElement).overflowX};
+});
+assert.equal(mobileNotebookGeometry.rootOverflow,"clip","mobile notebook clips overflow at the viewport");
+assert.equal(mobileNotebookGeometry.pageScrollX,0,"mobile page itself must not scroll horizontally");
+assert.ok(mobileNotebookGeometry.tableScroll>mobileNotebookGeometry.tableClient&&mobileNotebookGeometry.tableScrollLeft>0,"mobile table scrolls inside its own viewport");
+await page.screenshot({path:"planner-screenshots/16-erros-mobile.png"});
  await page.setViewportSize({width:1440,height:1050});
  await page.goto(url+"/#/reviews?plan=bound-learning&topic=ldb");
  await page.getByRole("button",{name:/Começar revisão/}).waitFor();await page.waitForFunction(()=>!document.querySelector(".rr-start button")?.disabled);
