@@ -1,6 +1,7 @@
 import { openDB, type DBSchema } from "idb";
 import type { StudyPlan } from "../domain/models";
 import type { Concept, ErrorRecord, LearningSession, QuestionBlock, ReviewLog } from "../domain/study";
+import type { QuestionAttemptRecord, StudyPageRecord, StudyQuestionRecord, StudySessionRecord } from "../domain/ritmo9";
 import {
   migrateLegacyPlan, normalizeLegacyBlock, normalizeLegacyConcept, normalizeLegacyError,
   normalizeLegacyReview, normalizeLegacySession, readLegacy, type LegacyDb,
@@ -15,12 +16,16 @@ interface RitmoDB extends DBSchema {
   errors: { key: string; value: ErrorRecord };
   blocks: { key: string; value: QuestionBlock };
   learningSessions: { key: string; value: LearningSession };
+  pages: { key: string; value: StudyPageRecord };
+  questions: { key: string; value: StudyQuestionRecord };
+  questionAttempts: { key: string; value: QuestionAttemptRecord };
+  studySessions: { key: string; value: StudySessionRecord };
 }
 const NAME = "ritmo-8";
 let promise: ReturnType<typeof openDB<RitmoDB>> | undefined;
 
 export function database() {
-  return promise ??= openDB<RitmoDB>(NAME, 2, {
+  return promise ??= openDB<RitmoDB>(NAME, 3, {
     upgrade(db) {
       if (!db.objectStoreNames.contains("appState")) db.createObjectStore("appState", { keyPath: "key" });
       if (!db.objectStoreNames.contains("plans")) db.createObjectStore("plans", { keyPath: "id" });
@@ -29,6 +34,10 @@ export function database() {
       if (!db.objectStoreNames.contains("errors")) db.createObjectStore("errors", { keyPath: "id" });
       if (!db.objectStoreNames.contains("blocks")) db.createObjectStore("blocks", { keyPath: "id" });
       if (!db.objectStoreNames.contains("learningSessions")) db.createObjectStore("learningSessions", { keyPath: "id" });
+      if (!db.objectStoreNames.contains("pages")) db.createObjectStore("pages", { keyPath: "id" });
+      if (!db.objectStoreNames.contains("questions")) db.createObjectStore("questions", { keyPath: "id" });
+      if (!db.objectStoreNames.contains("questionAttempts")) db.createObjectStore("questionAttempts", { keyPath: "id" });
+      if (!db.objectStoreNames.contains("studySessions")) db.createObjectStore("studySessions", { keyPath: "id" });
     },
   });
 }
