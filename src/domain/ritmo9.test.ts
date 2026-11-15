@@ -34,12 +34,12 @@ describe("Ritmo 9 topic performance", () => {
     ]);
   });
 
-  it("does not deduplicate the same relation inside one attempt", () => {
+  it("does not double count duplicate topic relations inside one attempt", () => {
     const attempt: QuestionAttemptRecord = {
       id: "1", questionId: "q1", answeredAt: 1, selectedAnswer: "A", isCorrect: true,
       mode: "practice",
       topicLinks: [{ planId: "p1", nodeId: "n1" }, { planId: "p1", nodeId: "n1" }],
     };
-    expect(calculateTopicPerformance([attempt])[0].attempts).toBe(2);
+    expect(calculateTopicPerformance([attempt])[0].attempts).toBe(1);
   });
 });
