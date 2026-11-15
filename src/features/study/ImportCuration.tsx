@@ -18,28 +18,77 @@ function downloadFile(name: string, content: string, type: string) {
   URL.revokeObjectURL(url);
 }
 function buildCardPrompt(context:string,amount:number){
- return `Você é especialista em aprendizagem ativa e elaboração de flashcards para concursos públicos.
+ return \`Você é especialista em aprendizagem ativa e elaboração de flashcards para concursos públicos.
 
-CONTEXTO: ${context}
-META: até ${amount} famílias, sem preencher quantidade artificialmente.
+CONTEXTO DO ESTUDO:
+\${context}
 
-REGRAS OBRIGATÓRIAS:
-1. Fundamente cada cartão em material fornecido diretamente pelo estudante ou em fontes confiáveis efetivamente consultadas (legislação oficial, documentos institucionais, livros técnicos e fontes primárias). Priorize o material fornecido e confira sua atualidade quando pertinente. Não invente fatos, leis, artigos, páginas, autores, fontes ou estatísticas de incidência. Se não puder consultar fontes confiáveis ou se a informação não estiver sustentada, solicite material adicional antes de gerar cartões.
-2. Cada família representa UM microconhecimento do assunto selecionado. Não misture conteúdos de outras áreas ou extrapole o edital. Use título curto e específico.
-3. Crie de 2 a 10 cartões por família somente quando houver operações mentais genuinamente distintas; se só houver uma forma rigorosa, use uma. Não crie sinônimos da mesma pergunta.
-4. Varie conforme o material: definição, diferenciação, comparação, identificação, competência, responsável, condição, prazo, exceção, consequência, aplicação e armadilha. Adapte ao estilo da banca se houver evidência, sem inventar questões anteriores.
-5. Teste recuperação ativa: uma pergunta clara por cartão, sem pista da resposta, sem ambiguidade ou trivialidade. Resposta curta, precisa, suficiente; diferencie conceitos próximos e explique o raciocínio ou a pegadinha.
-6. Legislação: preserve a norma e a redação da fonte; considere vigência e alterações apenas quando documentadas. Não confunda paráfrase com transcrição literal. Em Física e outras áreas, confira unidades, hipóteses e cálculos. Não fabrique exemplos que alterem a regra.
-7. Inclua fonte verificável em cada família e cartão (documento + artigo, seção ou página quando disponível). Se faltar sustentação, omita o cartão. Não declare como verificada uma fonte que não consultou.
-8. Faça revisão final de consistência: pergunta/resposta/justificativa/fonte; elimine duplicatas e contradições. Não aprove automaticamente: o estudante fará a curadoria.
-9. Formatos permitidos: basic, typed, cloze (use {{c1::resposta}} apenas para termo decisivo). Sem imagens neste formato.
-10. Retorne somente o Markdown estruturado abaixo, sem comentários externos, com cabeçalhos, campos em negrito e separadores --- entre famílias. Numere Cartão 1, Cartão 2 etc. de novo a cada família. Não copie os exemplos; substitua-os por conteúdo real. Pode usar várias linhas dentro de um campo.
+QUANTIDADE:
+Gere no máximo \${amount} cartões individuais. Nunca ultrapasse esse limite. Não aumente a quantidade artificialmente.
 
-MODELO OBRIGATÓRIO:
-${FLASHCARD_MARKDOWN_MODEL}
+OBJETIVO:
+Transformar o material de referência em cartões de recuperação ativa, claros e úteis para revisão espaçada de concurso público.
+
+REGRAS DE CONTEÚDO:
+1. Use prioritariamente e fielmente o material fornecido pelo estudante. Não complete lacunas com suposições ou conhecimento externo não solicitado.
+2. Se o material for insuficiente, contraditório ou não sustentar uma informação, omita esse cartão. Não invente regras, dados, artigos, páginas, autores, exemplos ou referências.
+3. Restrinja os cartões à disciplina, ao assunto e ao recorte do contexto. Não misture conteúdos de outras disciplinas.
+4. Faça uma pergunta por cartão. A pergunta deve fazer sentido sozinha, mesmo fora da ordem original.
+5. Escreva respostas curtas, precisas e suficientes. Inclua condição, exceção, unidade ou exemplo somente quando isso mudar a resposta.
+6. Evite perguntas amplas, pistas na pergunta, duplicatas e cartões que cobrem a mesma informação com palavras diferentes.
+7. Priorize distinções conceituais, condições de aplicação, exceções, relações, cálculos essenciais e confusões que possam levar a erro em prova.
+8. Para cálculos, preserve as hipóteses, unidades e etapas indispensáveis. Não invente valores ou resultados.
+9. Em cada cartão, informe o assunto específico e a fonte. Use página, seção, artigo ou identificação disponível. Se a fonte não tiver referência identificável, escreva exatamente: Material fornecido.
+10. Não inclua agendamento, datas de revisão, dificuldade, tags ou comentários sobre o processo.
+
+FORMATO DE SAÍDA — OBRIGATÓRIO:
+Retorne somente Markdown puro. Não use bloco de código. Não escreva introdução, conclusão, observações ou qualquer texto fora dos cartões.
+
+A estrutura deve ser copiada exatamente:
+- Primeira linha: # Baralho: Nome do baralho
+- Cada cartão começa com ## Cartão 01, ## Cartão 02, ## Cartão 03... em sequência, sempre com dois dígitos.
+- Logo abaixo, escreva **Assunto:** e **Fonte:**, exatamente nessa ordem.
+- Depois use os títulos ### Frente e ### Verso, exatamente como escritos.
+- Os títulos ## Cartão, ### Frente e ### Verso NÃO podem estar em negrito.
+- Os rótulos Assunto e Fonte devem estar em negrito, com dois asteriscos de cada lado.
+- Não use outros campos. Não inclua Tipo, Formato, Justificativa ou Fonte da família.
+- Não use tabelas, listas numeradas ou separadores horizontais entre cartões.
+- Não coloque mais de 10 cartões com o mesmo valor em Assunto. Se necessário, use assuntos específicos diferentes, sem criar subdivisões artificiais.
+
+MODELO EXATO:
+# Baralho: Nome do baralho
+
+## Cartão 01
+**Assunto:** Nome específico do microconhecimento
+**Fonte:** Material fornecido
+
+### Frente
+Uma pergunta objetiva que faça sentido sozinha?
+
+### Verso
+Resposta curta, precisa e sustentada pelo material.
+
+## Cartão 02
+**Assunto:** Outro microconhecimento
+**Fonte:** Material fornecido
+
+### Frente
+Outra pergunta independente?
+
+### Verso
+Resposta correspondente, sem acrescentar informação não sustentada.
+
+CONFERÊNCIA OBRIGATÓRIA ANTES DE RESPONDER:
+- O primeiro título é # Baralho: ...
+- Todos os cartões estão numerados em sequência, começando em 01.
+- Cada cartão contém exatamente um Assunto, uma Fonte, uma Frente e um Verso.
+- A ordem dos campos está correta.
+- Não há negrito nos títulos dos cartões ou nas seções Frente e Verso.
+- A quantidade total não ultrapassa \${amount}.
+- A resposta contém somente o baralho em Markdown.
 
 MATERIAL DE REFERÊNCIA:
-O estudante pode anexar ou colar o material diretamente na IA externa. Sem anexo, utilize somente fontes confiáveis efetivamente consultadas; se isso não for possível, solicite material antes de produzir o Markdown.`;
+O estudante anexará ou colará o material junto desta solicitação. Se nenhum material for fornecido, peça o material antes de gerar os cartões.\`;
 }
 
 export function ImportPage() {
@@ -70,10 +119,10 @@ export function ImportPage() {
     const prompt = buildCardPrompt(context.valid?`${context.plan?.title} · cargo ${context.plan?.position} · banca ${context.plan?.organizer||"não informada"} · ${context.area} · ${context.title}. Restrinja todas as famílias a este assunto do plano.`:"Estudo livre; fundamente em fontes confiáveis consultadas.",amount);
     try {
       await navigator.clipboard.writeText(prompt);
-      setFeedback("Solicitação copiada. Cole na IA externa e depois traga o Markdown de volta.");
+      setFeedback("Prompt copiado. Cole na IA externa, anexe o material e envie. Depois copie somente o Markdown gerado para a etapa 2.");
     } catch {
       downloadFile("solicitacao-flashcards-ritmo.txt", prompt, "text/plain;charset=utf-8");
-      setFeedback("Não foi possível copiar; a solicitação foi baixada em TXT.");
+      setFeedback("Não foi possível copiar; o prompt foi baixado em TXT.");
     }
   }
   function preview() {
@@ -113,14 +162,14 @@ export function ImportPage() {
     <div className="rm-toolbar"><div className="rm-tabs"><button type="button" aria-pressed="true">Importar</button><Link to={materialRoute("/flashcards/new",params)+(params.get("plan")||params.get("date")?"&":"?")+"return=import"}>Manual</Link><button type="button" disabled title="Disponível quando houver integração com API"><Sparkles size={13}/> Gerar com IA</button></div><MaterialScopePicker plans={plans} creation disabled={busy} onChange={()=>{setFamilies([]);setFeedback("");setError("");}}/></div>
     <p className="rm-scope-hint">{invalid?"Escolha um assunto para vincular os cartões.":context.valid?"Destino do lote: "+context.plan?.title+" · "+context.title+". Todas as famílias serão vinculadas a este assunto.":"Destino: estudo livre, sem vínculo com um plano."} Importe um assunto por lote.</p>
     <div className="rm-import-layout">
-      <section className="panel wizard-panel"><div className="panel-title-row"><div><span className="step-kicker">1 · IA EXTERNA</span><h2>Preparar solicitação</h2><p>Envie o prompt à IA externa. Se tiver material de estudo, anexe-o diretamente lá.</p></div></div>
-        <div className="field-block"><label>Quantidade de famílias (até)</label><select aria-label="Quantidade de famílias" value={amount} onChange={e=>setAmount(Number(e.target.value))}>{[10,20,30,50].map(n=><option key={n} value={n}>{n}</option>)}</select></div>
-        <button className="primary-button compact" type="button" disabled={invalid} onClick={copyPrompt}><Clipboard size={15}/>Copiar solicitação</button>
-        <details className="rm-prompt-details"><summary>Critérios e formato do prompt</summary><pre>{buildCardPrompt(context.valid?(context.plan?.title+" · "+context.title):"Estudo livre",amount)}</pre></details>
+      <section className="panel wizard-panel"><div className="panel-title-row"><div><span className="step-kicker">1 · GERAR COM IA</span><h2>Preparar prompt</h2><p>Copie as instruções prontas. Na IA externa, anexe o material que deverá servir de fonte.</p></div></div>
+        <div className="field-block"><label>Quantidade máxima de cartões</label><select aria-label="Quantidade de famílias" value={amount} onChange={e=>setAmount(Number(e.target.value))}>{[10,20,30,50].map(n=><option key={n} value={n}>{n}</option>)}</select></div>
+        <button className="primary-button compact" type="button" disabled={invalid} onClick={copyPrompt}><Clipboard size={15}/>Copiar prompt para IA</button>
+        <details className="rm-prompt-details"><summary>Ver prompt completo e formato obrigatório</summary><pre>{buildCardPrompt(context.valid?(context.plan?.title+" · "+context.title):"Estudo livre",amount)}</pre></details>
       </section>
-      <section className="panel wizard-panel"><div className="panel-title-row"><div><span className="step-kicker">2 · IMPORTAR</span><h2>Adicionar arquivo ou texto</h2><p>Markdown é o formato principal. JSON e CSV continuam compatíveis.</p></div></div>
+      <section className="panel wizard-panel"><div className="panel-title-row"><div><span className="step-kicker">2 · IMPORTAR</span><h2>Trazer os cartões para o Ritmo</h2><p>Cole a resposta Markdown da IA ou selecione o arquivo gerado. O Ritmo confere a estrutura antes de importar.</p></div></div>
         <div className="field-block"><label htmlFor="import-file">Arquivo Markdown</label><div className="file-picker"><FileJson size={18}/><span>{fileName||"Selecione um arquivo .md ou .txt"}</span><label className="secondary-button compact" htmlFor="import-file">Procurar</label><input id="import-file" type="file" accept=".md,.markdown,.txt,.json,.csv,text/markdown,text/plain,application/json,text/csv" disabled={busy} onChange={handleFile}/></div></div>
-        <div className="field-block"><label htmlFor="import-text">Ou cole a resposta da IA</label><textarea id="import-text" rows={5} value={input} disabled={busy} onChange={e=>{setInput(e.target.value);setFamilies([]);setError("");setFeedback("");}} placeholder="# RITMO-FLASHCARDS v1"/></div>
+        <div className="field-block"><label htmlFor="import-text">Ou cole a resposta da IA</label><textarea id="import-text" rows={5} value={input} disabled={busy} onChange={e=>{setInput(e.target.value);setFamilies([]);setError("");setFeedback("");}} placeholder="# Baralho: Nome do baralho"/></div>
         <div className="button-row"><button className="primary-button compact" type="button" disabled={invalid||busy} onClick={preview}>Pré-visualizar e validar <ArrowRight size={15}/></button><button className="text-button" type="button" onClick={()=>downloadFile("modelo-flashcards-ritmo.md",FLASHCARD_MARKDOWN_MODEL,"text/markdown;charset=utf-8")}><Download size={14}/>Modelo Markdown</button></div>
       </section>
     </div>
