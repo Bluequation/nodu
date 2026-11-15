@@ -708,3 +708,12 @@
 .rm-notion-errors .rm-cell-select-shell[data-tone="math"]{--select-bg:#f2f0fa;--select-edge:#e2dff1;--select-ink:#625b91}
 .rm-notion-errors .rm-cell-select-shell[data-tone="all"],
 .rm-notion-errors .rm-cell-select-shell[data-tone="neutral"]{--select-bg:#f1f4f7;--select-edge:#dfe5ec;--select-ink:#586779}
+
+.rm-notion-errors .rm-cell-combobox-input{padding-right:28px}
+.rm-notion-errors .rm-combobox-chevron{
+  position:absolute;top:10px;right:9px;pointer-events:none;color:#7c8ea2;
+  transition:color .15s,transform .15s
+}
+.rm-notion-errors .rm-cell-combobox:focus-within>.rm-combobox-chevron{
+  color:#315e89;transform:rotate(180deg)
+}

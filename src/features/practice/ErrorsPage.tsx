@@ -192,6 +192,7 @@ function CreatableCell({ common, value, options, tone, label, placeholder, onCom
           else commit(normalized);
         }
       }}/>
+    <ChevronDown className="rm-combobox-chevron" size={14} aria-hidden="true"/>
     {open && itemCount > 0 && <div className="rm-combobox-menu" role="listbox">
       {matches.map((option, index) => <button type="button" role="option"
         aria-selected={activeIndex === index} key={option}
