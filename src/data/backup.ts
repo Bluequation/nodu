@@ -25,7 +25,7 @@ export function inspectBackup(raw: string): BackupSummary {
   try { parsed = JSON.parse(raw); }
   catch { throw new Error("O arquivo não contém JSON válido."); }
   const root = object(parsed);
-  if (!root || root.format !== "ritmo-backup-v1") throw new Error("Formato incompatível. Use um backup criado pelo Ritmo 8.");
+  if (!root || root.format !== "ritmo-backup-v1") throw new Error("Formato incompatível. Use um backup criado pelo Ritmo.");
   const source = object(root.data);
   if (!source) throw new Error("O backup não contém a seção de dados.");
   const data = {} as BackupData;
