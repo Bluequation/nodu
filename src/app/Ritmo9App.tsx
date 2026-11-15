@@ -4,7 +4,7 @@ import {
   Clock3, FileText, Folder, Home, LayoutGrid, NotebookPen, Plus, Settings,
   Target, TrendingUp, Layers3, PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
-import { HashRouter, Link, NavLink, Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import { HashRouter, Link, NavLink, Navigate, Route, Routes, useNavigate, useLocation } from "react-router-dom";
 import { createPlan, listPlans } from "../data/plans";
 import { listConcepts, listErrors } from "../data/study";
 import {
@@ -44,6 +44,7 @@ function PageHeading({ title, subtitle, action }: {
 }
 
 function Shell() {
+  const location = useLocation();
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem("ritmo9:sidebar-collapsed") === "1"; }
     catch { return false; }
@@ -63,7 +64,11 @@ function Shell() {
       <nav className="r9-primary-nav" aria-label="Navegação principal">
         {primaryNav.map(item => {
           const Icon = item.icon;
-          return <NavLink key={item.to} to={item.to} className={({ isActive }) => `r9-nav-link${isActive ? " active" : ""}`}>
+          const sectionPaths = item.to === "/study"
+            ? ["/study", "/learn", "/flashcards", "/reviews", "/errors", "/questions", "/import", "/curation"]
+            : item.to === "/plans" ? ["/plans", "/agenda"] : [item.to];
+          const isActive = sectionPaths.some(path => location.pathname === path || location.pathname.startsWith(path + "/"));
+          return <NavLink key={item.to} to={item.to} className={`r9-nav-link${isActive ? " active" : ""}`}>
             <Icon size={18} strokeWidth={1.8}/><span>{item.label}</span>
           </NavLink>;
         })}
