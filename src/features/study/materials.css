@@ -728,7 +728,7 @@ body:has(.rm-notion-errors),
 }
 .stack.rm-notion-errors{grid-template-columns:minmax(0,1fr);min-width:0;overflow-x:clip}
 .shell:has(.rm-notion-errors) .main{min-width:0;max-width:100%;overflow-x:clip}
-.rm-notion-errors .rm-notebook-table-section{width:100%;max-width:100%;min-width:0;overflow:hidden}
+.rm-notion-errors .rm-notebook-table-section{width:100%;max-width:100%;min-width:0;overflow:hidden;contain:layout paint}
 .rm-notion-errors .rm-notion-table-scroll{
   display:block;width:100%;min-width:0;max-width:100%;
   overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain
