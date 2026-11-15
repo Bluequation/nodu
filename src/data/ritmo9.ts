@@ -5,7 +5,7 @@ import type {
   StudyQuestionRecord,
   StudySessionRecord,
 } from "../domain/ritmo9";
-import type { PlanTopicRef } from "../domain/study";
+import type { ErrorRecord, PlanTopicRef } from "../domain/study";
 
 const id = () => crypto.randomUUID();
 
@@ -63,7 +63,27 @@ export async function createQuestionAttempt(
   return attempt;
 }
 
-export async function listQuestionAttempts(): Promise<QuestionAttemptRecord[]> {
+
+export async function recordQuestionAttempt(input: {
+  question: Omit<StudyQuestionRecord, "id" | "createdAt">;
+  attempt: Omit<QuestionAttemptRecord, "id" | "answeredAt">;
+  error?: Omit<ErrorRecord, "id" | "sourceAttemptId">;
+}): Promise<{ question: StudyQuestionRecord; attempt: QuestionAttemptRecord; error?: ErrorRecord }> {
+  const db = await database();
+  const tx = db.transaction(["questions", "questionAttempts", "errors"], "readwrite");
+  const question: StudyQuestionRecord = { ...input.question, id: id(), createdAt: Date.now() };
+  const attempt: QuestionAttemptRecord = { ...input.attempt, id: id(), answeredAt: Date.now() };
+  await tx.objectStore("questions").put(question);
+  await tx.objectStore("questionAttempts").put(attempt);
+  let error: ErrorRecord | undefined;
+  if (input.error) {
+    error = { ...input.error, id: id(), sourceAttemptId: attempt.id };
+    await tx.objectStore("errors").put(error);
+  }
+  await tx.done;
+  return { question, attempt, ...(error ? { error } : {}) };
+}
+\nexport async function listQuestionAttempts(): Promise<QuestionAttemptRecord[]> {
   return (await (await database()).getAll("questionAttempts"))
     .sort((a, b) => b.answeredAt - a.answeredAt);
 }
