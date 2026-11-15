@@ -63,7 +63,7 @@ const DEFAULT_ERROR_NOTEBOOK_COLUMNS: ErrorNotebookColumn[] = [
   { id: "reviewDays", label: "Próxima revisão", kind: "interval" },
   { id: "nextReview", label: "Data da revisão", kind: "reviewDate" },
   { id: "questionUrl", label: "URL da questão", kind: "url" },
-  { id: "attachments", label: "Anexo", kind: "attachment" },
+  { id: "attachments", label: "Anexar questão", kind: "attachment" },
 ];
 
 export async function getErrorNotebookSettings(): Promise<ErrorNotebookSettings> {
