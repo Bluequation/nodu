@@ -55,12 +55,12 @@ function dateInputValue(value: number) {
 function dateFromInput(value: string) {
   if (!value) return Date.now();
   const [year, month, day] = value.split("-").map(Number);
-  return new Date(year, month - 1, day, 12, 0, 0, 0).getTime();
+  return new Date(year, month - 1, day, 0, 0, 0, 0).getTime();
 }
 function addCalendarDays(value: number, days: number) {
   const date = new Date(value);
   date.setDate(date.getDate() + days);
-  date.setHours(12, 0, 0, 0);
+  date.setHours(0, 0, 0, 0);
   return date.getTime();
 }
 function sameDiscipline(a: string, b: string) {
@@ -399,6 +399,7 @@ export function ErrorsPage() {
           aria-label={column.label} value={error.type}
           onChange={event => void updateError(error.id, { type: event.currentTarget.value })}>
           <option value="">Selecionar tipo</option>
+          {error.type && !ERROR_TYPES.includes(error.type) && <option value={error.type}>{error.type}</option>}
           {ERROR_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
         </select>;
       case "discipline":
