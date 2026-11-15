@@ -21,7 +21,7 @@ const groups = [
   ["VISÃO GERAL", [["Painel", "/", LayoutDashboard]]],
   ["PLANEJAMENTO", [["Meus planos", "/plans", FolderKanban], ["Agenda", "/agenda", CalendarDays]]],
   ["APRENDIZAGEM", [["Aprender", "/learn", Brain], ["Flashcards", "/flashcards", Layers3], ["Revisões", "/reviews", Activity]]],
-  ["PRÁTICA", [["Questões", "/questions", Target], ["Caderno de erros", "/errors", NotebookPen]]],
+  ["PRÁTICA", [["Questões", "/errors", Target]]],
   ["CONTEÚDOS", [["Importar", "/import", Upload], ["Curadoria", "/curation", WandSparkles]]],
   ["PREFERÊNCIAS", [["Ajustes", "/settings", Settings]]],
 ] as const;
@@ -91,8 +91,8 @@ function Dashboard() {
       <Panel><small>RASCUNHOS</small><b>{drafts}</b><span>Planos que você ainda está montando</span></Panel>
       <Panel><small>CONTEÚDOS SELECIONADOS</small><b>{topics}</b><span>Itens escolhidos nos seus planos</span></Panel>
       <Panel><small>FLASHCARDS VENCIDOS</small><b>{metrics.dueCards}</b><span>Famílias para revisar no FSRS</span><Link to="/reviews" className="text-link">Revisar agora <ArrowRight size={13}/></Link></Panel>
-      <Panel><small>ERROS PARA RETOMAR</small><b>{metrics.dueErrors}</b><span>Novas questões para aplicar</span><Link to="/errors" className="text-link">Abrir caderno <ArrowRight size={13}/></Link></Panel>
-      <Panel><small>QUESTÕES RESOLVIDAS</small><b>{metrics.questions}</b><span>{metrics.questions ? Math.round(metrics.correct / metrics.questions * 100) : 0}% de acertos registrados</span><Link to="/questions" className="text-link">Ver desempenho <ArrowRight size={13}/></Link></Panel>
+      <Panel><small>ERROS PARA RETOMAR</small><b>{metrics.dueErrors}</b><span>Novas questões para aplicar</span><Link to="/errors" className="text-link">Abrir questões <ArrowRight size={13}/></Link></Panel>
+      <Panel><small>QUESTÕES RESOLVIDAS</small><b>{metrics.questions}</b><span>{metrics.questions ? Math.round(metrics.correct / metrics.questions * 100) : 0}% de acertos registrados</span><Link to="/errors?view=performance" className="text-link">Ver desempenho <ArrowRight size={13}/></Link></Panel>
     </div>
     <Panel><div className="panel-head"><h2>Retomar planejamento</h2><Link className="text-link" to="/plans">Ver todos <ArrowRight size={15}/></Link></div>
       {recent.length ? recent.map(plan => <Link className="plan-row" key={plan.id} to={`/plans/${plan.id}/verticalize`}><b>{plan.title}</b><span>{[plan.position, plan.area].filter(Boolean).join(" · ")} · {plan.status === "active" ? "Ativo" : "Rascunho"}</span><ArrowRight size={16}/></Link>) : <div className="empty"><BookOpen size={28}/><h2>Seu primeiro plano começa aqui</h2><p>Cadastre o concurso, escolha o cargo e delimite a área de estudo.</p><Link className="primary-button" to="/plans/new">Criar primeiro plano</Link></div>}
