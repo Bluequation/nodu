@@ -161,3 +161,57 @@
  .ritmo-materials.rm-errors .rm-error-form{margin:8px;padding:10px}
  .ritmo-materials.rm-errors .rm-apply-panel{align-items:flex-start}
 }
+
+
+/* Questões · caderno e desempenho no mesmo espaço */
+.ritmo-materials.rm-errors .rm-question-views{
+  display:flex;align-items:center;gap:4px;width:max-content;max-width:100%;
+  padding:4px;border:1px solid var(--line);border-radius:11px;background:var(--surface-recessed);
+}
+.ritmo-materials.rm-errors .rm-question-views button{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:36px;
+  padding:7px 12px;border:1px solid transparent;border-radius:8px;background:transparent;
+  color:var(--text-secondary);font:inherit;font-size:12px;font-weight:650;white-space:nowrap;cursor:pointer;
+}
+.ritmo-materials.rm-errors .rm-question-views button[aria-selected=true]{
+  border-color:var(--line);background:var(--surface);color:var(--blue);font-weight:750;
+  box-shadow:0 1px 3px #1e34470d;
+}
+.ritmo-materials.rm-errors .rm-question-views button small{
+  display:grid;place-items:center;min-width:19px;height:19px;padding:0 5px;border-radius:99px;
+  background:var(--surface-recessed);color:var(--muted);font-size:10px;font-weight:700;
+}
+.ritmo-materials.rm-errors .rm-question-views button[aria-selected=true] small{background:var(--blue-soft);color:var(--blue)}
+.ritmo-materials.rm-errors .rm-error-discipline-tabs{margin:0;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.ritmo-materials.rm-errors .rm-performance-summary{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;padding:13px;
+  border-bottom:1px solid var(--line);background:var(--surface-soft);
+}
+.ritmo-materials.rm-errors .rm-performance-summary>div{
+  display:grid;gap:5px;min-width:0;padding:12px 14px;border:1px solid var(--line);
+  border-radius:10px;background:var(--surface);
+}
+.ritmo-materials.rm-errors .rm-performance-summary small{color:var(--muted);font-size:9px;font-weight:800;letter-spacing:.65px}
+.ritmo-materials.rm-errors .rm-performance-summary strong{color:var(--blue);font-size:23px;font-weight:750;line-height:1.1}
+.ritmo-materials.rm-errors .rm-performance-table{min-width:980px}
+.ritmo-materials.rm-errors .rm-performance-table th:nth-child(1){width:95px}
+.ritmo-materials.rm-errors .rm-performance-table th:nth-child(2){width:165px}
+.ritmo-materials.rm-errors .rm-performance-table th:nth-child(3){width:145px}
+.ritmo-materials.rm-errors .rm-performance-table th:nth-child(4){width:210px}
+.ritmo-materials.rm-errors .rm-performance-table th:nth-child(5),
+.ritmo-materials.rm-errors .rm-performance-table th:nth-child(6),
+.ritmo-materials.rm-errors .rm-performance-table th:nth-child(7){width:105px}
+.ritmo-materials.rm-errors .rm-performance-table th:nth-child(8){width:240px}
+.ritmo-materials.rm-errors .rm-performance-table th:nth-child(9){width:65px}
+.ritmo-materials.rm-errors .rm-performance-form .form-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px}
+.ritmo-materials.rm-errors .rm-performance-form .field-block{min-width:0;margin:0 0 8px}
+.ritmo-materials.rm-errors .rm-performance-form .field-block :is(input,select){min-height:38px;font-size:12px}
+@media(max-width:700px){
+  .ritmo-materials.rm-errors .rm-question-views{width:100%}
+  .ritmo-materials.rm-errors .rm-question-views button{flex:1;padding-inline:7px;font-size:11px}
+  .ritmo-materials.rm-errors .rm-performance-summary{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:9px}
+  .ritmo-materials.rm-errors .rm-performance-summary>div{padding:9px 8px}
+  .ritmo-materials.rm-errors .rm-performance-summary small{font-size:8px}
+  .ritmo-materials.rm-errors .rm-performance-summary strong{font-size:19px}
+  .ritmo-materials.rm-errors .rm-performance-form .form-grid{grid-template-columns:1fr}
+}
