@@ -116,12 +116,12 @@ export function ImportPage() {
   }
   async function copyPrompt() {
     if(params.get("plan")&&!context.valid){setError("Selecione o assunto do plano.");return;}
-    const prompt = buildCardPrompt(context.valid?`${context.plan?.title} · cargo ${context.plan?.position} · banca ${context.plan?.organizer||"não informada"} · ${context.area} · ${context.title}. Restrinja todas as famílias a este assunto do plano.`:"Estudo livre; fundamente em fontes confiáveis consultadas.",amount);
+    const prompt = buildCardPrompt(context.valid?`${context.plan?.title} · cargo ${context.plan?.position} · banca ${context.plan?.organizer||"não informada"} · ${context.area} · ${context.title}. Restrinja todas as famílias a este assunto do plano.`:"Estudo livre; use a disciplina e o assunto declarados pelo estudante ou no material. Se estiverem ausentes ou ambíguos, pergunte antes de gerar.",amount);
     try {
       await navigator.clipboard.writeText(prompt);
       setFeedback("Prompt copiado. Cole na IA externa, anexe o material e envie. Depois copie somente o Markdown gerado para a etapa 2.");
     } catch {
-      downloadFile("solicitacao-flashcards-ritmo.txt", prompt, "text/plain;charset=utf-8");
+      downloadFile("prompt-flashcards-ritmo.txt", prompt, "text/plain;charset=utf-8");
       setFeedback("Não foi possível copiar; o prompt foi baixado em TXT.");
     }
   }
@@ -163,7 +163,7 @@ export function ImportPage() {
     <p className="rm-scope-hint">{invalid?"Escolha um assunto para vincular os cartões.":context.valid?"Destino do lote: "+context.plan?.title+" · "+context.title+". Todas as famílias serão vinculadas a este assunto.":"Destino: estudo livre, sem vínculo com um plano."} Importe um assunto por lote.</p>
     <div className="rm-import-layout">
       <section className="panel wizard-panel"><div className="panel-title-row"><div><span className="step-kicker">1 · GERAR COM IA</span><h2>Preparar prompt</h2><p>Copie as instruções prontas. Na IA externa, anexe o material que deverá servir de fonte.</p></div></div>
-        <div className="field-block"><label>Quantidade máxima de cartões</label><select aria-label="Quantidade de famílias" value={amount} onChange={e=>setAmount(Number(e.target.value))}>{[10,20,30,50].map(n=><option key={n} value={n}>{n}</option>)}</select></div>
+        <div className="field-block"><label>Quantidade máxima de cartões</label><select aria-label="Quantidade máxima de cartões" value={amount} onChange={e=>setAmount(Number(e.target.value))}>{[10,20,30,50].map(n=><option key={n} value={n}>{n}</option>)}</select></div>
         <button className="primary-button compact" type="button" disabled={invalid} onClick={copyPrompt}><Clipboard size={15}/>Copiar prompt para IA</button>
         <details className="rm-prompt-details"><summary>Ver prompt completo e formato obrigatório</summary><pre>{buildCardPrompt(context.valid?(context.plan?.title+" · "+context.title):"Estudo livre",amount)}</pre></details>
       </section>
