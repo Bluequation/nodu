@@ -1,5 +1,5 @@
 import { database } from "./database";
-import type {PlanTopicRef} from "../domain/study";
+import type {ErrorNotebookColumn, ErrorNotebookSettings, PlanTopicRef} from "../domain/study";
 import {addTopicLink,resolveTopic,markTopicStudied,topicScheduled,dateKey} from "../domain/topicContext";
 import type { Concept, ErrorRecord, FlashcardVariant, LearningSession, QuestionBlock, ReviewLog, StudySettings } from "../domain/study";
 import { emptyFsrsState } from "../domain/fsrs";
@@ -50,6 +50,43 @@ export async function saveError(error: ErrorRecord): Promise<ErrorRecord> {
 }
 export async function deleteError(id: string): Promise<void> {
   await (await database()).delete("errors", id);
+}
+
+const DEFAULT_ERROR_NOTEBOOK_COLUMNS: ErrorNotebookColumn[] = [
+  { id: "date", label: "Data", kind: "date" },
+  { id: "type", label: "Tipo", kind: "type" },
+  { id: "discipline", label: "Disciplina", kind: "discipline" },
+  { id: "area", label: "Área", kind: "text" },
+  { id: "topic", label: "Assunto", kind: "text" },
+  { id: "mistake", label: "Erro", kind: "longtext" },
+  { id: "fix", label: "Correção", kind: "longtext" },
+  { id: "reviewDays", label: "Próxima revisão", kind: "interval" },
+  { id: "nextReview", label: "Data da revisão", kind: "reviewDate" },
+  { id: "questionUrl", label: "URL da questão", kind: "url" },
+  { id: "attachments", label: "Anexo", kind: "attachment" },
+];
+
+export async function getErrorNotebookSettings(): Promise<ErrorNotebookSettings> {
+  const entry = await (await database()).get("appState", "error-notebook-settings");
+  const saved = (entry?.value ?? {}) as Partial<ErrorNotebookSettings>;
+  const savedColumns = Array.isArray(saved.columns) ? saved.columns : [];
+  const validColumns = savedColumns.filter(column =>
+    !!column && typeof column.id === "string" && typeof column.label === "string" &&
+    typeof column.kind === "string"
+  );
+  const seen = new Set(validColumns.map(column => column.id));
+  const columns = [
+    ...validColumns,
+    ...DEFAULT_ERROR_NOTEBOOK_COLUMNS.filter(column => !seen.has(column.id)),
+  ];
+  const disciplines = Array.isArray(saved.disciplines)
+    ? saved.disciplines.filter(value => typeof value === "string" && value.trim()).map(value => value.trim())
+    : [];
+  return { columns, disciplines };
+}
+
+export async function saveErrorNotebookSettings(settings: ErrorNotebookSettings): Promise<void> {
+  await (await database()).put("appState", { key: "error-notebook-settings", value: settings });
 }
 export async function listQuestionBlocks(): Promise<QuestionBlock[]> {
   return (await (await database()).getAll("blocks")).sort((a, b) => b.at - a.at);
