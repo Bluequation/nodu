@@ -124,33 +124,20 @@ export function parseFlashcardCsv(input: string): ImportedFamily[] {
 }
 
 /** Human-readable interchange format. Heading boundaries and field order are deliberate. */
-export const FLASHCARD_MARKDOWN_MODEL = `# RITMO-FLASHCARDS v1
-
-## Família: Nome do microconhecimento
-**Fonte da família:** Autor, título, artigo ou página verificável
-
-### Cartão 1
-**Tipo:** Definição
-**Formato:** basic
-**Pergunta:** Pergunta objetiva sobre o microconhecimento.
-**Resposta:** Resposta correta sustentada pelo material.
-**Justificativa:** Explique por que a resposta está correta.
-**Fonte:** Referência específica do cartão.
-
----
-
-## Família: Outro microconhecimento
-**Fonte da família:** Referência verificável
-
-### Cartão 1
-**Tipo:** Aplicação
-**Formato:** basic
-**Pergunta:** Situação que exige aplicar o conceito.
-**Resposta:** Resposta correta.
-**Justificativa:** Fundamento da resposta.
-**Fonte:** Referência específica.
-`;
-export function parseFlashcardMarkdown(input:string,subject:StudySubject="tae"):ImportedFamily[]{
+export const FLASHCARD_MARKDOWN_MODEL = [
+  "# Baralho: Nome do baralho",
+  "",
+  "## Cartão 01",
+  "**Assunto:** Nome específico do microconhecimento",
+  "**Fonte:** Material fornecido",
+  "",
+  "### Frente",
+  "Pergunta objetiva que faça sentido sozinha.",
+  "",
+  "### Verso",
+  "Resposta curta e precisa, fiel ao material.",
+].join("\n");
+function parseRitmoFlashcardMarkdown(input:string,subject:StudySubject="tae"):ImportedFamily[]{
  let raw=input.replace(/^\uFEFF/,"").replace(/\r\n?/g,"\n").trim();
  const fence=raw.match(/^```(?:markdown|md)?[ \t]*\n([\s\S]*?)\n```[ \t]*$/i);
  if(fence)raw=fence[1].trim();
