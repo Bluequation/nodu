@@ -70,6 +70,7 @@ export interface ErrorAttachment {
 }
 export interface ErrorRecord {
   planTopics?: PlanTopicRef[];
+  sourceAttemptId?: string;
   id: string;
   subject: StudySubject;
   discipline: string;
