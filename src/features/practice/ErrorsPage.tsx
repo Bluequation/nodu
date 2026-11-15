@@ -113,7 +113,7 @@ export function ErrorsPage() {
         : true;
   const scoped = errors.filter(inScope);
   const scopedBlocks = blocks.filter(inScope);
-  const blockDiscipline = (block: QuestionBlock) => block.discipline?.trim() || (block.subject === "fisica" ? "Física" : "Geral");
+  const blockDiscipline = (block: QuestionBlock) => block.discipline?.trim() || (block.subject === "fisica" ? "Física" : "TAE");
   const dueOnly = params.get("due") === "1";
   const extraDisciplines = Array.from(new Set([
     ...scoped.map(error => error.discipline.trim()).filter(Boolean),
