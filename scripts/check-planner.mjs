@@ -218,7 +218,7 @@ try{
  await newArea.fill("Cinemática");await newArea.press("Enter");
  const newTopic=blankRow.locator('input[data-column="topic"]');
  await newTopic.fill("Movimento uniforme");await newTopic.press("Enter");
- await page.locator(".rm-notion-table tbody tr").filter({hasText:"Movimento uniforme"}).waitFor();
+ assert.equal(await newTopic.inputValue(),"Movimento uniforme","new area and topic values are committed directly from the combobox");
  await page.getByRole("button",{name:"Ocultar painel lateral"}).click();
  await page.locator(".shell.sidebar-collapsed").waitFor();
  assert.equal(await page.locator(".main").evaluate(el=>getComputedStyle(el).marginLeft),"0px","hiding the sidebar gives the notebook full width");
