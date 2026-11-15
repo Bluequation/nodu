@@ -720,11 +720,16 @@
 
 
 /* Keep the wide database inside its own horizontal scroller, not the page. */
-.stack.rm-notion-errors{grid-template-columns:minmax(0,1fr);overflow-x:clip}
-.shell:has(.rm-notion-errors) .main{min-width:0;overflow-x:clip}
+html:has(.rm-notion-errors),
+body:has(.rm-notion-errors),
+#root:has(.rm-notion-errors),
+.shell:has(.rm-notion-errors){
+  width:100%;max-width:100vw;min-width:0;overflow-x:clip!important
+}
+.stack.rm-notion-errors{grid-template-columns:minmax(0,1fr);min-width:0;overflow-x:clip}
+.shell:has(.rm-notion-errors) .main{min-width:0;max-width:100%;overflow-x:clip}
 .rm-notion-errors .rm-notebook-table-section{width:100%;max-width:100%;min-width:0;overflow:hidden}
-.rm-notion-errors .rm-notion-table-scroll{display:block;width:100%;min-width:0;max-width:100%;overflow-x:auto;overflow-y:hidden}
-
-html:has(.rm-notion-errors),body:has(.rm-notion-errors){overflow-x:hidden}
-
-html:has(.rm-notion-errors),body:has(.rm-notion-errors),.shell:has(.rm-notion-errors){overflow-x:hidden!important}
+.rm-notion-errors .rm-notion-table-scroll{
+  display:block;width:100%;min-width:0;max-width:100%;
+  overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain
+}
