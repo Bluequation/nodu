@@ -173,3 +173,157 @@ function parseRitmoFlashcardMarkdown(input:string,subject:StudySubject="tae"):Im
  for(const f of parsed){const questions=f.variants.map(v=>v.q.toLocaleLowerCase().replace(/\s+/g," "));if(new Set(questions).size!==questions.length)throw Error("Markdown: perguntas repetidas em "+f.topic+".");}
  return parsed;
 }
+function unwrapFlashcardMarkdown(input: string) {
+  let raw = input.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").trim();
+  const fence = String.fromCharCode(96).repeat(3);
+  if (raw.startsWith(fence) && raw.endsWith(fence)) {
+    const firstBreak = raw.indexOf("\n");
+    const closing = raw.lastIndexOf("\n" + fence);
+    if (firstBreak >= 0 && closing > firstBreak) raw = raw.slice(firstBreak + 1, closing).trim();
+  }
+  return raw;
+}
+
+type SimpleDeckCard = {
+  number: number;
+  assunto: string;
+  fonte: string;
+  frente: string;
+  verso: string;
+};
+
+function parseBaralhoMarkdown(input: string, subject: StudySubject): ImportedFamily[] {
+  const raw = unwrapFlashcardMarkdown(input);
+  const lines = raw.split("\n");
+  const header = (lines.shift() || "").trim().replace(/\*\*$/, "").trim();
+  if (!/^#\s*Baralho\s*:\s*\S/i.test(header)) {
+    throw new Error("Markdown: comece com # Baralho: Nome do baralho.");
+  }
+
+  const cards: SimpleDeckCard[] = [];
+  let current: SimpleDeckCard | undefined;
+  let activeField: "frente" | "verso" | "" = "";
+
+  function finishCard() {
+    if (!current) return;
+    current.assunto = current.assunto.trim();
+    current.fonte = current.fonte.trim();
+    current.frente = current.frente.trim();
+    current.verso = current.verso.trim();
+    if (!current.assunto || !current.fonte || !current.frente || !current.verso) {
+      throw new Error("Markdown · Cartão " + String(current.number).padStart(2, "0") + ": preencha Assunto, Fonte, Frente e Verso.");
+    }
+    cards.push(current);
+    current = undefined;
+    activeField = "";
+  }
+
+  for (const original of lines) {
+    const line = original.trim();
+    if (!line) {
+      if (current && activeField && current[activeField]) current[activeField] += "\n";
+      continue;
+    }
+    if (line === "---") continue;
+
+    // Tolerate headings copied with bold markers, but the prompt requests plain headings.
+    const heading = line.replace(/^(#{2,3})\s+\*\*(.*?)\*\*\s*$/, "$1 $2");
+    const cardHeading = heading.match(/^##\s+Cartão\s+0*(\d+)\s*$/i);
+    if (cardHeading) {
+      finishCard();
+      const number = Number(cardHeading[1]);
+      if (number !== cards.length + 1) {
+        throw new Error("Markdown: numere os cartões em sequência, começando por Cartão 01.");
+      }
+      current = { number, assunto: "", fonte: "", frente: "", verso: "" };
+      activeField = "";
+      continue;
+    }
+
+    const section = heading.match(/^###\s+(Frente|Verso)\s*$/i);
+    if (section) {
+      if (!current) throw new Error("Markdown: cada seção Frente e Verso precisa estar dentro de um cartão.");
+      if (section[1].toLowerCase() === "frente") {
+        if (!current.assunto || !current.fonte || current.frente || current.verso) {
+          throw new Error("Markdown: use Assunto e Fonte antes de ### Frente.");
+        }
+        activeField = "frente";
+      } else {
+        if (!current.frente.trim() || current.verso) {
+          throw new Error("Markdown: preencha ### Frente antes de ### Verso.");
+        }
+        activeField = "verso";
+      }
+      continue;
+    }
+
+    const meta = line.match(/^\*\*(Assunto|Fonte):\*\*\s*(.*)$/i);
+    if (meta) {
+      if (!current || activeField) throw new Error("Markdown: Assunto e Fonte devem aparecer antes de Frente e Verso.");
+      const value = meta[2].trim().replace(/\\$/, "").trim();
+      if (meta[1].toLowerCase() === "assunto") {
+        if (current.assunto || current.fonte) throw new Error("Markdown: informe Assunto uma única vez e antes de Fonte.");
+        current.assunto = value;
+      } else {
+        if (!current.assunto || current.fonte) throw new Error("Markdown: informe Fonte depois de Assunto e apenas uma vez.");
+        current.fonte = value;
+      }
+      continue;
+    }
+
+    if (/^#{1,6}\s/.test(heading)) {
+      throw new Error("Markdown: título não reconhecido. Use ## Cartão 01, ### Frente e ### Verso.");
+    }
+    if (current && (activeField === "frente" || activeField === "verso")) {
+      current[activeField] += (current[activeField] ? "\n" : "") + original;
+      continue;
+    }
+    throw new Error("Markdown: texto fora de um cartão ou campo: " + line.slice(0, 100));
+  }
+
+  finishCard();
+  if (!cards.length) {
+    throw new Error("Markdown: nenhum cartão encontrado. Use ## Cartão 01, ### Frente e ### Verso.");
+  }
+  if (cards.length > 250) throw new Error("Markdown: o limite é de 250 cartões por importação.");
+
+  const groups = new Map<string, { topic: string; cards: SimpleDeckCard[] }>();
+  for (const card of cards) {
+    const key = normalizeHeader(card.assunto);
+    const group = groups.get(key) || { topic: card.assunto, cards: [] };
+    group.cards.push(card);
+    if (group.cards.length > 10) {
+      throw new Error("Markdown · " + group.topic + ": use no máximo 10 cartões para o mesmo Assunto.");
+    }
+    groups.set(key, group);
+  }
+
+  const families = [...groups.values()].map(group => ({
+    disciplina: subject,
+    assunto: group.topic,
+    fonte: [...new Set(group.cards.map(card => card.fonte))].join(" · "),
+    cartoes: group.cards.map(card => ({
+      tipo: "Revisão",
+      formato: "basic",
+      pergunta: card.frente,
+      resposta: card.verso,
+      fonte: card.fonte,
+    })),
+  }));
+  const parsed = normalizeImport(families);
+  for (const family of parsed) {
+    const questions = family.variants.map(variant => variant.q.toLocaleLowerCase().replace(/\s+/g, " "));
+    if (new Set(questions).size !== questions.length) {
+      throw new Error("Markdown: perguntas repetidas em " + family.topic + ".");
+    }
+  }
+  return parsed;
+}
+
+/** Accepts the compact front/back deck format and the previous RITMO-FLASHCARDS v1 format. */
+export function parseFlashcardMarkdown(input: string, subject: StudySubject = "tae"): ImportedFamily[] {
+  const raw = unwrapFlashcardMarkdown(input);
+  const firstLine = (raw.split("\n")[0] || "").trim().replace(/\*\*$/, "").trim();
+  if (/^#\s*Baralho\s*:/i.test(firstLine)) return parseBaralhoMarkdown(raw, subject);
+  return parseRitmoFlashcardMarkdown(raw, subject);
+}
