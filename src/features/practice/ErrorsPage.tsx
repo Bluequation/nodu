@@ -120,6 +120,7 @@ export function ErrorsPage() {
     setErrors(nextErrors);
     setSettings(nextSettings);
     setLoading(false);
+    checkDueNotifications();
   }
   useEffect(() => { void reload(); }, []);
 
@@ -222,6 +223,16 @@ export function ErrorsPage() {
     if (index < 0 || target < 0 || target >= next.length) return;
     [next[index], next[target]] = [next[target], next[index]];
     saveColumnSettings({ ...settingsRef.current, columns: next });
+  }
+  function commitColumnLabels() {
+    const next = {
+      ...settingsRef.current,
+      columns: settingsRef.current.columns.map(column => ({
+        ...column,
+        label: column.label.trim() || column.id,
+      })),
+    };
+    saveColumnSettings(next);
   }
   function addColumn() {
     const label = newColumnName.trim();
@@ -520,7 +531,7 @@ export function ErrorsPage() {
         {settings.columns.map((column, index) => <div className="rm-column-setting-row" key={column.id}>
           <input aria-label={"Nome da coluna " + column.label} value={column.label}
             onChange={event => draftColumnLabel(column.id, event.currentTarget.value)}
-            onBlur={() => void saveErrorNotebookSettings(settingsRef.current)}/>
+            onBlur={commitColumnLabels}/>
           <span>{column.custom ? "Personalizada" : "Padrão"}</span>
           <div>
             <button type="button" className="icon-button" title="Mover para cima" aria-label="Mover para cima"
