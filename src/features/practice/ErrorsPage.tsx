@@ -17,7 +17,6 @@ import { addTopicLink, linkedTo } from "../../domain/topicContext";
 import { useStudyContext } from "../study/useStudyContext";
 import "../study/materials.css";
 
-const DAY = 86_400_000;
 const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
 const REVIEW_STEPS = [1, 3, 7, 15, 30, 60, 90];
 const DISCIPLINE_DEFAULTS = [
@@ -64,9 +63,6 @@ function addCalendarDays(value: number, days: number) {
   date.setHours(12, 0, 0, 0);
   return date.getTime();
 }
-function shortDate(value: number) {
-  return new Date(value).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
-}
 function sameDiscipline(a: string, b: string) {
   return a.trim().localeCompare(b.trim(), "pt-BR", { sensitivity: "base" }) === 0;
 }
@@ -112,7 +108,6 @@ export function ErrorsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [feedback, setFeedback] = useState("");
-  const [lastSavedId, setLastSavedId] = useState("");
   const [showColumnSettings, setShowColumnSettings] = useState(false);
   const [newColumnName, setNewColumnName] = useState("");
   const [editingColumnId, setEditingColumnId] = useState("");
@@ -202,10 +197,8 @@ export function ErrorsPage() {
     const nextErrors = errorsRef.current.map(item => item.id === id ? next : item);
     errorsRef.current = nextErrors;
     setErrors(nextErrors);
-    setLastSavedId("");
     try {
       await saveError(next);
-      setLastSavedId(id);
       setFeedback("");
     } catch {
       setFeedback("Não foi possível salvar uma alteração. Tente novamente.");
@@ -241,16 +234,6 @@ export function ErrorsPage() {
     if (index < 0 || target < 0 || target >= next.length) return;
     [next[index], next[target]] = [next[target], next[index]];
     saveColumnSettings({ ...settingsRef.current, columns: next });
-  }
-  function commitColumnLabels() {
-    const next = {
-      ...settingsRef.current,
-      columns: settingsRef.current.columns.map(column => ({
-        ...column,
-        label: column.label.trim() || column.id,
-      })),
-    };
-    saveColumnSettings(next);
   }
   function addColumn() {
     const label = newColumnName.trim();
@@ -337,7 +320,6 @@ export function ErrorsPage() {
     errorsRef.current = nextErrors;
     setErrors(nextErrors);
     await saveError(record);
-    setLastSavedId(record.id);
     setFeedback("Nova linha criada. Preencha as células diretamente na tabela.");
   }
   async function removeRow(id: string) {
@@ -645,7 +627,4 @@ export function ErrorsPage() {
       </button>}
     </section>
 
-    <datalist id="rm-error-types">
-      {ERROR_TYPES.map(type => <option key={type} value={type}/>)}
-    </datalist>
   </div>;}
