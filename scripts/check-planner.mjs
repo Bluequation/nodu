@@ -204,9 +204,10 @@ try{
  assert.equal(storedError.successes,0,"learning self-assessment must not increment notebook question successes");
  assert.equal(storedError.failures,0,"learning self-assessment must not count as a new question attempt");
  await page.goto(url+"/#/errors?plan=bound-learning&topic=ldb");
- const errorRow=page.locator(".rm-notion-table tbody tr").filter({hasText:"Erro de teste"});
+ const errorRow=page.locator('tr:has(input[data-row-id="error-learning-test"][data-column="topic"])');
  await errorRow.waitFor();
- assert.match(await errorRow.innerText(),/Correção registrada/,"the error notebook keeps the correction in its row");
+ assert.equal(await errorRow.locator('input[data-column="topic"]').inputValue(),"Erro de teste","the topic remains editable in its cell");
+ assert.equal(await errorRow.locator('textarea[data-column="fix"]').inputValue(),"Correção registrada","the correction remains editable in its cell");
  assert.ok(await errorRow.locator(".rm-cell-select-shell").count()>=3,"type, discipline and interval use the styled selectors");
  const areaField=errorRow.locator('input[data-column="area"]');
  await areaField.click();await page.locator(".rm-combobox-menu").filter({hasText:"Educação"}).waitFor();await areaField.press("Escape");
@@ -239,7 +240,7 @@ try{
  await page.screenshot({path:"planner-screenshots/22-revisao-cartao.png",fullPage:true});
  await page.getByRole("button",{name:/Lembrei.*dia/}).first().click();await page.getByRole("heading",{name:"Sessão concluída"}).waitFor();
  await page.getByRole("button",{name:"Voltar ao início"}).click();assert.ok(await page.getByRole("button",{name:/Começar revisão/}).isDisabled());
- await page.locator(".rr-error-link").click();await page.locator(".rm-notion-table tbody tr").filter({hasText:"Erro de teste"}).waitFor();assert.match(page.url(),/due=1/);
+ await page.locator(".rr-error-link").click();await page.locator('tr:has(input[data-row-id="error-learning-test"][data-column="topic"])').waitFor();assert.match(page.url(),/due=1/);
 
  await page.goto(url+"/#/learn?plan=bound-learning&topic=ldb&date="+studyDate);await page.locator(".rl-mode").first().waitFor();
  await page.setViewportSize({width:390,height:844});await page.screenshot({path:"planner-screenshots/13-aprender-mobile.png",fullPage:true});
