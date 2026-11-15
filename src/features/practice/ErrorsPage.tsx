@@ -66,6 +66,14 @@ function addCalendarDays(value: number, days: number) {
 function sameDiscipline(a: string, b: string) {
   return a.trim().localeCompare(b.trim(), "pt-BR", { sensitivity: "base" }) === 0;
 }
+function uniqueLabels(values: string[]) {
+  const unique: string[] = [];
+  for (const raw of values) {
+    const value = raw.trim().replace(/\\s+/g, " ");
+    if (value && !unique.some(item => sameDiscipline(item, value))) unique.push(value);
+  }
+  return unique.sort((a, b) => a.localeCompare(b, "pt-BR"));
+}
 function recordDiscipline(error: ErrorRecord) {
   return error.discipline?.trim() || (error.subject === "fisica" ? "Física" : "Geral");
 }
@@ -502,12 +510,10 @@ export function ErrorsPage() {
     const matchingDiscipline = scopedErrors.filter(item =>
       !error.discipline || sameDiscipline(recordDiscipline(item), recordDiscipline(error))
     );
-    const areaOptions = [...new Set(matchingDiscipline.map(item => item.area.trim()).filter(Boolean))]
-      .sort((a, b) => a.localeCompare(b, "pt-BR"));
-    const topicOptions = [...new Set(matchingDiscipline
+    const areaOptions = uniqueLabels(matchingDiscipline.map(item => item.area));
+    const topicOptions = uniqueLabels(matchingDiscipline
       .filter(item => !error.area || sameDiscipline(item.area, error.area))
-      .map(item => item.topic.trim()).filter(Boolean))]
-      .sort((a, b) => a.localeCompare(b, "pt-BR"));
+      .map(item => item.topic));
     switch (column.kind) {
       case "date":
         return <input {...common} className="rm-cell-input rm-cell-date" type="date"

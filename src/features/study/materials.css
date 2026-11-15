@@ -701,3 +701,10 @@
   .rm-notion-errors .rm-discipline-tabs>button{padding:0 10px;font-size:11px}
   .rm-notion-errors .rm-notion-table{min-width:1580px}
 }
+
+
+/* Tones used by the discipline tabs also apply to the in-cell discipline picker. */
+.rm-notion-errors .rm-cell-select-shell[data-tone="physics"]{--select-bg:#eaf1fa;--select-edge:#d4e1f0;--select-ink:#315c84}
+.rm-notion-errors .rm-cell-select-shell[data-tone="math"]{--select-bg:#f2f0fa;--select-edge:#e2dff1;--select-ink:#625b91}
+.rm-notion-errors .rm-cell-select-shell[data-tone="all"],
+.rm-notion-errors .rm-cell-select-shell[data-tone="neutral"]{--select-bg:#f1f4f7;--select-edge:#dfe5ec;--select-ink:#586779}
