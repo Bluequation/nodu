@@ -320,7 +320,12 @@ export function ErrorsPage() {
     errorsRef.current = nextErrors;
     setErrors(nextErrors);
     await saveError(record);
-    setFeedback("Nova linha criada. Preencha as células diretamente na tabela.");
+    window.requestAnimationFrame(() => {
+      const firstField = disciplineTab === "Todas" ? "discipline" : "type";
+      document.querySelector<HTMLInputElement | HTMLSelectElement>(
+        `[data-row-id="${record.id}"][data-column="${firstField}"]`
+      )?.focus();
+    });
   }
   async function removeRow(id: string) {
     if (!confirm("Excluir este registro e seus anexos?")) return;
@@ -414,11 +419,17 @@ export function ErrorsPage() {
           placeholder={column.id === "area" ? "Área / eixo" : "Assunto"}
           onBlur={event => void updateError(error.id, column.id === "area"
             ? { area: event.currentTarget.value } : { topic: event.currentTarget.value })}/>;
-      case "longtext":
-        return <textarea {...common} className="rm-cell-textarea" rows={1}
-          aria-label={column.label}
-          defaultValue={column.id === "mistake" ? error.mistake : column.id === "fix" ? error.fix : error.customFields?.[column.id] || ""}
+      case "longtext": {
+        const value = column.id === "mistake" ? error.mistake : column.id === "fix" ? error.fix : error.customFields?.[column.id] || "";
+        const rows = Math.max(1, Math.min(5, Math.ceil(value.length / 42)));
+        return <textarea {...common} className="rm-cell-textarea" rows={rows}
+          aria-label={column.label} defaultValue={value}
           placeholder={column.id === "mistake" ? "Descreva o que levou ao erro..." : "Registre o raciocínio correto..."}
+          onFocus={event => {
+            const field = event.currentTarget;
+            field.style.height = "auto";
+            field.style.height = field.scrollHeight + "px";
+          }}
           onInput={event => {
             const field = event.currentTarget;
             field.style.height = "auto";
@@ -428,6 +439,7 @@ export function ErrorsPage() {
             ? { mistake: event.currentTarget.value }
             : column.id === "fix" ? { fix: event.currentTarget.value }
               : { customFields: { ...(error.customFields || {}), [column.id]: event.currentTarget.value } })}/>;
+      }
       case "interval":
         return <select {...common} className="rm-cell-select rm-cell-interval"
           aria-label={column.label} value={error.reviewDays || 15}
