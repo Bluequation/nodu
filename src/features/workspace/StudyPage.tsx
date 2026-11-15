@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import "@blocknote/core/fonts/inter.css";
+import "@blocknote/mantine/style.css";
 import { BlockNoteView } from "@blocknote/mantine";
 import { useCreateBlockNote } from "@blocknote/react";
 import type { Block } from "@blocknote/core";
@@ -9,12 +11,12 @@ import type { StudyPlan, PlanNode } from "../../domain/models";
 import type { PlanTopicRef, ErrorRecord } from "../../domain/study";
 import type { StudyPageRecord, QuestionAttemptRecord } from "../../domain/ritmo9";
 import { answerIsCorrect, subjectForArea } from "../../domain/ritmo9";
-import { getPlan, listPlans } from "../../data/plans";
+import { listPlans } from "../../data/plans";
 import {
   createQuestionAttempt, createStudyQuestion, finishStudySession, getActiveStudySession,
   getStudyPage, listQuestionAttempts, saveStudyPage, startStudySession,
 } from "../../data/ritmo9";
-import { listErrors, saveError } from "../../data/study";
+import { saveError } from "../../data/study";
 import "./study-page.css";
 
 function findNode(nodes: PlanNode[], id: string): PlanNode | undefined {
