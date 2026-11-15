@@ -84,7 +84,7 @@ function readFileAsDataUrl(file: File): Promise<string> {
   });
 }
 function isDue(error: ErrorRecord) {
-  return error.status !== "dominado" && error.nextReview <= Date.now();
+  return error.status !== "dominado" && dateInputValue(error.nextReview) <= dateInputValue(Date.now());
 }
 function reviewState(value: number) {
   const today = dateInputValue(Date.now());
@@ -158,7 +158,7 @@ export function ErrorsPage() {
   function checkDueNotifications() {
     if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
     for (const error of errorsRef.current) {
-      if (error.status === "dominado" || error.nextReview > Date.now()) continue;
+      if (error.status === "dominado" || dateInputValue(error.nextReview) > dateInputValue(Date.now())) continue;
       const key = "ritmo:error-reminder:" + error.id + ":" + dateInputValue(error.nextReview);
       try {
         if (localStorage.getItem(key)) continue;
@@ -382,8 +382,8 @@ export function ErrorsPage() {
     switch (column.kind) {
       case "date":
         return <input {...common} className="rm-cell-input rm-cell-date" type="date"
-          aria-label={column.label} defaultValue={dateInputValue(error.at)}
-          onBlur={event => void updateError(error.id, { at: dateFromInput(event.currentTarget.value) })}/>;
+          aria-label={column.label} value={dateInputValue(error.at)}
+          onChange={event => void updateError(error.id, { at: dateFromInput(event.currentTarget.value) })}/>;
       case "type":
         return <input {...common} className="rm-cell-input" list="rm-error-types"
           aria-label={column.label} defaultValue={error.type}
@@ -420,8 +420,8 @@ export function ErrorsPage() {
         return <div className="rm-cell-review-date" data-column={column.id}>
           <Bell size={13} aria-hidden="true"/>
           <input {...common} className="rm-cell-input rm-cell-date" type="date"
-            aria-label={column.label} defaultValue={dateInputValue(error.nextReview)}
-            onBlur={event => void updateError(error.id, { nextReview: dateFromInput(event.currentTarget.value) })}/>
+            aria-label={column.label} value={dateInputValue(error.nextReview)}
+            onChange={event => void updateError(error.id, { nextReview: dateFromInput(event.currentTarget.value) })}/>
           <small className={isDue(error) ? "is-due" : "is-scheduled"}>{reviewState(error.nextReview)}</small>
         </div>;
       case "url":
@@ -568,6 +568,7 @@ export function ErrorsPage() {
             <thead><tr>
               {columns.map(column => <th key={column.id} data-column={column.id}>
                 <span>{column.label}</span>
+                {column.kind === "reviewDate" && <Bell size={11}/>}
                 <small title="Edite o nome em Propriedades">✎</small>
               </th>)}
               <th className="rm-notion-actions-heading">Ações</th>
