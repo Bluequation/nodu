@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef, type FormEvent, type FocusEvent } from "react";
 import "@blocknote/core/fonts/inter.css";
 import "@blocknote/mantine/style.css";
 import { BlockNoteView } from "@blocknote/mantine";
@@ -39,6 +39,7 @@ function PageEditor({ page, onSaved }: {
   const [content, setContent] = useState<unknown[]>(page.content);
   const [dirty, setDirty] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "error">("saved");
+  const saveTimer = useRef<number | null>(null);
 
   const changeContent = useCallback(() => {
     setContent(editor.document);
@@ -46,28 +47,38 @@ function PageEditor({ page, onSaved }: {
     setSaveStatus("saving");
   }, [editor]);
 
+  const persist = useCallback(async () => {
+    if (saveTimer.current !== null) {
+      window.clearTimeout(saveTimer.current);
+      saveTimer.current = null;
+    }
+    try {
+      const next = await saveStudyPage({ ...page, title, content });
+      setDirty(false);
+      setSaveStatus("saved");
+      onSaved(next);
+    } catch {
+      setSaveStatus("error");
+    }
+  }, [content, onSaved, page, title]);
+
   useEffect(() => {
     if (!dirty) return;
-    let active = true;
-    const timer = window.setTimeout(async () => {
-      try {
-        const next = await saveStudyPage({ ...page, title, content });
-        if (active) {
-          setDirty(false);
-          setSaveStatus("saved");
-          onSaved(next);
-        }
-      } catch {
-        if (active) setSaveStatus("error");
-      }
-    }, 650);
+    saveTimer.current = window.setTimeout(() => { void persist(); }, 650);
     return () => {
-      active = false;
-      window.clearTimeout(timer);
+      if (saveTimer.current !== null) {
+        window.clearTimeout(saveTimer.current);
+        saveTimer.current = null;
+      }
     };
-  }, [content, dirty, onSaved, page, title]);
+  }, [dirty, persist]);
 
-  return <section className="r9-page-editor">
+  function flushOnBlur(event: FocusEvent<HTMLElement>) {
+    const nextTarget = event.relatedTarget as Node | null;
+    if (!event.currentTarget.contains(nextTarget) && dirty) void persist();
+  }
+
+  return <section className="r9-page-editor" onBlurCapture={flushOnBlur}>
     <input
       className="r9-page-title-input"
       aria-label="Título da página"
