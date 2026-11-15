@@ -328,7 +328,6 @@ export function ErrorsPage() {
     const nextErrors = errorsRef.current.filter(item => item.id !== id);
     errorsRef.current = nextErrors;
     setErrors(nextErrors);
-    setLastSavedId("");
   }
   async function addAttachments(id: string, files: FileList | null) {
     const selected = Array.from(files || []);
