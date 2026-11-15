@@ -723,7 +723,7 @@ export function ErrorsPage() {
     <section className="rm-notebook-table-section">
       <div className="rm-table-caption">
         <strong>{disciplineTab === "Todas" ? "Todas as disciplinas" : disciplineTab}</strong>
-        <span>{visible.length} {visible.length === 1 ? "questão registrada" : "questões registradas"}</span>
+        <span>{visible.length} {visible.length === 1 ? "registro no caderno" : "registros no caderno"}</span>
       </div>
       {loading ? <div className="rm-notebook-loading">Preparando seu caderno...</div> :
         <div className="rm-notion-table-scroll">
