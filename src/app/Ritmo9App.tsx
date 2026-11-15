@@ -21,8 +21,9 @@ import { SettingsPage } from "../features/settings/Settings";
 import { LearningPage } from "../features/study/Learning";
 import { AgendaPage } from "../features/agenda/AgendaPage";
 import { CurationPage, ImportPage } from "../features/study/ImportCuration";
-const StudyPage = lazy(() => import("../features/workspace/StudyPage").then(module => ({ default: module.StudyPage })));
 import "../ritmo9.css";
+
+const StudyPage = lazy(() => import("../features/workspace/StudyPage").then(module => ({ default: module.StudyPage })));
 
 const primaryNav = [
   { to: "/today", label: "Hoje", icon: Home },
