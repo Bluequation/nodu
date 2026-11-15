@@ -14,6 +14,7 @@ import {
   saveError, saveErrorNotebookSettings,
 } from "../../data/study";
 import { addTopicLink, linkedTo } from "../../domain/topicContext";
+import { subjectForArea } from "../../domain/ritmo9";
 import { useStudyContext } from "../study/useStudyContext";
 import "../study/materials.css";
 
@@ -303,7 +304,7 @@ export function ErrorsPage() {
     if (!current) return;
     const next: ErrorRecord = { ...current, ...patch };
     if (patch.discipline !== undefined) {
-      next.subject = sameDiscipline(patch.discipline, "Física") ? "fisica" : "tae";
+      next.subject = subjectForArea(patch.discipline);
     }
     if (patch.nextReview === undefined && (patch.reviewDays !== undefined || patch.at !== undefined)) {
       next.nextReview = addCalendarDays(next.at, Number(next.reviewDays || 15));
@@ -404,7 +405,7 @@ export function ErrorsPage() {
     }
     const discipline = disciplineTab === "Todas" ? "" : disciplineTab;
     const now = Date.now();
-    const subject: StudySubject = sameDiscipline(discipline, "Física") ? "fisica" : "tae";
+    const subject: StudySubject = subjectForArea(discipline);
     const record: ErrorRecord = {
       id: crypto.randomUUID(),
       subject,
