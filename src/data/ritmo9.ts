@@ -83,7 +83,8 @@ export async function recordQuestionAttempt(input: {
   await tx.done;
   return { question, attempt, ...(error ? { error } : {}) };
 }
-\nexport async function listQuestionAttempts(): Promise<QuestionAttemptRecord[]> {
+
+export async function listQuestionAttempts(): Promise<QuestionAttemptRecord[]> {
   return (await (await database()).getAll("questionAttempts"))
     .sort((a, b) => b.answeredAt - a.answeredAt);
 }
