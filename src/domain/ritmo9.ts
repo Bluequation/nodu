@@ -80,8 +80,11 @@ export function calculateTopicPerformance(
 ): TopicPerformance[] {
   const groups = new Map<string, TopicPerformance>();
   for (const attempt of attempts) {
+    const seen = new Set<string>();
     for (const link of attempt.topicLinks ?? []) {
       const key = `${link.planId}:${link.nodeId}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
       const current = groups.get(key) ?? {
         key,
         planId: link.planId,
