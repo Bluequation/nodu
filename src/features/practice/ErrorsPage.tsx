@@ -121,8 +121,8 @@ export function ErrorsPage() {
   ]))
     .filter(name => !["Geral", ...DISCIPLINE_DEFAULTS].some(defaultName => sameDiscipline(defaultName, name)))
     .sort((a, b) => a.localeCompare(b, "pt-BR"));
-  const disciplineTabs = ["Todas", "Geral", ...DISCIPLINE_DEFAULTS, ...extraDisciplines]
-    .filter((name, index, all) => all.findIndex(item => sameDiscipline(item, name)) === index);
+  const disciplineTabs = ["Todas", ...Array.from(new Set(["Geral", ...DISCIPLINE_DEFAULTS, ...extraDisciplines]))
+    .sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }))];
   const disciplineRows = scoped.filter(error =>
     disciplineTab === "Todas" || sameDiscipline(error.discipline, disciplineTab)
   );
@@ -162,8 +162,10 @@ export function ErrorsPage() {
   }
   function changeView(next: "errors" | "performance") {
     const nextParams = new URLSearchParams(params);
-    if (next === "performance") nextParams.set("view", "performance");
-    else nextParams.delete("view");
+    if (next === "performance") {
+      nextParams.set("view", "performance");
+      nextParams.delete("due");
+    } else nextParams.delete("view");
     setParams(nextParams);
     setView(next);
     setDisciplineTab("Todas");
@@ -203,7 +205,7 @@ export function ErrorsPage() {
       ? {
           ...EMPTY_ERROR,
           topic: context.title,
-          discipline: context.area,
+          discipline: "",
           area: context.area,
           subject: /f[ií]sica/i.test(context.plan?.area || "") ? "fisica" : "tae",
         }
@@ -221,7 +223,8 @@ export function ErrorsPage() {
       ? {
           ...EMPTY_BLOCK,
           topic: context.title,
-          discipline: context.area,
+          discipline: "",
+          area: context.area,
           subject: /f[ií]sica/i.test(context.plan?.area || "") ? "fisica" : "tae",
         }
       : { ...EMPTY_BLOCK, discipline: selectedDiscipline });
@@ -389,7 +392,7 @@ export function ErrorsPage() {
       {context.valid ? context.plan?.title + " · " + context.title : "Assunto indisponível ou carregando."}
       {" · "}<Link to={context.returnTo}>Voltar a Aprender</Link>
     </p>}
-    {dueOnly && <p className="inline-feedback">
+    {dueOnly && view === "errors" && <p className="inline-feedback">
       Mostrando erros com revisão prevista até agora.{" "}
       <Link to={"/errors?" + new URLSearchParams([...params].filter(([key]) => key !== "due")).toString()}>Ver todos</Link>
     </p>}
@@ -412,16 +415,18 @@ export function ErrorsPage() {
       <span className="rm-error-due-count">{view === "errors" ? due + " para retomar" : visibleBlocks.length + " blocos registrados"}</span>
     </div>
 
-    {view === "errors" ? <section className="panel rm-error-database">
-      <div className="rm-error-tabs" role="tablist" aria-label="Filtrar por disciplina">
-        {disciplineTabs.map(name => {
-          const count = name === "Todas" ? scoped.length : scoped.filter(error => sameDiscipline(error.discipline, name)).length;
-          return <button key={name} type="button" role="tab" aria-selected={disciplineTab === name} onClick={() => setDisciplineTab(name)}>
-            <span>{name}</span><small>{count}</small>
-          </button>;
-        })}
-      </div>
+    <div className="rm-error-tabs rm-error-discipline-tabs" role="tablist" aria-label="Filtrar por disciplina">
+      {disciplineTabs.map(name => {
+        const count = view === "errors"
+          ? (name === "Todas" ? scoped.length : scoped.filter(error => sameDiscipline(error.discipline, name)).length)
+          : (name === "Todas" ? scopedBlocks.length : scopedBlocks.filter(block => sameDiscipline(blockDiscipline(block), name)).length);
+        return <button key={name} type="button" role="tab" aria-selected={disciplineTab === name} onClick={() => setDisciplineTab(name)}>
+          <span>{name}</span><small>{count}</small>
+        </button>;
+      })}
+    </div>
 
+    {view === "errors" ? <section className="panel rm-error-database">
       <div className="rm-error-filters">
         <div className="rm-error-phase-tabs" aria-label="Filtrar por situação">
           {([
@@ -596,7 +601,7 @@ export function ErrorsPage() {
         </div>
         <div className="form-grid">
           <div className="field-block"><label>Área de estudo</label><select value={blockForm.subject} onChange={event => setBlock("subject", event.target.value as StudySubject)}><option value="tae">Geral</option><option value="fisica">Física</option></select></div>
-          <div className="field-block"><label>Disciplina *</label><input list="error-disciplines" value={blockForm.discipline} onChange={event => setBlock("discipline", event.target.value)} placeholder="Ex.: Português"/></div>
+          <div className="field-block"><label>Disciplina *</label><input list="performance-disciplines" value={blockForm.discipline} onChange={event => setBlock("discipline", event.target.value)} placeholder="Ex.: Português"/><datalist id="performance-disciplines">{DISCIPLINE_DEFAULTS.map(value => <option key={value}>{value}</option>)}</datalist></div>
           <div className="field-block"><label>Área / eixo</label><input value={blockForm.area} onChange={event => setBlock("area", event.target.value)} placeholder="Ex.: Sintaxe, Mecânica"/></div>
           <div className="field-block"><label>Assunto *</label><input value={blockForm.topic} onChange={event => setBlock("topic", event.target.value)} placeholder="Ex.: Concordância nominal"/></div>
           <div className="field-block"><label>Questões resolvidas *</label><input type="number" min={1} max={500} value={blockForm.total} onChange={event => setBlock("total", Number(event.target.value))}/></div>
