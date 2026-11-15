@@ -142,7 +142,7 @@ function CreatableCell({ common, value, options, tone, label, placeholder, onCom
     committed.current = value;
   }, [value]);
 
-  const normalized = draft.trim().replace(/\\s+/g, " ");
+  const normalized = draft.trim().replace(/\s+/g, " ");
   const matches = options.filter(option =>
     option.toLocaleLowerCase("pt-BR").includes(normalized.toLocaleLowerCase("pt-BR"))
   ).slice(0, 6);
@@ -151,7 +151,7 @@ function CreatableCell({ common, value, options, tone, label, placeholder, onCom
   const itemCount = matches.length + (canCreate ? 1 : 0);
 
   function commit(nextValue: string) {
-    const next = nextValue.trim().replace(/\\s+/g, " ");
+    const next = nextValue.trim().replace(/\s+/g, " ");
     setDraft(next);
     setOpen(false);
     if (next !== committed.current) {
