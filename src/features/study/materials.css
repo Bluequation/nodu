@@ -225,7 +225,7 @@
 .ritmo-materials.rm-notion-errors .rm-notebook-header-actions button{min-height:38px}
 .ritmo-materials.rm-notion-errors .rm-notebook-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0}
 .ritmo-materials.rm-notion-errors .rm-error-search{display:flex;align-items:center;gap:8px;width:min(460px,100%);min-height:38px;padding:0 11px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--muted)}
-.ritmo-materials.rm-notion-errors .rm-error-search input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:var(--text);font:inherit;font-size:12px}
+.ritmo-materials.rm-notion-errors .rm-error-search input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:var(--dark);font:inherit;font-size:12px}
 .ritmo-materials.rm-notion-errors .rm-notebook-summary{display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:12px}
 .ritmo-materials.rm-notion-errors .rm-notebook-due{color:var(--blue);font-weight:700}
 .ritmo-materials.rm-notion-errors .rm-alarm-button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:34px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--text-secondary);font:inherit;font-size:11px;font-weight:650;cursor:pointer}
@@ -242,7 +242,7 @@
 .ritmo-materials.rm-notion-errors .rm-column-settings-heading span{color:var(--muted);font-size:11px}
 .ritmo-materials.rm-notion-errors .rm-column-settings-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 12px}
 .ritmo-materials.rm-notion-errors .rm-column-setting-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:7px;min-width:0}
-.ritmo-materials.rm-notion-errors .rm-column-setting-row>input,.ritmo-materials.rm-notion-errors .rm-add-column-row>input{width:100%;min-width:0;min-height:34px;padding:6px 9px;border:1px solid var(--line);border-radius:7px;background:var(--surface-soft);color:var(--text);font:inherit;font-size:12px}
+.ritmo-materials.rm-notion-errors .rm-column-setting-row>input,.ritmo-materials.rm-notion-errors .rm-add-column-row>input{width:100%;min-width:0;min-height:34px;padding:6px 9px;border:1px solid var(--line);border-radius:7px;background:var(--surface-soft);color:var(--dark);font:inherit;font-size:12px}
 .ritmo-materials.rm-notion-errors .rm-column-setting-row>span{color:var(--muted);font-size:9px;white-space:nowrap}
 .ritmo-materials.rm-notion-errors .rm-column-setting-row>div{display:flex;gap:2px}
 .ritmo-materials.rm-notion-errors .rm-column-setting-row .icon-button{width:27px;height:27px;min-height:27px}
@@ -278,7 +278,7 @@
 .ritmo-materials.rm-notion-errors .rm-notion-table th[data-column=attachments],.ritmo-materials.rm-notion-errors .rm-notion-table td[data-column=attachments]{width:235px}
 .ritmo-materials.rm-notion-errors .rm-notion-table th[data-column^=custom-],.ritmo-materials.rm-notion-errors .rm-notion-table td[data-column^=custom-]{width:175px}
 .ritmo-materials.rm-notion-errors .rm-notion-table th.rm-notion-actions-heading,.ritmo-materials.rm-notion-errors .rm-notion-table td.rm-notion-actions{width:82px;text-align:center}
-.ritmo-materials.rm-notion-errors .rm-cell-input,.ritmo-materials.rm-notion-errors .rm-cell-select,.ritmo-materials.rm-notion-errors .rm-cell-textarea{display:block;width:100%;min-width:0;min-height:30px;padding:5px 6px;border:1px solid transparent;border-radius:5px;outline:none;background:transparent;color:var(--text);font:inherit;font-size:11px;line-height:1.4}
+.ritmo-materials.rm-notion-errors .rm-cell-input,.ritmo-materials.rm-notion-errors .rm-cell-select,.ritmo-materials.rm-notion-errors .rm-cell-textarea{display:block;width:100%;min-width:0;min-height:30px;padding:5px 6px;border:1px solid transparent;border-radius:5px;outline:none;background:transparent;color:var(--dark);font:inherit;font-size:11px;line-height:1.4}
 .ritmo-materials.rm-notion-errors .rm-cell-input:hover,.ritmo-materials.rm-notion-errors .rm-cell-select:hover,.ritmo-materials.rm-notion-errors .rm-cell-textarea:hover{border-color:#e1e7ee;background:#fbfcfe}
 .ritmo-materials.rm-notion-errors .rm-cell-input:focus,.ritmo-materials.rm-notion-errors .rm-cell-select:focus,.ritmo-materials.rm-notion-errors .rm-cell-textarea:focus{border-color:#9db8d5;background:var(--surface);box-shadow:0 0 0 2px #dce8f5}
 .ritmo-materials.rm-notion-errors .rm-cell-date{min-width:112px;padding-right:2px}
