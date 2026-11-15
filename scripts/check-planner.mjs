@@ -225,7 +225,7 @@ try{
  assert.equal(await page.locator(".main").evaluate(el=>getComputedStyle(el).marginLeft),"0px","hiding the sidebar gives the notebook full width");
  await page.getByRole("button",{name:"Mostrar painel lateral"}).click();
  await page.locator(".shell:not(.sidebar-collapsed)").waitFor();
- const desktopNotebookGeometry=await page.evaluate(()=>({viewport:window.innerWidth,document:document.documentElement.scrollWidth,tableClient:document.querySelector(".rm-notion-table-scroll").clientWidth,tableScroll:document.querySelector(".rm-notion-table-scroll").scrollWidth,pageScrollX:(()=>{window.scrollTo(9999,0);const x=window.scrollX;window.scrollTo(0,0);return x;})()}));
+ const desktopNotebookGeometry=await page.evaluate(()=>({viewport:window.innerWidth,document:document.documentElement.scrollWidth,tableClient:document.querySelector(".rm-notion-table-scroll").clientWidth,tableScroll:document.querySelector(".rm-notion-table-scroll").scrollWidth,pageScrollX:(()=>{window.scrollTo(9999,0);const x=window.scrollX;window.scrollTo(0,0);return x;})(),overflow:{html:getComputedStyle(document.documentElement).overflowX,body:getComputedStyle(document.body).overflowX,shell:getComputedStyle(document.querySelector(".shell")).overflowX,main:getComputedStyle(document.querySelector(".main")).overflowX}}));
  console.log("NOTEBOOK_DESKTOP_GEOMETRY",JSON.stringify(desktopNotebookGeometry));
  assert.equal(desktopNotebookGeometry.pageScrollX,0,"desktop page itself must not scroll horizontally");
  assert.ok(desktopNotebookGeometry.tableScroll>desktopNotebookGeometry.tableClient,"wide table scroll stays inside its own container");
