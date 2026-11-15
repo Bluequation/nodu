@@ -66,19 +66,20 @@ export async function createQuestionAttempt(
 
 export async function recordQuestionAttempt(input: {
   question: Omit<StudyQuestionRecord, "id" | "createdAt">;
-  attempt: Omit<QuestionAttemptRecord, "id" | "answeredAt">;
+  attempt: Omit<QuestionAttemptRecord, "id" | "answeredAt" | "questionId">;
   error?: Omit<ErrorRecord, "id" | "sourceAttemptId">;
 }): Promise<{ question: StudyQuestionRecord; attempt: QuestionAttemptRecord; error?: ErrorRecord }> {
   const db = await database();
   const tx = db.transaction(["questions", "questionAttempts", "errors"], "readwrite");
   const question: StudyQuestionRecord = { ...input.question, id: id(), createdAt: Date.now() };
-  const attempt: QuestionAttemptRecord = { ...input.attempt, id: id(), answeredAt: Date.now() };
+  const attempt: QuestionAttemptRecord = { ...input.attempt, questionId: question.id, id: id(), answeredAt: Date.now() };
   await tx.objectStore("questions").put(question);
   await tx.objectStore("questionAttempts").put(attempt);
   let error: ErrorRecord | undefined;
   if (input.error) {
-    error = { ...input.error, id: id(), sourceAttemptId: attempt.id };
-    await tx.objectStore("errors").put(error);
+    const savedError: ErrorRecord = { ...input.error, id: id(), sourceAttemptId: attempt.id };
+    error = savedError;
+    await tx.objectStore("errors").put(savedError);
   }
   await tx.done;
   return { question, attempt, ...(error ? { error } : {}) };
