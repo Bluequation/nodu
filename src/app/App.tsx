@@ -1,12 +1,12 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import {
   Activity, ArrowRight, BookOpen, Brain, CalendarDays, CheckCircle2, ClipboardList,
-  FileText, FolderKanban, LayoutDashboard, Layers3, NotebookPen, Settings, Target,
+  FileText, FolderKanban, LayoutDashboard, Layers3, NotebookPen, Settings,
   Upload, WandSparkles,
 } from "lucide-react";
 import { HashRouter, Link, NavLink, Route, Routes, useNavigate } from "react-router-dom";
 import { createPlan, listPlans } from "../data/plans";
-import { listConcepts, listErrors, listQuestionBlocks } from "../data/study";
+import { listConcepts, listErrors } from "../data/study";
 import type { NewStudyPlan, StudyPlan } from "../domain/models";
 import { getSelectedLeaves } from "../domain/verticalization";
 import { PlanDetailRoute, PlanWizardRoute } from "../features/plans/PlanWizard";
@@ -21,7 +21,7 @@ const groups = [
   ["VISÃO GERAL", [["Painel", "/", LayoutDashboard]]],
   ["PLANEJAMENTO", [["Meus planos", "/plans", FolderKanban], ["Agenda", "/agenda", CalendarDays]]],
   ["APRENDIZAGEM", [["Aprender", "/learn", Brain], ["Flashcards", "/flashcards", Layers3], ["Revisões", "/reviews", Activity]]],
-  ["PRÁTICA", [["Questões", "/errors", Target]]],
+  ["PRÁTICA", [["Caderno de erros", "/errors", NotebookPen]]],
   ["CONTEÚDOS", [["Importar", "/import", Upload], ["Curadoria", "/curation", WandSparkles]]],
   ["PREFERÊNCIAS", [["Ajustes", "/settings", Settings]]],
 ] as const;
@@ -67,16 +67,14 @@ function Shell() {
 
 function Dashboard() {
   const [plans, setPlans] = useState<StudyPlan[]>([]);
-  const [metrics, setMetrics] = useState({ dueCards: 0, dueErrors: 0, questions: 0, correct: 0 });
+  const [metrics, setMetrics] = useState({ dueCards: 0, dueErrors: 0 });
   useEffect(() => {
-    Promise.all([listPlans(), listConcepts(), listErrors(), listQuestionBlocks()])
-      .then(([nextPlans, concepts, errors, blocks]) => {
+    Promise.all([listPlans(), listConcepts(), listErrors()])
+      .then(([nextPlans, concepts, errors]) => {
         setPlans(nextPlans);
         setMetrics({
           dueCards: concepts.filter(concept => concept.status === "published" && !concept.suspended && concept.fsrs.due <= Date.now()).length,
           dueErrors: errors.filter(error => error.status !== "dominado" && error.nextReview <= Date.now()).length,
-          questions: blocks.reduce((sum, block) => sum + block.total, 0),
-          correct: blocks.reduce((sum, block) => sum + block.correct, 0),
         });
       });
   }, []);
@@ -91,8 +89,7 @@ function Dashboard() {
       <Panel><small>RASCUNHOS</small><b>{drafts}</b><span>Planos que você ainda está montando</span></Panel>
       <Panel><small>CONTEÚDOS SELECIONADOS</small><b>{topics}</b><span>Itens escolhidos nos seus planos</span></Panel>
       <Panel><small>FLASHCARDS VENCIDOS</small><b>{metrics.dueCards}</b><span>Famílias para revisar no FSRS</span><Link to="/reviews" className="text-link">Revisar agora <ArrowRight size={13}/></Link></Panel>
-      <Panel><small>ERROS PARA RETOMAR</small><b>{metrics.dueErrors}</b><span>Novas questões para aplicar</span><Link to="/errors" className="text-link">Abrir questões <ArrowRight size={13}/></Link></Panel>
-      <Panel><small>QUESTÕES RESOLVIDAS</small><b>{metrics.questions}</b><span>{metrics.questions ? Math.round(metrics.correct / metrics.questions * 100) : 0}% de acertos registrados</span><Link to="/errors?view=performance" className="text-link">Ver desempenho <ArrowRight size={13}/></Link></Panel>
+      <Panel><small>ERROS PARA RETOMAR</small><b>{metrics.dueErrors}</b><span>Registros com reaplicação prevista</span><Link to="/errors?due=1" className="text-link">Abrir caderno <ArrowRight size={13}/></Link></Panel>
     </div>
     <Panel><div className="panel-head"><h2>Retomar planejamento</h2><Link className="text-link" to="/plans">Ver todos <ArrowRight size={15}/></Link></div>
       {recent.length ? recent.map(plan => <Link className="plan-row" key={plan.id} to={`/plans/${plan.id}/verticalize`}><b>{plan.title}</b><span>{[plan.position, plan.area].filter(Boolean).join(" · ")} · {plan.status === "active" ? "Ativo" : "Rascunho"}</span><ArrowRight size={16}/></Link>) : <div className="empty"><BookOpen size={28}/><h2>Seu primeiro plano começa aqui</h2><p>Cadastre o concurso, escolha o cargo e delimite a área de estudo.</p><Link className="primary-button" to="/plans/new">Criar primeiro plano</Link></div>}
@@ -210,8 +207,8 @@ const features: Record<string, [string, string, string[]]> = {
   learn: ["Aprender", "Atividades construídas a partir do seu próprio material.", ["Autoexplicação", "Recuperação livre", "Retomada de erros", "Prática intercalada", "Histórico de sessões"]],
   flashcards: ["Flashcards", "Famílias de conhecimentos e versões de cartões.", ["Famílias de microconhecimentos", "Cartões básicos, lacunas e respostas digitadas", "Imagens com ocultação", "Fontes e justificativas"]],
   reviews: ["Revisões", "Revisões programadas pelo FSRS.", ["Fila de revisões", "Esquecimentos recorrentes", "Filtros por área", "Histórico de retenção"]],
-  questions: ["Questões", "Registro de blocos e desempenho.", ["Bancas e blocos", "Acertos e erros", "Histórico", "Desempenho por assunto"]],
-  errors: ["Caderno de erros", "Transforme dificuldades em registros retomáveis.", ["Enunciado e alternativas", "Causa do erro", "Vínculos com conteúdos", "Reaplicação programada"]],
+
+  errors: ["Caderno de erros", "Seu banco pessoal de questões erradas, organizado em uma tabela editável.", ["Abas por disciplina", "Edição direta nas células", "Colunas personalizáveis", "Revisões com lembrete", "Links e anexos"]],
   import: ["Importar conteúdos", "Traga materiais próprios para a biblioteca.", ["JSON e CSV", "Pré-visualização", "Validação", "Preservação das fontes"]],
   curation: ["Curadoria", "Revise os conteúdos antes de estudar.", ["Editar cartões", "Aprovar ou rejeitar", "Publicar e suspender", "Histórico"]],
   settings: ["Ajustes", "Configurações e segurança dos dados.", ["Armazenamento local", "Migração não destrutiva", "Backup e restauração", "Preferências FSRS"]],
