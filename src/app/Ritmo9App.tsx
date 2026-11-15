@@ -22,7 +22,7 @@ import { LearningPage } from "../features/study/Learning";
 import { AgendaPage } from "../features/agenda/AgendaPage";
 import { CurationPage, ImportPage } from "../features/study/ImportCuration";
 import { StudyPage } from "../features/workspace/StudyPage";
-import "./ritmo9.css";
+import "../ritmo9.css";
 
 const primaryNav = [
   { to: "/today", label: "Hoje", icon: Home },
