@@ -224,7 +224,7 @@ const features: Record<string, [string, string, string[]]> = {
   flashcards: ["Flashcards", "Famílias de conhecimentos e versões de cartões.", ["Famílias de microconhecimentos", "Cartões básicos, lacunas e respostas digitadas", "Imagens com ocultação", "Fontes e justificativas"]],
   reviews: ["Revisões", "Revisões programadas pelo FSRS.", ["Fila de revisões", "Esquecimentos recorrentes", "Filtros por área", "Histórico de retenção"]],
 
-  errors: ["Caderno de erros", "Seu banco pessoal de questões erradas, organizado em uma tabela editável.", ["Abas por disciplina", "Edição direta nas células", "Colunas personalizáveis", "Revisões com lembrete", "Links e anexos"]],
+  errors: ["Caderno de erros", "Seu banco pessoal de erros e lacunas, organizado em uma tabela editável.", ["Abas por disciplina", "Edição direta nas células", "Colunas personalizáveis", "Revisões com lembrete", "Links e anexos"]],
   import: ["Importar conteúdos", "Traga materiais próprios para a biblioteca.", ["JSON e CSV", "Pré-visualização", "Validação", "Preservação das fontes"]],
   curation: ["Curadoria", "Revise os conteúdos antes de estudar.", ["Editar cartões", "Aprovar ou rejeitar", "Publicar e suspender", "Histórico"]],
   settings: ["Ajustes", "Configurações e segurança dos dados.", ["Armazenamento local", "Migração não destrutiva", "Backup e restauração", "Preferências FSRS"]],
