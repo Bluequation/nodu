@@ -432,7 +432,7 @@
 .rm-notion-errors .rm-cell-date{min-width:100px;padding-right:1px;color:#3d4b5e}
 .rm-notion-errors .rm-cell-select{cursor:pointer}
 .rm-notion-errors .rm-cell-interval{min-width:82px}
-.rm-notion-errors .rm-cell-textarea{min-height:31px;height:31px;resize:none;overflow:hidden;white-space:pre-wrap}
+.rm-notion-errors .rm-cell-textarea{min-height:31px;height:auto;resize:none;overflow:hidden;white-space:pre-wrap}
 .rm-notion-errors .rm-cell-review-date{display:grid;grid-template-columns:14px minmax(0,1fr);align-items:center;gap:4px 6px;color:var(--muted)}
 .rm-notion-errors .rm-cell-review-date>svg{grid-row:1;color:var(--blue)}
 .rm-notion-errors .rm-cell-review-date .rm-cell-date{grid-column:2}
